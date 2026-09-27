@@ -1,3 +1,4 @@
+import { CampoNumerico } from './CampoNumerico';
 import { INDEXACOES_PERMITIDAS, type Indexacao, type Oferta, type TipoIndexacao, type TipoProduto } from '../engine/produtos';
 
 const PRODUTOS: { valor: TipoProduto; rotulo: string }[] = [
@@ -19,6 +20,12 @@ function indexacaoPadrao(tipo: TipoIndexacao): Indexacao {
     case 'SELIC': return { tipo };
     case 'POUPANCA': return { tipo };
   }
+}
+
+/** A taxa da oferta foi preenchida? (vazia ou inválida fica NaN até a validação.) */
+export function taxaPreenchida(ix: Indexacao): boolean {
+  const t = taxaEmPercentual(ix);
+  return t === null || Number.isFinite(t);
 }
 
 /** Taxa em % para o campo; null quando a indexação não tem taxa. */
@@ -68,8 +75,8 @@ export function FormOferta({ id, titulo, oferta, onChange }: { id: string; titul
       {taxa !== null && (
         <>
           <label for={`${id}-taxa`}>Taxa (%)</label>
-          <input id={`${id}-taxa`} type="number" step="0.01" inputMode="decimal" value={taxa}
-            onInput={(e) => onChange({ ...oferta, indexacao: comTaxa(oferta.indexacao, Number(e.currentTarget.value)) })} />
+          <CampoNumerico id={`${id}-taxa`} step="0.01" valor={taxa}
+            onChange={(percentual) => onChange({ ...oferta, indexacao: comTaxa(oferta.indexacao, percentual) })} />
         </>
       )}
     </fieldset>

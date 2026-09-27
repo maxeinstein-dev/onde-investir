@@ -1,3 +1,4 @@
+import type { Ref } from 'preact';
 import { descreverOferta, explicarVencedor } from '../conteudo/motivos';
 import type { Duelo } from '../engine/comparador';
 import { garantiaDe, type ResultadoSimulacao } from '../engine/produtos';
@@ -18,7 +19,7 @@ function Cartao({ rotulo, r, vencedor }: { rotulo: string; r: ResultadoSimulacao
   );
 }
 
-export function ResultadoDuelo({ duelo, palpite }: { duelo: Duelo; palpite: 'A' | 'B' | null }) {
+export function ResultadoDuelo({ duelo, palpite, refTitulo }: { duelo: Duelo; palpite: 'A' | 'B' | null; refTitulo?: Ref<HTMLHeadingElement> }) {
   const nomeA = descreverOferta(duelo.a.aplicacao);
   const nomeB = descreverOferta(duelo.b.aplicacao);
   let feedback: string | null = null;
@@ -28,7 +29,7 @@ export function ResultadoDuelo({ duelo, palpite }: { duelo: Duelo; palpite: 'A' 
   }
   return (
     <section class="resultado" aria-labelledby="resultado-titulo">
-      <h2 id="resultado-titulo">Resultado</h2>
+      <h2 id="resultado-titulo" ref={refTitulo} tabIndex={-1}>Resultado</h2>
       {feedback && <p class="feedback">{feedback}</p>}
       <ul class="motivos">{explicarVencedor(duelo).map((linha) => <li>{linha}</li>)}</ul>
       <div class="cartoes">

@@ -29,7 +29,7 @@ describe('PalpiteAntesDeVer', () => {
     const escolher = vi.fn();
     const pular = vi.fn();
     render(<PalpiteAntesDeVer nomeA="CDB 103% do CDI" nomeB="LCI 80% do CDI" onEscolher={escolher} onPular={pular} />);
-    fireEvent.click(screen.getByRole('button', { name: 'LCI 80% do CDI' }));
+    fireEvent.click(screen.getByRole('button', { name: 'B: LCI 80% do CDI' }));
     expect(escolher).toHaveBeenCalledWith('B');
     fireEvent.click(screen.getByRole('button', { name: /pular/i }));
     expect(pular).toHaveBeenCalled();

@@ -1,13 +1,15 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { descreverOferta } from '../conteudo/motivos';
+import { ehDiaUtil } from '../engine/calendario';
 import { duelar, type Duelo } from '../engine/comparador';
 import { somarMeses, type DataISO } from '../engine/datas';
 import { calcularEquivalencias, type ResultadoEquivalencia } from '../engine/equivalencia';
 import { cenarioConstante } from '../engine/indexadores';
 import type { Oferta } from '../engine/produtos';
+import { CampoNumerico } from './CampoNumerico';
 import { CENARIO_INICIAL, type ValoresCenario } from './cenarioInicial';
 import { Equivalencias } from './Equivalencias';
-import { FormOferta } from './FormOferta';
+import { FormOferta, taxaPreenchida } from './FormOferta';
 import { hoje } from './hoje';
 import { PalpiteAntesDeVer } from './PalpiteAntesDeVer';
 import { lerPalpitesLigados, salvarPalpitesLigados } from './preferencias';
@@ -25,12 +27,44 @@ const PRAZOS = [
   { rotulo: '3 anos', meses: 36 }, { rotulo: '5 anos', meses: 60 },
 ];
 
-const CAMPOS_CENARIO: { chave: keyof ValoresCenario; rotulo: string; termo: 'cdi' | 'selic' | 'ipca' | 'tr'; sufixo: string }[] = [
-  { chave: 'cdi', rotulo: 'CDI', termo: 'cdi', sufixo: '% a.a.' },
-  { chave: 'selicMeta', rotulo: 'Selic meta', termo: 'selic', sufixo: '% a.a.' },
-  { chave: 'ipca', rotulo: 'IPCA', termo: 'ipca', sufixo: '% a.a.' },
-  { chave: 'tr', rotulo: 'TR', termo: 'tr', sufixo: '% a.m.' },
+const CAMPOS_CENARIO: { chave: keyof ValoresCenario; rotulo: string; artigo: 'o' | 'a'; termo: 'cdi' | 'selic' | 'ipca' | 'tr'; sufixo: string }[] = [
+  { chave: 'cdi', rotulo: 'CDI', artigo: 'o', termo: 'cdi', sufixo: '% a.a.' },
+  { chave: 'selicMeta', rotulo: 'Selic meta', artigo: 'a', termo: 'selic', sufixo: '% a.a.' },
+  { chave: 'ipca', rotulo: 'IPCA', artigo: 'o', termo: 'ipca', sufixo: '% a.a.' },
+  { chave: 'tr', rotulo: 'TR', artigo: 'a', termo: 'tr', sufixo: '% a.m.' },
 ];
+
+interface Entrada {
+  cenario: ValoresCenario; valor: number; dataAplicacao: DataISO; dataResgate: DataISO; a: Oferta; b: Oferta;
+}
+
+/** Mensagem humana para o primeiro campo vazio ou inválido; null se dá para comparar. */
+function validarEntrada({ cenario, valor, dataAplicacao, dataResgate, a, b }: Entrada): string | null {
+  for (const c of CAMPOS_CENARIO) {
+    if (!Number.isFinite(cenario[c.chave])) return `Preencha ${c.artigo} ${c.rotulo} do cenário.`;
+  }
+  if (!Number.isFinite(valor)) return 'Preencha o valor da aplicação.';
+  if (dataAplicacao.trim() === '') return 'Informe a data da aplicação.';
+  if (dataResgate.trim() === '') return 'Informe a data do resgate.';
+  if (!taxaPreenchida(a.indexacao)) return 'Preencha a taxa da Opção A.';
+  if (!taxaPreenchida(b.indexacao)) return 'Preencha a taxa da Opção B.';
+  return null;
+}
+
+/** Data preenchida e válida que não é dia útil. Data vazia ou inválida não gera aviso. */
+function naoEhDiaUtil(data: DataISO): boolean {
+  try {
+    return !ehDiaUtil(data);
+  } catch {
+    return false;
+  }
+}
+
+function AvisoDiaUtil({ id, data, oQue }: { id: string; data: DataISO; oQue: 'a aplicação' | 'o resgate' }) {
+  return naoEhDiaUtil(data)
+    ? <p id={id} class="dica">Não é dia útil: na prática {oQue} acontece no próximo dia útil.</p>
+    : null;
+}
 
 export function App() {
   const [cenario, setCenario] = useState<ValoresCenario>(CENARIO_INICIAL.valores);
@@ -42,6 +76,14 @@ export function App() {
   const [fase, setFase] = useState<Fase>({ tipo: 'editando' });
   const [erro, setErro] = useState<string | null>(null);
   const [palpitesLigados, setPalpitesLigados] = useState(lerPalpitesLigados());
+  const tituloPalpite = useRef<HTMLHeadingElement>(null);
+  const tituloResultado = useRef<HTMLHeadingElement>(null);
+
+  // Leva o foco para o título de cada fase nova (palpite ou resultado).
+  useEffect(() => {
+    if (fase.tipo === 'palpite') tituloPalpite.current?.focus();
+    else if (fase.tipo === 'resultado') tituloResultado.current?.focus();
+  }, [fase]);
 
   /** Qualquer edição invalida o resultado anterior. */
   function editar<T>(set: (v: T) => void) {
@@ -50,6 +92,12 @@ export function App() {
 
   function comparar(e: Event) {
     e.preventDefault();
+    const invalido = validarEntrada({ cenario, valor, dataAplicacao, dataResgate, a, b });
+    if (invalido !== null) {
+      setErro(invalido);
+      setFase({ tipo: 'editando' });
+      return;
+    }
     try {
       const cen = cenarioConstante({
         cdiAA: cenario.cdi / 100, selicMetaAA: cenario.selicMeta / 100, ipcaAA: cenario.ipca / 100, trAM: cenario.tr / 100,
@@ -85,8 +133,8 @@ export function App() {
             <div class="campo">
               <label for={`cen-${c.chave}`}>{c.rotulo} ({c.sufixo})</label>
               <Termo id={c.termo}>O que é {c.rotulo}?</Termo>
-              <input id={`cen-${c.chave}`} type="number" step="0.01" inputMode="decimal" value={cenario[c.chave]}
-                onInput={(e) => editar(setCenario)({ ...cenario, [c.chave]: Number(e.currentTarget.value) })} />
+              <CampoNumerico id={`cen-${c.chave}`} step="0.01" valor={cenario[c.chave]}
+                onChange={(v) => editar(setCenario)({ ...cenario, [c.chave]: v })} />
             </div>
           ))}
           <p class="dica">No M1 o cenário fica constante até o resgate. Projeções do mercado (Focus) chegam na próxima versão.</p>
@@ -96,20 +144,24 @@ export function App() {
           <legend>Aplicação</legend>
           <div class="campo">
             <label for="valor">Valor (R$)</label>
-            <input id="valor" type="number" min="0" step="100" inputMode="decimal" value={valor}
-              onInput={(e) => editar(setValor)(Number(e.currentTarget.value))} />
+            <CampoNumerico id="valor" min="0" step="100" valor={valor} onChange={editar(setValor)} />
           </div>
           <div class="campo">
             <label for="data-aplicacao">Data da aplicação</label>
-            <input id="data-aplicacao" type="date" value={dataAplicacao} onInput={(e) => editar(setDataAplicacao)(e.currentTarget.value)} />
+            <input id="data-aplicacao" type="date" value={dataAplicacao} onInput={(e) => editar(setDataAplicacao)(e.currentTarget.value)}
+              aria-describedby={naoEhDiaUtil(dataAplicacao) ? 'data-aplicacao-dica' : undefined} />
+            <AvisoDiaUtil id="data-aplicacao-dica" data={dataAplicacao} oQue="a aplicação" />
           </div>
           <div class="campo">
             <label for="data-resgate">Data do resgate</label>
-            <input id="data-resgate" type="date" value={dataResgate} onInput={(e) => editar(setDataResgate)(e.currentTarget.value)} />
+            <input id="data-resgate" type="date" value={dataResgate} onInput={(e) => editar(setDataResgate)(e.currentTarget.value)}
+              aria-describedby={naoEhDiaUtil(dataResgate) ? 'data-resgate-dica' : undefined} />
+            <AvisoDiaUtil id="data-resgate-dica" data={dataResgate} oQue="o resgate" />
           </div>
           <div class="prazos" role="group" aria-label="Prazos rápidos">
             {PRAZOS.map((p) => (
-              <button type="button" onClick={() => editar(setDataResgate)(somarMeses(dataAplicacao, p.meses))}>{p.rotulo}</button>
+              <button type="button" disabled={dataAplicacao.trim() === ''}
+                onClick={() => editar(setDataResgate)(somarMeses(dataAplicacao, p.meses))}>{p.rotulo}</button>
             ))}
           </div>
         </fieldset>
@@ -130,13 +182,13 @@ export function App() {
       {erro && <p role="alert" class="erro">{erro}</p>}
 
       {fase.tipo === 'palpite' && (
-        <PalpiteAntesDeVer nomeA={descreverOferta(a)} nomeB={descreverOferta(b)}
+        <PalpiteAntesDeVer refTitulo={tituloPalpite} nomeA={descreverOferta(a)} nomeB={descreverOferta(b)}
           onEscolher={(palpite) => setFase({ ...fase, tipo: 'resultado', palpite })} onPular={pularPalpites} />
       )}
 
       {fase.tipo === 'resultado' && (
         <>
-          <ResultadoDuelo duelo={fase.duelo} palpite={fase.palpite} />
+          <ResultadoDuelo refTitulo={tituloResultado} duelo={fase.duelo} palpite={fase.palpite} />
           <Equivalencias origem={descreverOferta(a)} eq={fase.equivalencia} />
         </>
       )}
