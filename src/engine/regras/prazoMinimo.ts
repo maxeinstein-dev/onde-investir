@@ -1,5 +1,5 @@
 // src/engine/regras/prazoMinimo.ts
-import { type DataISO, somarMeses } from '../datas';
+import { type DataISO, somarMesesPrazoLegal } from '../datas';
 import { resolverRegra, type VersaoRegra } from './tipos';
 
 export type ProdutoImobiliarioAgro = 'LCI' | 'LCA';
@@ -22,6 +22,7 @@ export function prazoMinimoMeses(produto: ProdutoImobiliarioAgro, comIPCA: boole
   return comIPCA ? prazos.comIPCA : prazos.demais;
 }
 
+/** Primeira data de resgate permitida, contando o prazo em meses pela regra civil (ver somarMesesPrazoLegal). */
 export function dataMinimaResgate(produto: ProdutoImobiliarioAgro, comIPCA: boolean, dataEmissao: DataISO): DataISO {
-  return somarMeses(dataEmissao, prazoMinimoMeses(produto, comIPCA, dataEmissao));
+  return somarMesesPrazoLegal(dataEmissao, prazoMinimoMeses(produto, comIPCA, dataEmissao));
 }

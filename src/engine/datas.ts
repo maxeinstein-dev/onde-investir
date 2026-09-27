@@ -47,14 +47,33 @@ export function diaDaSemana(data: DataISO): number {
   return new Date(paraDia(data) * MS_POR_DIA).getUTCDay();
 }
 
-/** Soma meses; se o dia não existe no mês de destino, usa o último dia desse mês. */
-export function somarMeses(data: DataISO, meses: number): DataISO {
+function mesDeDestino(data: DataISO, meses: number): { ano: number; mes: number; dia: number; ultimoDia: number } {
   const [ano, mes, dia] = partes(data);
   const total = ano * 12 + (mes - 1) + meses;
   const novoAno = Math.floor(total / 12);
   const novoMes = total - novoAno * 12 + 1;
   const ultimoDia = new Date(Date.UTC(novoAno, novoMes, 0)).getUTCDate();
-  return montar(novoAno, novoMes, Math.min(dia, ultimoDia));
+  return { ano: novoAno, mes: novoMes, dia, ultimoDia };
+}
+
+/**
+ * Soma meses; se o dia não existe no mês de destino, usa o último dia desse mês.
+ * Serve aos atalhos de prazo da interface ("+6 meses"). Para prazo legal, use {@link somarMesesPrazoLegal}.
+ */
+export function somarMeses(data: DataISO, meses: number): DataISO {
+  const d = mesDeDestino(data, meses);
+  return montar(d.ano, d.mes, Math.min(d.dia, d.ultimoDia));
+}
+
+/**
+ * Soma meses pela regra civil de contagem de prazos: o prazo em meses termina no dia de igual número
+ * do mês de destino; se esse dia não existe, termina no dia imediato, isto é, no dia 1º do mês seguinte
+ * (Código Civil, art. 132, §3º; Lei 810/1949, art. 3º). Ex.: 31/08/2026 + 6 meses → 01/03/2027.
+ */
+export function somarMesesPrazoLegal(data: DataISO, meses: number): DataISO {
+  const d = mesDeDestino(data, meses);
+  if (d.dia <= d.ultimoDia) return montar(d.ano, d.mes, d.dia);
+  return d.mes === 12 ? montar(d.ano + 1, 1, 1) : montar(d.ano, d.mes + 1, 1);
 }
 
 /** DD/MM/AAAA, para mensagens de erro do engine. */

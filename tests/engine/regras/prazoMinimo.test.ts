@@ -17,4 +17,11 @@ describe('prazo mínimo LCI/LCA (Res. CMN 5.215/2025)', () => {
   it('data mínima de resgate', () => {
     expect(dataMinimaResgate('LCI', false, '2026-09-28')).toBe('2027-03-28');
   });
+  it('data mínima pela regra civil: sem o dia correspondente, vale o dia 1º do mês seguinte', () => {
+    expect(dataMinimaResgate('LCI', false, '2026-08-29')).toBe('2027-03-01');
+    expect(dataMinimaResgate('LCI', false, '2026-08-30')).toBe('2027-03-01');
+    expect(dataMinimaResgate('LCI', false, '2026-08-31')).toBe('2027-03-01');
+    expect(dataMinimaResgate('LCA', false, '2027-08-29')).toBe('2028-02-29');
+    expect(dataMinimaResgate('LCA', false, '2027-03-31')).toBe('2027-10-01');
+  });
 });
