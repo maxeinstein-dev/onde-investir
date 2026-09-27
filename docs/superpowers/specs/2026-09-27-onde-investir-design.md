@@ -127,11 +127,15 @@ prazos LCI/LCA atrelados a IPCA (36/12 meses) e hipóteses de resgate antecipado
 Detalhes:
 - **% do CDI:** fator diário `(1 + CDI_aa)^(1/252) − 1` × percentual, acumulado por
   dia útil (padrão B3).
-- **IPCA+:** IPCA mensal projetado do cenário, pró-rata em dias úteis.
+- **IPCA+:** IPCA mensal projetado do cenário, pró-rata em dias úteis. Cada dia útil do
+  mês civil rende `(1 + IPCA_aa)^(1 / (12 × DU_do_mês))`: um mês inteiro rende
+  `(1 + IPCA_aa)^(1/12)` e um ano civil inteiro rende `1 + IPCA_aa`. O juro real segue
+  `(1 + taxa real)^(DU/252)`.
 - **Poupança:** depósitos nos dias 29, 30 e 31 fazem aniversário no dia 1º. Resgate
   antes do aniversário perde o mês incompleto.
 - **Tesouro:** custódia conforme 3.1. Resgate antes do vencimento (exceto Selic) =
-  **"sujeito a marcação a mercado"**, sem estimativa de valor.
+  **"sujeito a marcação a mercado"**, sem estimativa de valor. No M1, a data de resgate
+  de Tesouro Prefixado/IPCA+ é tratada como vencimento.
 - **Prazo mínimo LCI/LCA:** o app **sugere o mínimo legal** pelo tipo, indexador e data
   de emissão (padrão: data de aplicação). O usuário pode aumentar, nunca reduzir
   abaixo do mínimo.
@@ -272,7 +276,7 @@ abre a fórmula, os números da simulação e o link da norma.
 
 | Mecanismo | Marco | Descrição |
 |---|---|---|
-| **"Por que esse resultado?"** | M1 | Em todo cálculo: bruto → IOF → IR → custódia → líquido, cada passo explicado com os números reais da simulação (vem da memória de cálculo do `engine`) |
+| **"Por que esse resultado?"** | M1 | Em todo cálculo: bruto → IOF → custódia → IR → líquido, cada passo explicado com os números reais da simulação (vem da memória de cálculo do `engine`) |
 | **"Palpite antes de ver"** | M1 | Antes de revelar o vencedor, o usuário escolhe quem acha que rende mais; depois, a explicação do acerto/erro. Pode ser desligado |
 | **Termos explicados** | M1 | Todo termo técnico vira link/tooltip para o glossário |
 | **Trilha de aprendizado** | M3 | Lições curtas: renda fixa, indexadores, tributação, FGC, liquidez, marcação a mercado, reserva, diversificação, renda variável. Cada uma termina em **"experimente"**, que abre a calculadora com um exemplo pré-montado |
@@ -417,7 +421,7 @@ existir histórico real):
 - CDB 103% e LCI 80% do CDI, R$ 10.000, prazos 6m, 1a, 2a, 3a.
 - Prefixado e IPCA+ com cenário fixo.
 - Poupança: aniversário, depósito no dia 31, resgate antes do aniversário, as duas regras.
-- Tesouro Selic: R$ 8.000 (isento), R$ 10.100 (custódia só sobre R$ 100), R$ 50.000;
+- Tesouro Selic: R$ 8.000 (isento), R$ 10.100 (custódia sobre o excedente médio de R$ 10 mil, aproximação pela média entre aplicado e bruto), R$ 50.000;
   custódia descontada só no resgate.
 - Memória de cálculo: os passos somam exatamente o resultado final.
 
