@@ -123,6 +123,29 @@ describe('Minhas ofertas', () => {
     expect(confirmar).not.toHaveBeenCalled();
   });
 
+  describe('foco depois de remover e de salvar', () => {
+    const titulo = (nome: RegExp) => screen.getByRole('heading', { name: nome });
+    it('remover a última oferta leva o foco ao título "Minhas ofertas"', () => {
+      render(<ComEstado inicial={[cdb, lci]} />);
+      fireEvent.click(within(cartao(/B: LCI/)).getByRole('button', { name: 'Remover' }));
+      fireEvent.click(within(cartao(/B: LCI/)).getByRole('button', { name: 'Sim, remover' }));
+      expect(titulo(/^Minhas ofertas$/)).toHaveFocus();
+    });
+    it('remover uma oferta do meio leva o foco à próxima', () => {
+      render(<ComEstado inicial={[cdb, lci]} />);
+      fireEvent.click(within(cartao(/A: CDB/)).getByRole('button', { name: 'Remover' }));
+      fireEvent.click(within(cartao(/A: CDB/)).getByRole('button', { name: 'Sim, remover' }));
+      expect(titulo(/^A: LCI 80% do CDI$/)).toHaveFocus();
+    });
+    it('"Salvar alterações" leva o foco ao cartão salvo', () => {
+      render(<ComEstado inicial={[cdb, lci]} />);
+      fireEvent.click(within(cartao(/B: LCI/)).getByRole('button', { name: 'Editar' }));
+      preencher('Taxa (%)', '90');
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+      expect(titulo(/^B: LCI 90% do CDI$/)).toHaveFocus();
+    });
+  });
+
   it('Tesouro esconde a liquidez (sempre diária)', () => {
     const aoMudar = vi.fn();
     render(<ComEstado aoMudar={aoMudar} />);

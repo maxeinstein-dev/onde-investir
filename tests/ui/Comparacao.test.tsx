@@ -31,6 +31,11 @@ function compararDireto() {
 const tabela = () => screen.getByRole('table');
 const linhaDa = (nome: RegExp) => within(tabela()).getByRole('rowheader', { name: nome }).closest('tr') as HTMLElement;
 const celula = (nome: RegExp, coluna: number) => within(linhaDa(nome)).getAllByRole('cell')[coluna] as HTMLElement;
+/** Abre o details como o navegador faz: muda `open` e dispara `toggle`. */
+function abrir(d: HTMLDetailsElement) {
+  d.open = true;
+  fireEvent(d, new Event('toggle'));
+}
 
 describe('Comparacao', () => {
   it('com menos de duas ofertas, avisa e desabilita o botão', () => {
@@ -101,12 +106,23 @@ describe('Comparacao', () => {
     expect(within(celula(/LCI/, 1)).queryByText('Por que?')).toBeNull();
   });
 
+  it('os passos do "Por que?" só são renderizados quando o details abre', () => {
+    montar();
+    compararDireto();
+    const porque = celula(/CDB/, 1).querySelector('details') as HTMLDetailsElement;
+    expect(within(porque).queryByText('Por que esse resultado?')).toBeNull();
+    abrir(porque);
+    expect(within(porque).getByText('Por que esse resultado?')).toBeInTheDocument();
+    expect(within(porque).getByText('Valor aplicado')).toBeInTheDocument();
+  });
+
   it('a célula reaplicada explica o reinvestimento entre as etapas', () => {
     montar();
     compararDireto();
     const doisAnos = celula(/CDB/, 2);
     const frase = 'Venceu em 28/09/2027 e foi reaplicado em CDB 103% do CDI.';
-    const porque = doisAnos.querySelector('details') as HTMLElement;
+    const porque = doisAnos.querySelector('details') as HTMLDetailsElement;
+    abrir(porque);
     expect(within(porque).getAllByText('Por que esse resultado?')).toHaveLength(2);
     expect(within(porque).getByText(frase)).toBeInTheDocument();
   });
@@ -205,6 +221,19 @@ describe('Comparacao', () => {
     const outro = cenarioConstante({ cdiAA: 0.1, selicMetaAA: 0.101, ipcaAA: 0.04, trAM: 0 });
     rerender(<Comparacao ofertas={OFERTAS} cenario={outro} descricaoCenario="Outro." />);
     expect(screen.queryByRole('table')).toBeNull();
+  });
+
+  it('sem ninguém disponível no horizonte perguntado, pula o palpite e mostra o resultado', () => {
+    const longe = { ...base, vencimento: '2035-09-28' };
+    const a: OfertaCadastrada = { ...longe, id: 'l1', emissor: 'Banco X', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.1 } };
+    const b: OfertaCadastrada = { ...longe, id: 'l2', emissor: 'Banco Y', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.2 } };
+    montar([a, b]);
+    comparar();
+    expect(screen.queryByRole('heading', { name: /Qual lidera/ })).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Resultado da comparação' })).toHaveFocus();
+    expect(tabela()).toBeInTheDocument();
+    // Os palpites continuam ligados para a próxima comparação.
+    expect(screen.queryByRole('button', { name: 'Religar os palpites' })).toBeNull();
   });
 
   it('com os palpites desligados, Comparar leva direto ao resultado', () => {

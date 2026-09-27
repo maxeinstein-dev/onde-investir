@@ -120,7 +120,9 @@ export function Comparacao({ ofertas, cenario, descricaoCenario, cenarioInvalido
         regra, valor, dataAplicacao, ofertas, cenario,
       };
       setErro(null);
-      setFase(palpitesLigados ? { tipo: 'palpite', ...calculo } : { tipo: 'resultado', palpite: null, ...calculo });
+      // Sem ninguém disponível no horizonte perguntado, não há o que adivinhar: o resultado vem direto.
+      const perguntar = palpitesLigados && (calculo.colunas.at(-1)?.lideres.length ?? 0) > 0;
+      setFase(perguntar ? { tipo: 'palpite', ...calculo } : { tipo: 'resultado', palpite: null, ...calculo });
     } catch (err) {
       setErro(err instanceof Error ? `${err.message.replace(/\.$/, '')}.` : String(err));
       setFase({ tipo: 'editando' });

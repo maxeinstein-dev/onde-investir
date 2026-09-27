@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import { descreverProjecao, nomeOferta } from '../../conteudo/comparacao';
 import type { ColunaHorizonte } from '../../engine/comparacao';
 import { dataBR } from '../../engine/datas';
@@ -16,6 +17,8 @@ export interface PropsTabelaHorizontes {
 const ID_LEGENDA = 'comparacao-tabela-legenda';
 
 function Celula({ p, lider }: { p: Projecao; lider: boolean }) {
+  // Os passos só são renderizados quando o "Por que?" abre (e ficam depois): a tabela tem até 30 × 6 células.
+  const [aberto, setAberto] = useState(false);
   const texto = descreverProjecao(p);
   if (p.estado !== 'DISPONIVEL') return <td class="celula celula--estado">{texto}</td>;
   return (
@@ -28,9 +31,9 @@ function Celula({ p, lider }: { p: Projecao; lider: boolean }) {
         </>
       )}
       {texto && <span class="celula__nota">{texto}</span>}
-      <details class="celula__porque">
+      <details class="celula__porque" onToggle={(e) => { if (e.currentTarget.open) setAberto(true); }}>
         <summary>Por que?</summary>
-        {p.etapas.map((etapa, i) => (
+        {aberto && p.etapas.map((etapa, i) => (
           <div key={i}>
             {/* Entre a primeira etapa e a reaplicação, a frase do reinvestimento. */}
             {i > 0 && texto && <p class="celula__reinvestimento">{texto}</p>}

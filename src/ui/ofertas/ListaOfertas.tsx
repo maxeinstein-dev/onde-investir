@@ -34,7 +34,7 @@ function Cartao({ o, indice, onEditar, onRemover }: { o: OfertaCadastrada; indic
   return (
     <li>
       <article class="cartao cartao--oferta" aria-labelledby={idTitulo}>
-        <h3 id={idTitulo}>{letraDaOferta(indice)}: {descreverOferta(o)}</h3>
+        <h3 id={idTitulo} tabIndex={-1}>{letraDaOferta(indice)}: {descreverOferta(o)}</h3>
         <p class="cartao__detalhe">Emissor: {o.emissor} · Conglomerado: {o.conglomerado}</p>
         <p class="cartao__detalhe">{descreverPrazo(o)}</p>
         <p class="cartao__garantia">
