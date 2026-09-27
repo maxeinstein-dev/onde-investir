@@ -1,6 +1,7 @@
 // src/engine/indexadores.ts
 import { diasUteis, ehDiaUtil } from './calendario';
 import { type DataISO, deDia, paraDia } from './datas';
+import { OfertaInvalidaError } from './erros';
 
 /** Taxas vigentes em cada data (frações). No M2 ganha implementação por curva do Focus. */
 export interface Cenario {
@@ -20,7 +21,21 @@ export interface ParametrosCenarioConstante {
   selicOverAA?: number;
 }
 
+const ERROS_CENARIO: Record<keyof ParametrosCenarioConstante, string> = {
+  cdiAA: 'CDI inválido no cenário',
+  selicMetaAA: 'Selic meta inválida no cenário',
+  ipcaAA: 'IPCA inválido no cenário',
+  trAM: 'TR inválida no cenário',
+  selicOverAA: 'Selic over inválida no cenário',
+};
+
+/** Lança OfertaInvalidaError se algum parâmetro não for finito e maior que −100% (ex.: campo vazio virando NaN). */
 export function cenarioConstante(p: ParametrosCenarioConstante): Cenario {
+  for (const chave of Object.keys(ERROS_CENARIO) as (keyof ParametrosCenarioConstante)[]) {
+    const v = p[chave];
+    if (chave === 'selicOverAA' && v === undefined) continue;
+    if (v === undefined || !Number.isFinite(v) || v <= -1) throw new OfertaInvalidaError(ERROS_CENARIO[chave]);
+  }
   const over = p.selicOverAA ?? p.cdiAA;
   return {
     cdiAA: () => p.cdiAA,

@@ -2,7 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { ehDiaUtil } from '../../src/engine/calendario';
 import { diaDaSemana } from '../../src/engine/datas';
-import { type Cenario, fatorIPCA, fatorPercentualCDI, fatorPrefixado, fatorSelic, taxaDiaria } from '../../src/engine/indexadores';
+import { type Cenario, cenarioConstante, fatorIPCA, fatorPercentualCDI, fatorPrefixado, fatorSelic, taxaDiaria } from '../../src/engine/indexadores';
+import { OfertaInvalidaError } from '../../src/engine/erros';
 import { CEN, INI } from './cenarioPadrao';
 
 describe('indexadores', () => {
@@ -46,5 +47,25 @@ describe('indexadores', () => {
     expect(ehDiaUtil('2026-10-15')).toBe(true);
     expect(fatorPercentualCDI(cen, 1, '2026-10-14', '2026-10-15')).toBeCloseTo(Math.pow(1.1, 1 / 252), 14);
     expect(fatorPercentualCDI(cen, 1, '2026-10-15', '2026-10-16')).toBeCloseTo(Math.pow(1.12, 1 / 252), 14);
+  });
+});
+
+describe('cenarioConstante: validação dos parâmetros', () => {
+  const base = { cdiAA: 0.1365, selicMetaAA: 0.1375, ipcaAA: 0.0422, trAM: 0.001646 };
+  it('campo vazio na UI (NaN) → OfertaInvalidaError com o nome do campo', () => {
+    expect(() => cenarioConstante({ ...base, cdiAA: Number.NaN })).toThrow(OfertaInvalidaError);
+    expect(() => cenarioConstante({ ...base, cdiAA: Number.NaN })).toThrow('CDI inválido no cenário');
+    expect(() => cenarioConstante({ ...base, selicMetaAA: Number.NaN })).toThrow('Selic meta inválida no cenário');
+    expect(() => cenarioConstante({ ...base, ipcaAA: Number.NaN })).toThrow('IPCA inválido no cenário');
+    expect(() => cenarioConstante({ ...base, trAM: Number.NaN })).toThrow('TR inválida no cenário');
+    expect(() => cenarioConstante({ ...base, selicOverAA: Number.NaN })).toThrow('Selic over inválida no cenário');
+  });
+  it('infinito ou −100% e abaixo → erro', () => {
+    expect(() => cenarioConstante({ ...base, cdiAA: Number.POSITIVE_INFINITY })).toThrow('CDI inválido no cenário');
+    expect(() => cenarioConstante({ ...base, ipcaAA: -1 })).toThrow('IPCA inválido no cenário');
+    expect(() => cenarioConstante({ ...base, trAM: -1.5 })).toThrow('TR inválida no cenário');
+  });
+  it('valores válidos, inclusive zero e negativos acima de −100%, passam', () => {
+    expect(() => cenarioConstante({ ...base, trAM: 0, ipcaAA: -0.01 })).not.toThrow();
   });
 });
