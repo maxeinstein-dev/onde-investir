@@ -2,7 +2,7 @@
 import { type DataISO, diasCorridos } from './datas';
 import { OfertaInvalidaError } from './erros';
 import type { Cenario } from './indexadores';
-import { ehIsentoIR, simular, type Aplicacao, type Oferta } from './produtos';
+import { ehIsentoIR, PERCENTUAL_CDI_MAXIMO, simular, type Aplicacao, type Oferta } from './produtos';
 import { aliquotaIR } from './regras/ir';
 
 export interface ResultadoEquivalencia {
@@ -42,7 +42,7 @@ export function calcularEquivalencias(origem: Aplicacao, dataResgate: DataISO, c
 
   let isentoPosCDI: number | null;
   try {
-    isentoPosCDI = resolver((p) => liquido({ produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: p } }), liquidoAlvo, 1e-6, 10);
+    isentoPosCDI = resolver((p) => liquido({ produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: p } }), liquidoAlvo, 1e-6, PERCENTUAL_CDI_MAXIMO);
   } catch (erro) {
     if (!(erro instanceof OfertaInvalidaError)) throw erro;
     isentoPosCDI = null;
@@ -55,7 +55,7 @@ export function calcularEquivalencias(origem: Aplicacao, dataResgate: DataISO, c
 
   return {
     liquidoAlvo,
-    tributadoPosCDI: resolver((p) => liquido({ produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: p } }), liquidoAlvo, 1e-6, 10),
+    tributadoPosCDI: resolver((p) => liquido({ produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: p } }), liquidoAlvo, 1e-6, PERCENTUAL_CDI_MAXIMO),
     tributadoPre: resolver((t) => liquido({ produto: 'CDB', indexacao: { tipo: 'PRE', taxaAA: t } }), liquidoAlvo, -0.5, 3),
     tributadoIpcaMais: resolver((t) => liquido({ produto: 'CDB', indexacao: { tipo: 'IPCA_MAIS', taxaRealAA: t } }), liquidoAlvo, -0.5, 3),
     isentoPosCDI,

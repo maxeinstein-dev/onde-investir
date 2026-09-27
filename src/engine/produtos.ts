@@ -72,16 +72,28 @@ export const INDEXACOES_PERMITIDAS: Record<TipoProduto, readonly [TipoIndexacao,
   POUPANCA: ['POUPANCA'],
 };
 
+/** 5 = 500% do CDI. */
+export const PERCENTUAL_CDI_MAXIMO = 5;
+
+/** Taxa anual utilizável em (1 + t)^n: finita e acima de −100%. */
+const taxaAnualValida = (t: number): boolean => Number.isFinite(t) && t > -1;
+
 export function validarAplicacao(ap: Aplicacao, dataResgate: DataISO): void {
   if (!Number.isFinite(ap.valor) || ap.valor <= 0) throw new OfertaInvalidaError('O valor aplicado precisa ser maior que zero');
-  if (!INDEXACOES_PERMITIDAS[ap.produto].includes(ap.indexacao.tipo)) {
+  const permitidas = Object.hasOwn(INDEXACOES_PERMITIDAS, ap.produto) ? INDEXACOES_PERMITIDAS[ap.produto] : undefined;
+  if (!permitidas) throw new OfertaInvalidaError(`Produto desconhecido: ${String(ap.produto)}`);
+  if (!permitidas.includes(ap.indexacao.tipo)) {
     throw new OfertaInvalidaError(`${ap.produto} não aceita a indexação ${ap.indexacao.tipo}`);
   }
   if (diasCorridos(ap.dataAplicacao, dataResgate) < 1) throw new OfertaInvalidaError('O resgate precisa ser depois da aplicação');
   const ix = ap.indexacao;
-  if (ix.tipo === 'POS_CDI' && !(ix.percentualCDI > 0)) throw new OfertaInvalidaError('O percentual do CDI precisa ser maior que zero');
-  if (ix.tipo === 'PRE' && !Number.isFinite(ix.taxaAA)) throw new OfertaInvalidaError('Taxa prefixada inválida');
-  if (ix.tipo === 'IPCA_MAIS' && !Number.isFinite(ix.taxaRealAA)) throw new OfertaInvalidaError('Taxa real inválida');
+  if (ix.tipo === 'POS_CDI') {
+    if (!Number.isFinite(ix.percentualCDI) || ix.percentualCDI <= 0) throw new OfertaInvalidaError('O percentual do CDI precisa ser maior que zero');
+    // Teto que pega o erro de unidade (103 digitado no lugar de 1,03).
+    if (ix.percentualCDI > PERCENTUAL_CDI_MAXIMO) throw new OfertaInvalidaError('percentual do CDI acima de 500%: confira a taxa');
+  }
+  if (ix.tipo === 'PRE' && !taxaAnualValida(ix.taxaAA)) throw new OfertaInvalidaError('Taxa prefixada inválida');
+  if (ix.tipo === 'IPCA_MAIS' && !taxaAnualValida(ix.taxaRealAA)) throw new OfertaInvalidaError('Taxa real inválida');
   if (ap.produto === 'LCI' || ap.produto === 'LCA') {
     const minima = dataMinimaResgate(ap.produto, ix.tipo === 'IPCA_MAIS', ap.dataAplicacao);
     if (dataResgate < minima) {
