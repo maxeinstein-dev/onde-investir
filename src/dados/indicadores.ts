@@ -104,10 +104,13 @@ async function redeFocus(obter: (url: string) => Promise<unknown>): Promise<Focu
 async function redeCopom(obter: (url: string) => Promise<unknown>, agoraMs: number): Promise<ReuniaoCopom[]> {
   const ano = Number(new Date(agoraMs + BRT_MS).toISOString().slice(0, 4));
   const dias = interpretarCalendarioCopom(await obter(urlCalendarioCopom(`${ano}-01-01`, `${ano + 2}-12-31`)));
+  // Reunião extraordinária (R9) fica de fora de propósito: numerarReunioes lança acima de 8 reuniões no ano,
+  // o grupo cai no cache vencido (ou FALHOU) e o cenário usa o manual. É raro e aceitável.
   return numerarReunioes(anunciosDoCalendario(dias));
 }
 
-interface Grupo<T> { chave: string; esquema: z.ZodType<T>; validoAte: number; rede: () => Promise<T> }
+/** `validoAte` é uma função: calculada dentro do grupo, se lançar o grupo trata como falha da rede. */
+interface Grupo<T> { chave: string; esquema: z.ZodType<T>; validoAte: () => number; rede: () => Promise<T> }
 interface ResultadoGrupo<T> { dados: T | null; status: StatusFonte; obtidoEm?: number }
 
 /** Cache válido → rede → cache vencido → FALHOU. Nunca lança. */
@@ -116,7 +119,7 @@ async function carregarGrupo<T>(g: Grupo<T>, armazenamento: Armazenamento, agora
   if (cache && !cache.vencido) return { dados: cache.dados, status: 'CACHE', obtidoEm: cache.obtidoEm };
   try {
     const dados = g.esquema.parse(await g.rede());
-    gravarCache(armazenamento, g.chave, dados, agoraMs, g.validoAte);
+    gravarCache(armazenamento, g.chave, dados, agoraMs, g.validoAte());
     return { dados, status: 'REDE', obtidoEm: agoraMs };
   } catch {
     if (cache) return { dados: cache.dados, status: 'CACHE_VENCIDO', obtidoEm: cache.obtidoEm };
@@ -130,12 +133,13 @@ const resultado = <T>(r: PromiseSettledResult<ResultadoGrupo<T>>): ResultadoGrup
 export async function carregarIndicadores(deps: {
   buscar: Buscar; armazenamento: Armazenamento; agoraMs: number; timeoutMs?: number;
 }): Promise<IndicadoresCarregados> {
-  const { buscar, armazenamento, agoraMs, timeoutMs = TIMEOUT_PADRAO_MS } = deps;
+  const { buscar, armazenamento, timeoutMs = TIMEOUT_PADRAO_MS } = deps;
+  const agoraMs = Number.isFinite(deps.agoraMs) ? deps.agoraMs : Date.now();
   const obter = (url: string) => obterJson(buscar, url, timeoutMs);
   const [sgs, focus, copom] = await Promise.allSettled([
-    carregarGrupo({ chave: 'sgs', esquema: EsquemaAtuais, validoAte: validadeDiaria(agoraMs), rede: () => redeSgs(obter) }, armazenamento, agoraMs),
-    carregarGrupo({ chave: 'focus', esquema: EsquemaFocusCarregado, validoAte: validadeFocus(agoraMs), rede: () => redeFocus(obter) }, armazenamento, agoraMs),
-    carregarGrupo({ chave: 'copom', esquema: EsquemaReunioes, validoAte: validadeHoras(agoraMs, 24 * 7), rede: () => redeCopom(obter, agoraMs) }, armazenamento, agoraMs),
+    carregarGrupo({ chave: 'sgs', esquema: EsquemaAtuais, validoAte: () => validadeDiaria(agoraMs), rede: () => redeSgs(obter) }, armazenamento, agoraMs),
+    carregarGrupo({ chave: 'focus', esquema: EsquemaFocusCarregado, validoAte: () => validadeFocus(agoraMs), rede: () => redeFocus(obter) }, armazenamento, agoraMs),
+    carregarGrupo({ chave: 'copom', esquema: EsquemaReunioes, validoAte: () => validadeHoras(agoraMs, 24 * 7), rede: () => redeCopom(obter, agoraMs) }, armazenamento, agoraMs),
   ]);
   const s = resultado(sgs);
   const f = resultado(focus);

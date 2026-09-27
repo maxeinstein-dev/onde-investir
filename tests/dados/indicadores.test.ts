@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   urlCalendarioCopom, urlFocusAnuais, urlFocusIpcaMensal, urlFocusSelic, urlSgsUltimos,
 } from '../../src/dados/bcb';
@@ -168,5 +168,16 @@ describe('carregarIndicadores', () => {
     expect(doCache.status.focus).toBe('CACHE');
     expect(doCache.focus).toEqual(r.focus);
     expect(doCache.focusDefasado).toBe(true);
+  });
+
+  describe('agoraMs inválido', () => {
+    afterEach(() => { vi.useRealTimers(); });
+    it.each([Number.NaN, Number.POSITIVE_INFINITY])('%s → usa Date.now(), sem lançar', async (agoraMs) => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(AGORA);
+      const r = await carregarIndicadores({ buscar: falso().buscar, armazenamento: memoria(), agoraMs });
+      expect(r.status).toEqual({ sgs: 'REDE', focus: 'REDE', copom: 'REDE' });
+      expect(r.obtidoEm).toEqual({ sgs: AGORA, focus: AGORA, copom: AGORA });
+    });
   });
 });
