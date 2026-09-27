@@ -94,7 +94,15 @@ describe('projetar', () => {
     if (p.estado === 'INDISPONIVEL') expect(p.disponivelEm).toBe('2027-03-28');
   });
   it('oferta que vence antes da aplicação → indisponível com motivo, sem lançar', () => {
-    expect(projetar({ ...cdbVence2027, vencimento: '2026-01-01' }, V, INI, '2027-01-01', CEN).estado).toBe('INDISPONIVEL');
+    const motivo = { estado: 'INDISPONIVEL', motivo: 'A oferta vence antes da data de aplicação' };
+    expect(projetar({ ...cdbVence2027, vencimento: '2026-01-01' }, V, INI, '2027-01-01', CEN)).toEqual(motivo);
+    expect(projetar({ ...cdbVence2027, vencimento: INI }, V, INI, '2027-01-01', CEN)).toEqual(motivo);
+    expect(projetar({ ...lciVence2027, vencimento: '2026-01-01' }, V, INI, '2027-01-01', CEN)).toEqual(motivo);
+  });
+  it('data-alvo na aplicação ou antes → indisponível, sem disponivelEm', () => {
+    const motivo = { estado: 'INDISPONIVEL', motivo: 'Escolha uma data depois da aplicação' };
+    expect(projetar(cdbDiario, V, INI, INI, CEN)).toEqual(motivo);
+    expect(projetar(lciVence2027, V, INI, '2026-09-01', CEN)).toEqual(motivo);
   });
 });
 

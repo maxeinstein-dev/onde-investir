@@ -94,6 +94,8 @@ export function projetar(
   validarRegraReinvestimento(regra); // fora do try: regra inválida não vira fallback nem "indisponível"
   const aplicacao = { produto: o.produto, indexacao: o.indexacao, valor, dataAplicacao };
   const venc = o.vencimento;
+  if (venc !== undefined && venc <= dataAplicacao) return { estado: 'INDISPONIVEL', motivo: 'A oferta vence antes da data de aplicação' };
+  if (dataAlvo <= dataAplicacao) return { estado: 'INDISPONIVEL', motivo: 'Escolha uma data depois da aplicação' };
   const prazo = conferirPrazoMinimo(o, dataAplicacao);
   if (prazo !== null) return { estado: 'INDISPONIVEL', motivo: prazo };
   try {
