@@ -206,10 +206,19 @@ corrente + 4 (Selic = taxa de **fim de ano**); o IPCA mensal cobre o mês corren
 ### 4.2 Cenários
 **"Juros sobem" / "Base (Focus)" / "Juros caem"** + **"Manual"** (constante digitado,
 como no M1). Juros e inflação andam juntos: "Juros sobem" = Selic **e** IPCA na mediana
-+ k desvios-padrão; "Juros caem" = mediana − k desvios; cada ponto limitado ao
++ k desvios-padrão; "Juros caem" = mediana − k desvios; cada valor ajustado é limitado ao
 mínimo/máximo do Focus. Padrão k = 1, editável; premissas de longo prazo e prazo de
-convergência também editáveis. A abertura cresce com o prazo porque o desvio do Focus
-cresce.
+convergência também editáveis.
+- **Selic:** ±k·DP em cada reunião do Copom e em cada ano do Focus anual.
+- **IPCA:** a abertura vem do desvio **anual**, nunca do mensal (somar ±k·DP a cada mês
+  acumularia cerca de 12 desvios no ano). Com `anual_k(Y)` = clamp(mediana ± k·DP, mín, máx)
+  do Focus anual do ano Y e `anual_base(Y)` = mediana anual de Y:
+  - mês coberto pelo Focus mensal: `(1 + mensal_mediana) × ((1 + anual_k(Y)) / (1 + anual_base(Y)))^(1/12) − 1`;
+    no cenário base, a própria mediana mensal;
+  - mês sem Focus mensal: `(1 + anual_k(Y))^(1/12) − 1`;
+  - ano sem Focus anual: o do ano mais próximo.
+  Assim o ano civil de "Juros sobem" rende ≈ anual_sobem − anual_base acima do base, e a
+  abertura cresce com o prazo porque o desvio do Focus anual cresce.
 
 ### 4.3 Histórico (posições)
 CDI/IPCA/TR realizados do SGS, desde a data da posição mais antiga, com cache

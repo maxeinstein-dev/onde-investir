@@ -125,13 +125,26 @@ export function montarCenario(
   }
   pontosSelic.push({ inicio: `${ultimoAno + anos + 1}-01-01`, valor: selicLP });
 
-  // IPCA: mensal do Focus, depois anual distribuído, depois convergência
+  // IPCA: mensal do Focus, depois anual distribuído, depois convergência.
+  // Nos cenários sobem/caem, o mês com Focus mensal recebe a abertura do ANUAL do seu ano, distribuída
+  // em 12 avos: (1 + mensal) × ((1 + anual_k) / (1 + anual_base))^(1/12) − 1. Somar ±k·DP a cada mês
+  // acumularia ~12 desvios no ano e faria a abertura encolher quando o mensal acaba.
+  const anuaisIpca = [...focus.ipcaAnual].sort((a, b) => a.ano - b.ano);
+  const ultimoAnoIpca = (anuaisIpca.at(-1) as (typeof anuaisIpca)[number]).ano;
+  const estAnualIpca = (ano: number): EstatisticaFocus => {
+    const maisProximo = anuaisIpca.reduce((m, a) => (Math.abs(a.ano - ano) < Math.abs(m.ano - ano) ? a : m));
+    return maisProximo.est;
+  };
+  const anualIpca = (ano: number, t: TipoCenario) => ajustar(estAnualIpca(ano), t, k);
   const pontosIpca: PontoCurva[] = [...focus.ipcaMensal]
     .sort((a, b) => (a.anoMes < b.anoMes ? -1 : 1))
-    .map((m) => ({ inicio: `${m.anoMes}-01`, valor: ajustar(m.est, tipo, k) }));
-  const ultimoAnoIpca = Math.max(...focus.ipcaAnual.map((a) => a.ano));
-  const anual = new Map(focus.ipcaAnual.map((a) => [a.ano, ajustar(a.est, tipo, k)]));
-  const anualFinal = anual.get(ultimoAnoIpca) as number;
+    .map((m) => {
+      const ano = Number(m.anoMes.slice(0, 4));
+      const mensal = ajustar(m.est, 'BASE', k);
+      const abertura = Math.pow((1 + anualIpca(ano, tipo)) / (1 + anualIpca(ano, 'BASE')), 1 / 12);
+      return { inicio: `${m.anoMes}-01`, valor: (1 + mensal) * abertura - 1 };
+    });
+  const anualFinal = anualIpca(ultimoAnoIpca, tipo);
   const convergenciaIpca: Ancora[] = [
     { data: `${ultimoAnoIpca}-12-31`, valor: anualFinal },
     { data: `${ultimoAnoIpca + anos}-12-31`, valor: premissas.ipcaLongoPrazoAA },
@@ -139,7 +152,7 @@ export function montarCenario(
   const ultimoMesFocus = pontosIpca.at(-1)?.inicio ?? `${atuais.dataReferencia.slice(0, 7)}-01`;
   for (const m of primeirosDosMeses(ultimoMesFocus, `${ultimoAnoIpca + anos}-12-31`)) {
     const ano = Number(m.slice(0, 4));
-    const taxaAnual = ano <= ultimoAnoIpca ? (anual.get(ano) ?? anualFinal) : interpolar(convergenciaIpca, m);
+    const taxaAnual = ano <= ultimoAnoIpca ? anualIpca(ano, tipo) : interpolar(convergenciaIpca, m);
     pontosIpca.push({ inicio: m, valor: Math.pow(1 + taxaAnual, 1 / 12) - 1 });
   }
   pontosIpca.push({ inicio: `${ultimoAnoIpca + anos + 1}-01-01`, valor: Math.pow(1 + premissas.ipcaLongoPrazoAA, 1 / 12) - 1 });

@@ -3,6 +3,7 @@ import { montarCenario, PREMISSAS_PADRAO } from '../../src/engine/projecao';
 import { fatorIPCA } from '../../src/engine/indexadores';
 import { diasCorridos } from '../../src/engine/datas';
 import { ATUAIS, FOCUS, OFICIAIS, est } from './focusSintetico';
+import { cenarioReal, FOCUS_REAL } from './cenarioReal';
 
 const base = () => montarCenario('BASE', FOCUS, ATUAIS, OFICIAIS, PREMISSAS_PADRAO);
 const SELIC_LP = 1.03 * 1.05 - 1;
@@ -71,7 +72,11 @@ describe('cenário projetado — IPCA', () => {
   });
   it('juros sobem também sobe a inflação', () => {
     const sobem = montarCenario('SOBEM', FOCUS, ATUAIS, OFICIAIS, PREMISSAS_PADRAO);
-    expect(mes(sobem, '2026-10-01', '2026-11-01')).toBeCloseTo(1.005, 12);
+    // mês com Focus mensal: a mediana mensal recebe 1/12 da abertura ANUAL do ano (2026 tem DP 0 aqui)
+    expect(mes(sobem, '2026-10-01', '2026-11-01')).toBeCloseTo(1.004, 12);
+    const comDP = { ...FOCUS, ipcaAnual: [{ ano: 2026, est: est(4.9, 0.3, 4, 6) }, ...FOCUS.ipcaAnual.slice(1)] };
+    const sobemComDP = montarCenario('SOBEM', comDP, ATUAIS, OFICIAIS, PREMISSAS_PADRAO);
+    expect(mes(sobemComDP, '2026-10-01', '2026-11-01')).toBeCloseTo(1.004 * Math.pow(1.052 / 1.049, 1 / 12), 12);
     expect(mes(sobem, '2027-03-01', '2027-04-01')).toBeCloseTo(Math.pow(1.047, 1 / 12), 12);
   });
   it('longo prazo: premissa de IPCA depois da convergência', () => {
@@ -79,6 +84,30 @@ describe('cenário projetado — IPCA', () => {
   });
   it('TR constante no último valor do SGS', () => {
     expect(base().trAM('2030-01-01')).toBe(0.001646);
+  });
+});
+
+describe('cenário projetado — IPCA com as fixtures reais (Focus de 18/09/2026)', () => {
+  // Focus anual IPCA: 2027 = 4,3 ± 0,4196 (mín 3,17, máx 6); 2029 = 3,5 ± 0,47 (mín 3, máx 6).
+  const anoCivil = (c: ReturnType<typeof base>, ano: number) => fatorIPCA(c, `${ano}-01-01`, `${ano + 1}-01-01`);
+  const anual = (ano: number) => FOCUS_REAL.ipcaAnual.find((a) => a.ano === ano)?.est;
+  it('nas fixtures, o DP anual de 2029 é maior que o de 2027', () => {
+    expect(anual(2027)).toEqual({ mediana: 4.3, desvioPadrao: 0.4196, minimo: 3.17, maximo: 6 });
+    expect(anual(2029)).toEqual({ mediana: 3.5, desvioPadrao: 0.47, minimo: 3, maximo: 6 });
+  });
+  it('SOBEM/CAEM em 2027 (meses com Focus mensal) abrem pelo desvio ANUAL, não por um DP por mês', () => {
+    const fBase = anoCivil(cenarioReal('BASE'), 2027);
+    const fSobem = anoCivil(cenarioReal('SOBEM'), 2027);
+    const fCaem = anoCivil(cenarioReal('CAEM'), 2027);
+    expect(fSobem).toBeCloseTo(1.047196 * (fBase / 1.043), 10);
+    expect(fCaem).toBeCloseTo(1.038804 * (fBase / 1.043), 10);
+    expect(Math.abs((fSobem - fBase) * 100 - 0.4196)).toBeLessThan(0.05);
+    expect(Math.abs((fBase - fCaem) * 100 - 0.4196)).toBeLessThan(0.05);
+  });
+  it('a abertura não encolhe com o prazo: 2029 (DP 0,47) ≥ 2027 (DP 0,4196)', () => {
+    const abertura = (ano: number) => anoCivil(cenarioReal('SOBEM'), ano) - anoCivil(cenarioReal('BASE'), ano);
+    expect(abertura(2029)).toBeCloseTo(0.0047, 10);
+    expect(abertura(2029)).toBeGreaterThanOrEqual(abertura(2027));
   });
 });
 
