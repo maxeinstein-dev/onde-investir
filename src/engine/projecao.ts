@@ -86,6 +86,16 @@ function interpolar(ancoras: readonly Ancora[], data: DataISO): number {
   return (ancoras.at(-1) as Ancora).valor;
 }
 
+/** Há reunião (oficial ou estimada) no mesmo ano, anunciada depois de `r`? */
+function temReuniaoDepois(r: ReuniaoCopom, oficiais: readonly ReuniaoCopom[]): boolean {
+  const ano = r.anuncio.slice(0, 4);
+  for (let n = 1; n <= 8; n++) {
+    const outra = dataDaReuniao(`R${n}/${ano}`, oficiais);
+    if (outra && outra.anuncio > r.anuncio) return true;
+  }
+  return false;
+}
+
 export function montarCenario(
   tipo: TipoCenario, focus: DadosFocus, atuais: Atuais, reunioesOficiais: readonly ReuniaoCopom[], premissas: Premissas,
 ): CenarioProjetado {
@@ -116,12 +126,16 @@ export function montarCenario(
     ultima = { data: vigencia, valor };
   }
 
-  // Selic: anual (fim de ano) e convergência, mês a mês
+  // Selic: anual (fim de ano) e convergência, mês a mês.
+  // Se a última reunião do Focus é a última do ano (nenhuma reunião oficial ou estimada depois dela no mesmo
+  // ano), a âncora anual desse ano criaria um degrau em 1º/jan sem Copom: ela fica de fora.
+  const ultimaReuniao = reunioes.at(-1)?.reuniao;
+  const anoSemMaisReunioes = ultimaReuniao && !temReuniaoDepois(ultimaReuniao, reunioesOficiais) ? Number(ultimaReuniao.anuncio.slice(0, 4)) : null;
   const ultimoAno = Math.max(...focus.selicAnual.map((a) => a.ano));
   const ancorasSelic: Ancora[] = [
     ultima,
     ...[...focus.selicAnual]
-      .filter((a) => `${a.ano}-12-31` > ultima.data)
+      .filter((a) => `${a.ano}-12-31` > ultima.data && a.ano !== anoSemMaisReunioes)
       .sort((a, b) => a.ano - b.ano)
       .map((a) => ({ data: `${a.ano}-12-31`, valor: ajustar(a.est, tipo, k) })),
   ];

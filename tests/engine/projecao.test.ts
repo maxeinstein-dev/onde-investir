@@ -22,8 +22,9 @@ describe('cenário projetado — Selic', () => {
     expect(c.selicOverAA('2026-11-05')).toBe(c.cdiAA('2026-11-05'));
   });
   it('interpolação linear mês a mês até o fim do ano do Focus anual', () => {
-    // âncoras: fim de 2026 (13%) e fim de 2027 (12%), ambas do Focus anual
-    const esperado = 0.13 + (0.12 - 0.13) * (diasCorridos('2026-12-31', '2027-07-01') / diasCorridos('2026-12-31', '2027-12-31'));
+    // âncoras: R8/2026 (13%, vale de 10/12/2026) e fim de 2027 (12%, Focus anual). O anual de 2026 fica de fora:
+    // a R8 é a última reunião de 2026.
+    const esperado = 0.13 + (0.12 - 0.13) * (diasCorridos('2026-12-10', '2027-07-01') / diasCorridos('2026-12-10', '2027-12-31'));
     expect(base().selicMetaAA('2027-07-01')).toBeCloseTo(esperado, 12);
     expect(base().selicMetaAA('2027-07-15')).toBeCloseTo(esperado, 12); // degrau mensal
   });
@@ -49,6 +50,23 @@ describe('cenário projetado — Selic', () => {
     expect(caem.selicMetaAA('2026-12-10')).toBeCloseTo(0.125, 12);
     const k2 = montarCenario('SOBEM', FOCUS, ATUAIS, OFICIAIS, { ...PREMISSAS_PADRAO, k: 2 });
     expect(k2.selicMetaAA('2026-11-05')).toBeCloseTo(0.135, 12); // 13,75 limitado a 13,5
+  });
+  it('sem reunião depois da última do Focus no ano, a âncora anual desse ano não cria degrau em 1º/jan', () => {
+    const focus = {
+      ...FOCUS,
+      selicPorReuniao: [{ reuniao: 'R7/2026', est: est(13.25) }, { reuniao: 'R8/2026', est: est(13.5) }],
+      selicAnual: [{ ano: 2026, est: est(13.25) }, { ano: 2027, est: est(12) }],
+    };
+    const c = montarCenario('BASE', focus, ATUAIS, OFICIAIS, PREMISSAS_PADRAO);
+    expect(c.selicMetaAA('2026-12-31')).toBeCloseTo(0.135, 12);
+    // R8/2026 vale de 10/12/2026; interpola direto até o anual de 2027 (12%) em 31/12/2027
+    const esperado = 0.135 + (0.12 - 0.135) * (diasCorridos('2026-12-10', '2027-01-01') / diasCorridos('2026-12-10', '2027-12-31'));
+    expect(c.selicMetaAA('2027-01-01')).toBeCloseTo(esperado, 12);
+    // com uma reunião oficial de 2026 depois da última do Focus, a âncora anual de 2026 continua valendo
+    const soAteR7 = { ...focus, selicPorReuniao: focus.selicPorReuniao.slice(0, 1) };
+    expect(montarCenario('BASE', soAteR7, ATUAIS, OFICIAIS, PREMISSAS_PADRAO).selicMetaAA('2027-01-01')).toBeCloseTo(
+      0.1325 + (0.12 - 0.1325) * (1 / 365), 12,
+    );
   });
   it('reunião sem data oficial entra como estimada', () => {
     const focus = { ...FOCUS, selicPorReuniao: [...FOCUS.selicPorReuniao, { reuniao: 'R1/2028', est: est(11) }] };
