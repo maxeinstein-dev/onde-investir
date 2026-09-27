@@ -27,5 +27,21 @@ describe('Equivalencias', () => {
     render(<Equivalencias origem="LCI 80% do CDI" eq={eq} />);
     expect(screen.getByText(/92,57%/)).toBeInTheDocument();
     expect(screen.getByText(/94,12%/)).toBeInTheDocument();
+    expect(screen.getByText(/regra de bolso/i).closest('p')).toHaveTextContent(/CDB/);
+  });
+  it('regra de bolso de origem tributada aponta para LCI/LCA', () => {
+    const eq = calcularEquivalencias({ ...cdb, valor: 10000, dataAplicacao: INI }, '2028-09-28', CEN);
+    render(<Equivalencias origem="CDB 103% do CDI" eq={eq} />);
+    const dica = screen.getByText(/regra de bolso/i).closest('p');
+    expect(dica).toHaveTextContent(/LCI\/LCA/);
+    expect(dica).toHaveTextContent(/87,55%/);
+  });
+  it('campo indisponível mostra "não se aplica" com o motivo', () => {
+    const poupanca = { produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' } } as const;
+    const eq = calcularEquivalencias({ ...poupanca, valor: 10000, dataAplicacao: INI }, '2026-10-20', CEN);
+    render(<Equivalencias origem="Poupança" eq={eq} />);
+    expect(screen.getAllByText(/não se aplica: a origem não rende nada nesse prazo/)).toHaveLength(3);
+    expect(screen.getAllByText(/não se aplica: .*prazo mínimo/)).toHaveLength(1);
+    expect(screen.queryByText(/regra de bolso/i)).toBeNull();
   });
 });

@@ -8,7 +8,5 @@ export default defineConfig({
     include: ['tests/**/*.test.{ts,tsx}'],
     environment: 'node',
     setupFiles: ['tests/setup.ts'],
-    // calcularEquivalencias faz ~320 simulações dia a dia; sob carga paralela passa de 5 s.
-    testTimeout: 20000,
   },
 });
