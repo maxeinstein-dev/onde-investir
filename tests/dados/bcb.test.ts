@@ -23,6 +23,11 @@ describe('URLs do BCB', () => {
     expect(url).toContain('%24format=json');
     expect(url).not.toMatch(/[ +]/);
   });
+  it('$top com folga: Selic 80, mensal 100, anual 60', () => {
+    expect(urlFocusSelic()).toContain('%24top=80&');
+    expect(urlFocusIpcaMensal()).toContain('%24top=100&');
+    expect(urlFocusAnuais()).toContain('%24top=60&');
+  });
   it('demais URLs sem espaço cru nem +', () => {
     for (const url of [urlFocusIpcaMensal(), urlFocusAnuais(), urlCalendarioCopom('2026-01-01', '2028-12-31'), urlSgsUltimos(433, 12)]) {
       expect(url).not.toMatch(/[ +]/);
@@ -171,5 +176,31 @@ describe('datas e números estritos', () => {
   it('calendário: dataEvento impossível → RespostaInvalidaError', () => {
     expect(() => interpretarCalendarioCopom({ conteudo: [{ dataEvento: '2026-02-30T03:00:00' }] })).toThrow(RespostaInvalidaError);
     expect(interpretarCalendarioCopom({ conteudo: [{ dataEvento: '2026-01-28T03:00:00' }] })).toEqual(['2026-01-28']);
+  });
+});
+
+describe('truncamento e tamanho', () => {
+  const soUmaColeta = <L extends { Data: string }>(json: { value: L[] }) => ({ value: json.value.filter((l) => l.Data === '2026-09-18') });
+
+  it('fixtures têm mais de uma coleta (não parecem cortadas)', () => {
+    for (const json of [focusSelic, focusIpcaMensal, focusAnuais]) expect(new Set(json.value.map((l) => l.Data)).size).toBeGreaterThan(1);
+  });
+  it('todas as linhas da mesma Data (sinal de corte) → RespostaInvalidaError', () => {
+    expect(() => interpretarFocusSelic(soUmaColeta(focusSelic))).toThrow(RespostaInvalidaError);
+    expect(() => interpretarFocusIpcaMensal(soUmaColeta(focusIpcaMensal))).toThrow(RespostaInvalidaError);
+    expect(() => interpretarFocusAnuais(soUmaColeta(focusAnuais))).toThrow(RespostaInvalidaError);
+  });
+  it('arrays acima do máximo → RespostaInvalidaError (SGS 100, Focus 200, calendário 64)', () => {
+    const sgs = (n: number) => Array.from({ length: n }, () => ({ data: '01/01/2026', valor: '1' }));
+    expect(interpretarSgs(sgs(100))).toHaveLength(100);
+    expect(() => interpretarSgs(sgs(101))).toThrow(RespostaInvalidaError);
+
+    const focus = (n: number) => ({ value: Array.from({ length: n }, (_, i) => ({ ...focusSelic.value[i % focusSelic.value.length] })) });
+    expect(() => interpretarFocusSelic(focus(200))).not.toThrow();
+    expect(() => interpretarFocusSelic(focus(201))).toThrow(RespostaInvalidaError);
+
+    const cal = (n: number) => ({ conteudo: Array.from({ length: n }, () => ({ dataEvento: '2026-01-28T03:00:00' })) });
+    expect(interpretarCalendarioCopom(cal(64))).toHaveLength(64);
+    expect(() => interpretarCalendarioCopom(cal(65))).toThrow(RespostaInvalidaError);
   });
 });
