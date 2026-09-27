@@ -249,6 +249,24 @@ garantia derivado automaticamente.
 pergunta é "qual lidera no seu horizonte?". O duelo rápido passa a usar o cenário ativo
 (ou o manual).
 
+**Comparador de até 5 (M2.1, decidido em 2026-09-27; substitui as duas abas):** estilo
+"comparar celulares". Uma tela só de comparação, com **2 a 5 ofertas lado a lado em
+colunas**:
+- **"+ Adicionar"** abre um seletor com o catálogo ("Minhas ofertas") e a **criação
+  rápida** de uma oferta nova, que entra no catálogo. Cada cartão do catálogo tem
+  "Comparar". Uma coluna sai com ✕. O limite de 5 fica visível ("3 de 5").
+- **Linhas:** as características (produto e taxa, emissor, liquidez, vencimento, prazo
+  mínimo, garantia, IR/isenção) e depois o **valor líquido por horizonte** (6m, 1a, 2a,
+  3a, 5a, sua data), com o líder destacado **por linha** e o estado (indisponível,
+  marcação a mercado, reaplicado) na célula.
+- Abaixo da tabela: linha do tempo de vencimentos, "Por que?" por célula e
+  **equivalências** da oferta que o usuário escolher (o que era o duelo rápido). O
+  palpite continua ("qual lidera em <horizonte>?").
+- A seleção da comparação persiste no navegador. Ofertas removidas do catálogo saem da
+  comparação.
+- No celular, a primeira coluna (rótulos) fica fixa e as ofertas rolam na horizontal
+  dentro do contêiner.
+
 ### 5.3 Posições atuais (M3)
 O que o usuário já tem aplicado. Modelo preparado para a futura carteira completa:
 `id, produto, emissor, conglomerado, indexador, taxa, dataAplicacao, vencimento,
