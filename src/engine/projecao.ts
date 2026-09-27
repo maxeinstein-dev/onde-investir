@@ -131,7 +131,8 @@ export function montarCenario(
   // ano), a âncora anual desse ano criaria um degrau em 1º/jan sem Copom: ela fica de fora.
   const ultimaReuniao = reunioes.at(-1)?.reuniao;
   const anoSemMaisReunioes = ultimaReuniao && !temReuniaoDepois(ultimaReuniao, reunioesOficiais) ? Number(ultimaReuniao.anuncio.slice(0, 4)) : null;
-  const ultimoAno = Math.max(...focus.selicAnual.map((a) => a.ano));
+  // Último ano com expectativa de mercado: o do anual da Selic ou o da última reunião, o que vier depois.
+  const ultimoAno = Math.max(...focus.selicAnual.map((a) => a.ano), ultimaReuniao ? Number(ultimaReuniao.anuncio.slice(0, 4)) : -Infinity);
   const ancorasSelic: Ancora[] = [
     ultima,
     ...[...focus.selicAnual]

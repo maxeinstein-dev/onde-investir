@@ -41,6 +41,15 @@ describe('cenário projetado — Selic', () => {
     const c = montarCenario('BASE', FOCUS, ATUAIS, OFICIAIS, { ...PREMISSAS_PADRAO, anosConvergencia: 0 });
     expect(c.selicMetaAA('2028-01-01')).toBeCloseTo(SELIC_LP, 12);
   });
+  it('reuniões do Focus além do anual, sem convergência: sem serra (premissa só depois do ano da última reunião)', () => {
+    const focus = { ...FOCUS, selicPorReuniao: [...FOCUS.selicPorReuniao, { reuniao: 'R1/2028', est: est(11) }] };
+    const c = montarCenario('BASE', focus, ATUAIS, OFICIAIS, { ...PREMISSAS_PADRAO, anosConvergencia: 0 });
+    expect(c.ultimoAnoFocus).toBe(2028);
+    expect(c.inicioPremissa).toBe('2029-01-01');
+    expect(c.selicMetaAA('2028-01-10')).toBeGreaterThanOrEqual(0.11); // antes: saltava para 8,15% em 1º/jan/2028
+    expect(c.selicMetaAA('2028-12-31')).toBeCloseTo(0.11, 12);
+    expect(c.selicMetaAA('2029-01-01')).toBeCloseTo(SELIC_LP, 12);
+  });
   it('juros sobem/caem: mediana ± k·DP, limitado ao mínimo/máximo', () => {
     const sobem = montarCenario('SOBEM', FOCUS, ATUAIS, OFICIAIS, PREMISSAS_PADRAO);
     const caem = montarCenario('CAEM', FOCUS, ATUAIS, OFICIAIS, PREMISSAS_PADRAO);
