@@ -401,14 +401,18 @@ derivados; dias úteis entre datas conhecidas batem com a calculadora ANBIMA; 20
 feriado a partir de 2024.
 
 **Regras versionadas:** duas versões fictícias de uma regra → aplica a correta pela data;
-data sem versão → erro. Prazo mínimo LCI/LCA: emissão em 22/05/2025 vs 23/05/2025 dá
-resultados diferentes; LCI-IPCA → 36 meses; LCA-IPCA → 12 meses.
+data sem versão → erro. Prazo mínimo LCI/LCA: emissão em 23/05/2025 → 6 meses;
+LCI-IPCA → 36 meses; LCA-IPCA → 12 meses. No M1 só a versão vigente (desde 23/05/2025)
+é cadastrada: emissão em 22/05/2025 → erro explícito. As versões anteriores entram no
+M3, junto com as posições atuais, depois de conferidas no texto das resoluções.
 
 **Tributos:** IR nas fronteiras 180→22,5%, 181→20%, 360→20%, 361→17,5%, 720→17,5%,
 721→15%. IOF: dia 1 = 96%, 15 = 50%, 29 = 3%, 30 = 0%; IR sobre rendimento − IOF.
 
-**Produtos** (valores esperados de simuladores oficiais — Calculadora do Cidadão/BCB,
-simulador do Tesouro Direto — com fonte e data registradas em cada caso):
+**Produtos** (valores esperados gerados por uma implementação de referência independente,
+`tests/referencia/calcular-esperados.mjs`, com cenário constante; a conferência contra
+simuladores oficiais com CDI histórico — Calculadora do Cidadão/BCB — entra no M3, quando
+existir histórico real):
 - 100% CDI com CDI constante por N dias úteis = `(1+CDI)^(N/252)`.
 - CDB 103% e LCI 80% do CDI, R$ 10.000, prazos 6m, 1a, 2a, 3a.
 - Prefixado e IPCA+ com cenário fixo.
@@ -417,8 +421,12 @@ simulador do Tesouro Direto — com fonte e data registradas em cada caso):
   custódia descontada só no resgate.
 - Memória de cálculo: os passos somam exatamente o resultado final.
 
-**Equivalência (determinísticos):** LCI 80% CDI, 2 anos (IR 15%) ≡ CDB `80/0,85 = 94,12%`;
-1 ano (IR 17,5%) ≡ `80/0,825 = 96,97%`.
+**Equivalência:** o app calcula a taxa **exata** (bisseção sobre o valor líquido) e mostra
+também a **regra de bolso** do mercado, explicando a diferença (a regra ignora os juros
+compostos sobre o imposto). Com CDI 13,65%, aplicação em 28/09/2026:
+- LCI 80% CDI, 2 anos (IR 15%): regra de bolso `80/0,85 = 94,12%`; exata **92,57%**.
+- LCI 80% CDI, 1 ano (IR 17,5%): regra de bolso `80/0,825 = 96,97%`; exata **95,98%**.
+- Ida e volta: simular o CDB na taxa exata reproduz o líquido da LCI (erro < R$ 0,000001).
 
 **Cenários e curva:** degrau da Selic na data da reunião do Copom; convergência de
 longo prazo monótona até a premissa; juros sobem/caem = mediana ± desvio-padrão.
