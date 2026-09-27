@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/preact';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/preact';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Termo } from '../../src/ui/Termo';
 import { PalpiteAntesDeVer } from '../../src/ui/PalpiteAntesDeVer';
 
@@ -21,6 +21,105 @@ describe('Termo', () => {
     fireEvent.click(botao);
     expect(painel).toHaveAttribute('hidden');
     expect(screen.queryByRole('note')).toBeNull();
+  });
+
+  describe('toggletip: hover, foco, Esc e fixado', () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    function montar() {
+      render(<div><p>Rende <Termo id="cdi">CDI</Termo></p><p>fora</p></div>);
+      const botao = screen.getByRole('button', { name: 'CDI' });
+      const painel = document.getElementById(botao.getAttribute('aria-controls') ?? '')!;
+      return { botao, painel };
+    }
+    const avancar = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
+    // fireEvent.focusOut do Preact dispara "FocusOut" (o jsdom não tem onfocusout); o evento nativo é "focusout".
+    const focoSai = (de: Element, para: Element) =>
+      act(() => { de.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: para })); });
+
+    it('hover abre', () => {
+      const { botao, painel } = montar();
+      fireEvent.pointerEnter(botao);
+      expect(botao).toHaveAttribute('aria-expanded', 'true');
+      expect(painel).not.toHaveAttribute('hidden');
+    });
+    it('sair com o mouse fecha depois do atraso', () => {
+      const { botao, painel } = montar();
+      fireEvent.pointerEnter(botao);
+      fireEvent.pointerLeave(botao);
+      avancar(100);
+      expect(painel).not.toHaveAttribute('hidden');
+      avancar(100);
+      expect(painel).toHaveAttribute('hidden');
+      expect(botao).toHaveAttribute('aria-expanded', 'false');
+    });
+    it('entrar no painel antes do atraso mantém aberto', () => {
+      const { botao, painel } = montar();
+      fireEvent.pointerEnter(botao);
+      fireEvent.pointerLeave(botao);
+      avancar(100);
+      fireEvent.pointerEnter(painel);
+      avancar(500);
+      expect(painel).not.toHaveAttribute('hidden');
+      fireEvent.pointerLeave(painel);
+      avancar(200);
+      expect(painel).toHaveAttribute('hidden');
+    });
+    it('foco pelo teclado abre, e o foco saindo do conjunto fecha', () => {
+      const { botao, painel } = montar();
+      fireEvent.focus(botao);
+      expect(painel).not.toHaveAttribute('hidden');
+      const fonte = screen.getByRole('link', { name: 'Fonte' });
+      focoSai(botao, fonte);
+      expect(painel).not.toHaveAttribute('hidden');
+      focoSai(fonte, document.body);
+      expect(painel).toHaveAttribute('hidden');
+    });
+    it('Esc fecha', () => {
+      const { botao, painel } = montar();
+      fireEvent.focus(botao);
+      expect(painel).not.toHaveAttribute('hidden');
+      fireEvent.keyDown(botao, { key: 'Escape' });
+      expect(painel).toHaveAttribute('hidden');
+      fireEvent.click(botao);
+      fireEvent.keyDown(botao, { key: 'Escape' });
+      expect(painel).toHaveAttribute('hidden');
+      expect(botao).toHaveAttribute('aria-expanded', 'false');
+    });
+    it('clique fixa: tirar o mouse não fecha, novo clique fecha', () => {
+      const { botao, painel } = montar();
+      fireEvent.pointerEnter(botao);
+      fireEvent.click(botao);
+      fireEvent.pointerLeave(botao);
+      avancar(1000);
+      expect(painel).not.toHaveAttribute('hidden');
+      fireEvent.click(botao);
+      expect(painel).toHaveAttribute('hidden');
+    });
+    it('toque (sem hover) abre e fecha pelo clique', () => {
+      const { botao, painel } = montar();
+      fireEvent.pointerEnter(botao, { pointerType: 'touch' });
+      fireEvent.pointerLeave(botao, { pointerType: 'touch' });
+      fireEvent.click(botao);
+      avancar(1000);
+      expect(painel).not.toHaveAttribute('hidden');
+      fireEvent.click(botao);
+      expect(painel).toHaveAttribute('hidden');
+    });
+    it('clique fora fecha o fixado', () => {
+      const { botao, painel } = montar();
+      fireEvent.click(botao);
+      fireEvent.pointerDown(screen.getByText('fora'));
+      expect(painel).toHaveAttribute('hidden');
+      expect(botao).toHaveAttribute('aria-expanded', 'false');
+    });
+    it('clique dentro do painel não fecha o fixado', () => {
+      const { botao, painel } = montar();
+      fireEvent.click(botao);
+      fireEvent.pointerDown(painel);
+      expect(painel).not.toHaveAttribute('hidden');
+    });
   });
 });
 

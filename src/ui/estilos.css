@@ -357,6 +357,7 @@ button:hover {
 
 /* Termo explicado */
 .termo {
+  position: relative;
   display: inline;
 }
 
@@ -378,20 +379,37 @@ button:hover {
   color: var(--primaria);
 }
 
+/* O painel flutua abaixo do termo, sem empurrar o texto. */
 .termo__painel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10;
   display: block;
-  margin: 0.35rem 0;
+  width: max-content;
+  max-width: min(20rem, calc(100vw - 2rem));
+  margin-top: 0.25rem;
   padding: 0.6rem 0.75rem;
+  text-align: left;
+  white-space: normal;
   font-size: 0.9rem;
   font-weight: 400;
   color: var(--texto);
   background: var(--fundo-suave);
+  border: 1px solid var(--borda);
   border-left: 3px solid var(--primaria);
   border-radius: 4px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
 }
 
 .termo__painel[hidden] {
   display: none;
+}
+
+/* Termo na metade direita da tela: o painel cresce para a esquerda. */
+.termo__painel--direita {
+  right: 0;
+  left: auto;
 }
 
 /* Equivalências */
@@ -778,5 +796,19 @@ button:hover {
 
   .primario {
     justify-self: stretch;
+  }
+
+  /* No celular o painel ocupa a largura da tela menos as margens, logo abaixo da linha do termo:
+     sem ancestral posicionado, left/right contam a partir da tela e o topo fica na posição natural. */
+  .termo {
+    position: static;
+  }
+
+  .termo__painel,
+  .termo__painel--direita {
+    top: auto;
+    right: 1rem;
+    left: 1rem;
+    width: auto;
   }
 }
