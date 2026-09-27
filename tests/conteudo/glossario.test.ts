@@ -8,4 +8,10 @@ describe('glossário', () => {
       expect(t.fonte, id).toMatch(/^https:\/\//);
     }
   });
+  it('marcação a mercado, com fonte do Tesouro Direto', () => {
+    const t = GLOSSARIO['marcacao-mercado'];
+    expect(t.termo).toBe('Marcação a mercado');
+    expect(t.curto).toMatch(/vencimento/);
+    expect(t.fonte).toBe('https://www.tesourodireto.com.br/');
+  });
 });

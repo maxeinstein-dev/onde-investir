@@ -33,4 +33,14 @@ describe('explicarSimulacao', () => {
     const passos = explicarSimulacao(simular({ ...cdb, produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' } }, '2027-03-27', CEN));
     expect(passos.find((p) => p.id === 'rendimentoBruto')?.curto).toMatch(/5 aniversários/);
   });
+  it('Tesouro Prefixado e IPCA+: avisa que o resgate é tratado como vencimento (marcação a mercado)', () => {
+    const aviso = 'Considera o título mantido até o vencimento nessa data. Vender antes sujeita o valor à marcação a mercado.';
+    const pre = simular({ ...cdb, produto: 'TESOURO_PREFIXADO', indexacao: { tipo: 'PRE', taxaAA: 0.13 } }, '2028-09-28', CEN);
+    const ipca = simular({ ...cdb, produto: 'TESOURO_IPCA', indexacao: { tipo: 'IPCA_MAIS', taxaRealAA: 0.07 } }, '2028-09-28', CEN);
+    for (const r of [pre, ipca]) {
+      expect(explicarSimulacao(r).find((p) => p.id === 'rendimentoBruto')?.curto).toContain(aviso);
+    }
+    const cdbPre = simular({ ...cdb, indexacao: { tipo: 'PRE', taxaAA: 0.13 } }, '2028-09-28', CEN);
+    expect(explicarSimulacao(cdbPre).find((p) => p.id === 'rendimentoBruto')?.curto).not.toContain('marcação a mercado');
+  });
 });

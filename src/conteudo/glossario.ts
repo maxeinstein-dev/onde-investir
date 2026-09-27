@@ -2,7 +2,7 @@
 export type IdTermo =
   | 'cdi' | 'selic' | 'ipca' | 'tr' | 'cdb' | 'lci-lca' | 'fgc' | 'tesouro' | 'ir-regressivo' | 'iof'
   | 'prazo-minimo' | 'dias-uteis' | 'liquidez' | 'custodia' | 'poupanca' | 'prefixado' | 'pos-fixado'
-  | 'ipca-mais' | 'equivalencia' | 'valor-liquido';
+  | 'ipca-mais' | 'equivalencia' | 'valor-liquido' | 'marcacao-mercado';
 
 export interface Termo { termo: string; curto: string; fonte: string }
 
@@ -26,5 +26,6 @@ export const GLOSSARIO: Record<IdTermo, Termo> = {
   'pos-fixado': { termo: 'Pós-fixado', curto: 'O rendimento acompanha um indicador, como o CDI ou a Selic. Se os juros sobem, rende mais; se caem, rende menos.', fonte: 'https://www.tesourodireto.com.br/' },
   'ipca-mais': { termo: 'IPCA+', curto: 'Paga a inflação do período mais uma taxa fixa de juro real. Protege o poder de compra.', fonte: 'https://www.tesourodireto.com.br/' },
   equivalencia: { termo: 'Taxa equivalente', curto: 'A taxa que outro investimento precisaria ter para terminar com o mesmo valor líquido. Serve para comparar produtos com impostos diferentes.', fonte: 'https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2004/lei/l11033.htm' },
+  'marcacao-mercado': { termo: 'Marcação a mercado', curto: 'Atualização diária do preço de um título pelas taxas do mercado. Quem vende antes do vencimento recebe esse preço, que pode ser maior ou menor que o previsto; quem leva até o vencimento recebe a taxa combinada.', fonte: 'https://www.tesourodireto.com.br/' },
   'valor-liquido': { termo: 'Valor líquido', curto: 'O que sobra depois de IOF, IR e taxas. É o número que importa para comparar.', fonte: 'https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2004/lei/l11033.htm' },
 };

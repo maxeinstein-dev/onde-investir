@@ -21,10 +21,15 @@ export interface ExplicacaoPasso {
   termo?: IdTermo;
 }
 
+/** No M1 a data de resgate de Tesouro Prefixado/IPCA+ é tratada como o vencimento do título. */
+const AVISO_VENCIMENTO = ' Considera o título mantido até o vencimento nessa data. Vender antes sujeita o valor à marcação a mercado.';
+
 function explicarRendimento(r: ResultadoSimulacao): Pick<ExplicacaoPasso, 'curto' | 'matematica' | 'termo' | 'fonte'> {
   const ix = r.aplicacao.indexacao;
   const fator = r.fator.toFixed(8).replace('.', ',');
   const du = `${r.diasUteis} dias úteis`;
+  const produto = r.aplicacao.produto;
+  const aviso = produto === 'TESOURO_PREFIXADO' || produto === 'TESOURO_IPCA' ? AVISO_VENCIMENTO : '';
   switch (ix.tipo) {
     case 'POS_CDI':
       return {
@@ -34,13 +39,13 @@ function explicarRendimento(r: ResultadoSimulacao): Pick<ExplicacaoPasso, 'curto
       };
     case 'PRE':
       return {
-        curto: `Taxa fixa de ${formatarPercentual(ix.taxaAA)} ao ano, combinada no dia da aplicação.`,
+        curto: `Taxa fixa de ${formatarPercentual(ix.taxaAA)} ao ano, combinada no dia da aplicação.${aviso}`,
         matematica: `fator = (1 + ${formatarPercentual(ix.taxaAA)})^(${r.diasUteis}/252) = ${fator}`,
         termo: 'prefixado',
       };
     case 'IPCA_MAIS':
       return {
-        curto: `A inflação do período (IPCA) mais ${formatarPercentual(ix.taxaRealAA)} ao ano de juro real.`,
+        curto: `A inflação do período (IPCA) mais ${formatarPercentual(ix.taxaRealAA)} ao ano de juro real.${aviso}`,
         matematica: `fator = ∏ (1 + IPCA)^(1/(12 × DU do mês)) × (1 + ${formatarPercentual(ix.taxaRealAA)})^(${r.diasUteis}/252) = ${fator}`,
         termo: 'ipca-mais',
       };
