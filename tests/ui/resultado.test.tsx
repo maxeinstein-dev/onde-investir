@@ -13,7 +13,9 @@ const lci = { produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.8 }
 
 describe('ResultadoDuelo', () => {
   it('mostra acerto/erro do palpite, motivos e o passo a passo', () => {
-    render(<ResultadoDuelo duelo={duelar(10000, INI, '2028-09-28', cdb, lci, CEN)} palpite="B" />);
+    const d = duelar(10000, INI, '2028-09-28', cdb, lci, CEN);
+    const lado = (r: typeof d.a) => ({ oferta: r.aplicacao, projecao: { estado: 'DISPONIVEL' as const, liquido: r.valorLiquido, etapas: [r] } });
+    render(<ResultadoDuelo a={lado(d.a)} b={lado(d.b)} palpite="B" />);
     expect(screen.getByText(/Não foi dessa vez/)).toBeInTheDocument();
     expect(screen.getByText(/CDB 103% do CDI termina com/)).toBeInTheDocument();
     expect(screen.getAllByText('Por que esse resultado?')).toHaveLength(2);

@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import { CampoNumerico } from './CampoNumerico';
 import { INDEXACOES_PERMITIDAS, type Indexacao, type Oferta, type TipoIndexacao, type TipoProduto } from '../engine/produtos';
 
@@ -48,7 +49,16 @@ function comTaxa(ix: Indexacao, percentual: number): Indexacao {
   }
 }
 
-export function FormOferta({ id, titulo, oferta, onChange }: { id: string; titulo: string; oferta: Oferta; onChange: (o: Oferta) => void }) {
+export interface PropsFormOferta {
+  id: string;
+  titulo: string;
+  oferta: Oferta;
+  onChange: (o: Oferta) => void;
+  /** Campos extras dentro do mesmo grupo, depois da taxa. */
+  children?: ComponentChildren;
+}
+
+export function FormOferta({ id, titulo, oferta, onChange, children }: PropsFormOferta) {
   const permitidas = INDEXACOES_PERMITIDAS[oferta.produto];
   const taxa = taxaEmPercentual(oferta.indexacao);
   function trocarProduto(produto: TipoProduto) {
@@ -79,6 +89,7 @@ export function FormOferta({ id, titulo, oferta, onChange }: { id: string; titul
             onChange={(percentual) => onChange({ ...oferta, indexacao: comTaxa(oferta.indexacao, percentual) })} />
         </>
       )}
+      {children}
     </fieldset>
   );
 }

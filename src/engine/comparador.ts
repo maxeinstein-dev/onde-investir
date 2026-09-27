@@ -29,6 +29,11 @@ export function duelar(
 ): Duelo {
   const ra = simular({ ...a, valor, dataAplicacao }, dataResgate, cen);
   const rb = simular({ ...b, valor, dataAplicacao }, dataResgate, cen);
+  return montarDuelo(ra, rb);
+}
+
+/** O duelo entre duas simulações já feitas (mesma base). */
+export function montarDuelo(ra: ResultadoSimulacao, rb: ResultadoSimulacao): Duelo {
   if (!Number.isFinite(ra.valorLiquido) || !Number.isFinite(rb.valorLiquido)) {
     throw new Error('O valor líquido de uma das ofertas não é finito: confira o cenário e as taxas');
   }

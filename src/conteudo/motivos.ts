@@ -1,4 +1,4 @@
-import type { Duelo } from '../engine/comparador';
+import { decidirVencedor, type Duelo } from '../engine/comparador';
 import type { Oferta, TipoProduto } from '../engine/produtos';
 import { formatarMoeda, formatarPercentual } from '../formato';
 
@@ -25,16 +25,22 @@ export function descreverOferta(o: Oferta): string {
   }
 }
 
+/** A primeira frase do duelo: quem termina na frente e por quanto, ou o empate. */
+export function fraseDoPlacar(nomeA: string, liquidoA: number, nomeB: string, liquidoB: number): string {
+  const vencedor = decidirVencedor(liquidoA, liquidoB);
+  if (vencedor === 'EMPATE') return `${nomeA} e ${nomeB} terminam empatados, com ${formatarMoeda(liquidoA)} líquidos.`;
+  const [lv, lp, nv, np] = vencedor === 'A' ? [liquidoA, liquidoB, nomeA, nomeB] : [liquidoB, liquidoA, nomeB, nomeA];
+  const diferenca = lv - lp;
+  return `${nv} termina com ${formatarMoeda(lv)} líquidos: ${formatarMoeda(diferenca)} (${formatarPercentual(diferenca / lp)}) a mais que ${np}.`;
+}
+
 export function explicarVencedor(d: Duelo): string[] {
   const nomeA = descreverOferta(d.a.aplicacao);
   const nomeB = descreverOferta(d.b.aplicacao);
-  if (d.vencedor === 'EMPATE') {
-    return [`${nomeA} e ${nomeB} terminam empatados, com ${formatarMoeda(d.a.valorLiquido)} líquidos.`];
-  }
+  const placar = fraseDoPlacar(nomeA, d.a.valorLiquido, nomeB, d.b.valorLiquido);
+  if (d.vencedor === 'EMPATE') return [placar];
   const [v, p, nv, np] = d.vencedor === 'A' ? [d.a, d.b, nomeA, nomeB] : [d.b, d.a, nomeB, nomeA];
-  const linhas = [
-    `${nv} termina com ${formatarMoeda(v.valorLiquido)} líquidos: ${formatarMoeda(d.diferenca)} (${formatarPercentual(d.diferencaPercentual)}) a mais que ${np}.`,
-  ];
+  const linhas = [placar];
   if (v.isentoIR !== p.isentoIR) {
     const [ri, rt, ni, nt] = v.isentoIR ? [v, p, nv, np] : [p, v, np, nv];
     linhas.push(`${ni} é ${isento(ri.aplicacao.produto)} de IR. ${nt} paga ${formatarPercentual(rt.aliquotaIR)} de IR (${formatarMoeda(rt.ir)}) sobre o rendimento.`);

@@ -15,6 +15,8 @@ beforeEach(() => localStorage.clear());
 const v = CENARIO_INICIAL.valores;
 const CEN = cenarioConstante({ cdiAA: v.cdi / 100, selicMetaAA: v.selicMeta / 100, ipcaAA: v.ipca / 100, trAM: v.tr / 100 });
 const Duelo = () => <DueloRapido cenario={CEN} descricaoCenario="Cenário manual de teste." />;
+/** O cartão do resultado da opção, pelo título "A: ..." ou "B: ...". */
+const cartao = (l: 'A' | 'B') => screen.getByRole('heading', { name: new RegExp(`^${l}: `) }).closest('article')!;
 
 describe('DueloRapido', () => {
   it('esconde o resultado até o palpite e depois explica', () => {
@@ -60,11 +62,120 @@ describe('DueloRapido', () => {
     // 10 mil a 103% de um CDI de 5% por 2 anos fica bem abaixo dos R$ 12.551,90 do cenário padrão.
     expect(screen.getByText(/CDB 103% do CDI termina com R\$\s10\./)).toBeInTheDocument();
   });
-  it('explica o erro de prazo mínimo da LCI', () => {
+  it('explica o prazo mínimo da LCI no cartão dela, e o CDB mostra o valor', () => {
     render(<Duelo />);
     fireEvent.input(screen.getByLabelText('Data do resgate'), { target: { value: somarDias(hoje(), 30) } });
     fireEvent.click(screen.getByRole('button', { name: 'Comparar' }));
-    expect(screen.getByRole('alert')).toHaveTextContent(/prazo mínimo legal/);
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(cartao('B')).toHaveTextContent(/Indisponível até .*prazo mínimo legal/);
+    expect(screen.getByText('Só CDB 103% do CDI pode ser resgatada nessa data.')).toBeInTheDocument();
+  });
+
+  describe('liquidez e vencimento', () => {
+    const opcao = (l: 'A' | 'B') => screen.getByRole('group', { name: `Opção ${l}` });
+    const campo = (l: 'A' | 'B', rotulo: string) => within(opcao(l)).getByLabelText(rotulo);
+    const datas = (aplicacao: string, resgate: string) => {
+      fireEvent.input(screen.getByLabelText('Data da aplicação'), { target: { value: aplicacao } });
+      fireEvent.input(screen.getByLabelText('Data do resgate'), { target: { value: resgate } });
+    };
+    const comparar = () => fireEvent.click(screen.getByRole('button', { name: 'Comparar' }));
+
+    it('cada opção tem liquidez (diária por padrão) e vencimento opcional; a frase fixa fica abaixo do resgate', () => {
+      render(<Duelo />);
+      expect(campo('A', 'Liquidez')).toHaveValue('DIARIA');
+      expect(within(opcao('B')).getByRole('option', { name: 'Só no vencimento' })).toBeInTheDocument();
+      expect(campo('A', 'Vencimento')).toHaveValue('');
+      expect(campo('A', 'Liquidez').id).toMatch(/^duelo-/);
+      expect(campo('A', 'Vencimento').id).toMatch(/^duelo-/);
+      expect(screen.getByText('Com liquidez diária, o resgate pode ser em qualquer data. Sem liquidez, só no vencimento.')).toBeInTheDocument();
+    });
+    it('"só no vencimento" sem vencimento gera alerta', () => {
+      render(<Duelo />);
+      fireEvent.change(campo('B', 'Liquidez'), { target: { value: 'NO_VENCIMENTO' } });
+      comparar();
+      expect(screen.getByRole('alert')).toHaveTextContent('Informe o vencimento da Opção B.');
+    });
+    it('Tesouro: sem campo de liquidez e com vencimento obrigatório', () => {
+      render(<Duelo />);
+      fireEvent.change(campo('A', 'Produto'), { target: { value: 'TESOURO_SELIC' } });
+      expect(within(opcao('A')).queryByLabelText('Liquidez')).toBeNull();
+      comparar();
+      expect(screen.getByRole('alert')).toHaveTextContent('Informe o vencimento da Opção A.');
+    });
+    it('Poupança: sem vencimento e sem liquidez', () => {
+      render(<Duelo />);
+      fireEvent.change(campo('B', 'Produto'), { target: { value: 'POUPANCA' } });
+      expect(within(opcao('B')).queryByLabelText('Liquidez')).toBeNull();
+      expect(within(opcao('B')).queryByLabelText('Vencimento')).toBeNull();
+    });
+
+    it('LCI só no vencimento, vencendo depois do resgate: indisponível, e o CDB mostra o valor', () => {
+      render(<Duelo />);
+      datas('2026-10-01', '2028-10-02');
+      fireEvent.change(campo('B', 'Liquidez'), { target: { value: 'NO_VENCIMENTO' } });
+      fireEvent.input(campo('B', 'Vencimento'), { target: { value: '2029-10-01' } });
+      comparar();
+      // Só uma disponível: sem palpite e sem vencedor.
+      expect(screen.queryByRole('heading', { name: /qual você acha que rende mais/i })).toBeNull();
+      expect(screen.getByRole('heading', { name: 'Resultado' })).toBeInTheDocument();
+      expect(screen.getByText('Só CDB 103% do CDI pode ser resgatada nessa data.')).toBeInTheDocument();
+      expect(cartao('B')).toHaveTextContent('Indisponível até 01/10/2029: só pode ser resgatado no vencimento.');
+      expect(cartao('B').querySelector('.cartao__liquido')).toBeNull();
+      expect(cartao('A').querySelector('.cartao__liquido')).toHaveTextContent(/R\$\s?12\./);
+      expect(screen.queryByText('maior valor líquido')).toBeNull();
+      expect(screen.getByRole('heading', { name: /Equivalências de CDB 103% do CDI/ })).toBeInTheDocument();
+    });
+    it('CDB diário vencendo antes do resgate: reaplicado, com a frase e os passos das duas etapas', () => {
+      render(<Duelo />);
+      datas('2026-10-01', '2028-10-02');
+      fireEvent.input(campo('A', 'Vencimento'), { target: { value: '2027-10-01' } });
+      comparar();
+      fireEvent.click(screen.getByRole('button', { name: 'A: CDB 103% do CDI' }));
+      const a = cartao('A');
+      expect(a).toHaveTextContent('Venceu em 01/10/2027 e foi reaplicado em CDB 103% do CDI.');
+      const porque = within(a).getByText('Por que esse resultado?').closest('details')!;
+      expect(within(porque).getAllByText('Valor aplicado')).toHaveLength(2);
+      expect(porque).toHaveTextContent('Venceu em 01/10/2027 e foi reaplicado em CDB 103% do CDI.');
+      expect(screen.getByText(/aplicado direto até o resgate, sem a reaplicação/)).toBeInTheDocument();
+    });
+    it('Tesouro Prefixado antes do vencimento: marcação a mercado, e as equivalências explicam o motivo', () => {
+      render(<Duelo />);
+      datas('2026-10-01', '2028-10-02');
+      fireEvent.change(campo('A', 'Produto'), { target: { value: 'TESOURO_PREFIXADO' } });
+      fireEvent.input(campo('A', 'Vencimento'), { target: { value: '2030-01-01' } });
+      comparar();
+      const texto = 'Vence em 01/01/2030. Se vender antes, recebe o preço de mercado do dia, que pode ficar acima ou abaixo do previsto.';
+      expect(cartao('A')).toHaveTextContent(texto);
+      expect(screen.getByText('Só LCI 80% do CDI pode ser resgatada nessa data.')).toBeInTheDocument();
+      const eq = screen.getByRole('heading', { name: /Equivalências de Tesouro Prefixado/ }).closest('section')!;
+      expect(eq).toHaveTextContent(/Não dá para calcular as equivalências nessa data/);
+      expect(eq).toHaveTextContent(texto);
+      expect(within(eq).queryByText(/você precisaria de/)).toBeNull();
+    });
+    it('nenhuma disponível: explica as duas', () => {
+      render(<Duelo />);
+      datas('2026-10-01', '2028-10-02');
+      fireEvent.change(campo('A', 'Produto'), { target: { value: 'TESOURO_PREFIXADO' } });
+      fireEvent.input(campo('A', 'Vencimento'), { target: { value: '2030-01-01' } });
+      fireEvent.change(campo('B', 'Liquidez'), { target: { value: 'NO_VENCIMENTO' } });
+      fireEvent.input(campo('B', 'Vencimento'), { target: { value: '2029-10-01' } });
+      comparar();
+      expect(screen.getByText('Nenhuma das duas pode ser resgatada nessa data.')).toBeInTheDocument();
+      expect(cartao('A')).toHaveTextContent(/preço de mercado/);
+      expect(cartao('B')).toHaveTextContent(/só pode ser resgatado no vencimento/);
+    });
+    it('as duas diárias: palpite, vencedor e equivalência, como antes', () => {
+      render(<Duelo />);
+      datas('2026-10-01', '2028-10-02');
+      comparar();
+      expect(screen.getByRole('heading', { name: /qual você acha que rende mais/i })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'A: CDB 103% do CDI' }));
+      expect(screen.getByText('Você acertou.')).toBeInTheDocument();
+      expect(within(cartao('A')).getByText('maior valor líquido')).toBeInTheDocument();
+      expect(screen.getByText(/CDB 103% do CDI termina com .* a mais que LCI 80% do CDI/)).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /Equivalências de CDB 103% do CDI/ })).toBeInTheDocument();
+      expect(screen.getByText(/você precisaria de/)).toBeInTheDocument();
+    });
   });
 
   describe('validação antes de comparar', () => {
