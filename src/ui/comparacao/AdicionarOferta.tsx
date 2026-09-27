@@ -34,6 +34,7 @@ export function AdicionarOferta({ catalogo, selecao, onAdicionar, onCriar, gerar
   /** Id do elemento que recebe o foco depois da próxima renderização (a coluna nova já está na tabela). */
   const [foco, setFoco] = useState<string | null>(null);
   const botao = useRef<HTMLButtonElement>(null);
+  const painel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (foco === null) return;
@@ -45,8 +46,12 @@ export function AdicionarOferta({ catalogo, selecao, onAdicionar, onCriar, gerar
   const disponiveis = catalogo.filter((o) => !selecao.includes(o.id));
   const catalogoCheio = catalogo.length >= LIMITE_OFERTAS;
   const conglomerados = [...new Set(catalogo.map((o) => o.conglomerado))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  // Aberto com a comparação cheia não acontece pelo botão; se a seleção encher por fora, o painel some.
+  // Aberto com a comparação cheia não acontece pelo botão; se a seleção encher por fora, o painel some e fica
+  // fechado: sem isso, ele reabriria sozinho quando uma coluna saísse.
   const visivel = aberto && !cheia;
+  useEffect(() => {
+    if (cheia) setAberto(false);
+  }, [cheia]);
 
   function entrou() {
     setAberto(false);
@@ -63,22 +68,25 @@ export function AdicionarOferta({ catalogo, selecao, onAdicionar, onCriar, gerar
     entrou();
   }
 
+  /** Esc no painel ou no botão fecha o painel; com uma dica (Termo) aberta no painel, o Esc é dela. */
   function aoTeclar(e: KeyboardEvent) {
-    if (e.key !== 'Escape') return;
+    if (e.key !== 'Escape' || !visivel) return;
+    // A dica escuta o Esc no document: deixa o evento subir e não fecha o painel.
+    if (painel.current?.querySelector('.termo__painel:not([hidden])')) return;
     e.stopPropagation();
     setAberto(false);
     botao.current?.focus();
   }
 
   return (
-    <div class="adicionar">
+    <div class="adicionar" onKeyDown={aoTeclar}>
       <button type="button" id={ID_BOTAO_ADICIONAR} ref={botao} class={destaque ? 'primario' : undefined}
         aria-expanded={visivel} aria-controls={ID_PAINEL} disabled={cheia} aria-describedby={cheia ? ID_LIMITE : undefined}
         onClick={() => setAberto(!aberto)}>
         + Adicionar oferta ({selecao.length} de {LIMITE_COMPARACAO})
       </button>
       {cheia && <p id={ID_LIMITE} class="dica">Limite de {LIMITE_COMPARACAO} ofertas</p>}
-      <div id={ID_PAINEL} class="adicionar__painel" hidden={!visivel} onKeyDown={aoTeclar}>
+      <div id={ID_PAINEL} ref={painel} class="adicionar__painel" hidden={!visivel}>
         <section class="adicionar__catalogo" aria-labelledby={`${PREFIXO}-catalogo-titulo`}>
           <h3 id={`${PREFIXO}-catalogo-titulo`}>Do catálogo</h3>
           {catalogo.length === 0 ? (

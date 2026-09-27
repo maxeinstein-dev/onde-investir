@@ -45,6 +45,8 @@ type Fase =
 const EDITANDO: Fase = { tipo: 'editando' };
 const PREFIXO = 'comparador';
 const VAZIO = 'Adicione pelo menos duas ofertas para comparar (até 5).';
+/** Tempo com o anúncio vazio antes de reescrever a mesma mensagem, para o leitor de tela anunciar de novo. */
+const ESPERA_REPETIR_MS = 100;
 
 const REGRAS: { valor: TipoRegra; rotulo: string }[] = [
   { valor: 'PADRAO', rotulo: 'Padrão' },
@@ -149,6 +151,8 @@ export function Comparador({
   const [liderData, setLiderData] = useState<DataISO | null>(null);
   /** Anúncio para leitor de tela (contêiner vivo permanente). */
   const [anuncio, setAnuncio] = useState('');
+  const anuncioAtual = useRef('');
+  const repetir = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   /** Id do elemento que recebe o foco depois da próxima renderização. */
   const [foco, setFoco] = useState<string | null>(null);
   const tituloPalpite = useRef<HTMLHeadingElement>(null);
@@ -178,6 +182,24 @@ export function Comparador({
     if (fase.tipo === 'palpite') tituloPalpite.current?.focus();
     else if (fase.tipo === 'resultado') tituloResultado.current?.focus();
   }, [faseSalva]);
+
+  useEffect(() => () => clearTimeout(repetir.current), []);
+
+  function escreverAnuncio(texto: string) {
+    anuncioAtual.current = texto;
+    setAnuncio(texto);
+  }
+
+  function anunciar(texto: string) {
+    clearTimeout(repetir.current);
+    if (texto !== anuncioAtual.current) {
+      escreverAnuncio(texto);
+      return;
+    }
+    // A mesma mensagem de novo: limpa e reescreve, senão o contêiner vivo não muda e nada é anunciado.
+    escreverAnuncio('');
+    repetir.current = setTimeout(() => escreverAnuncio(texto), ESPERA_REPETIR_MS);
+  }
 
   useEffect(() => {
     if (foco === null) return;
@@ -223,8 +245,9 @@ export function Comparador({
     const saiu = ofertas[indice];
     const restantes = ofertas.filter((o) => o.id !== id);
     onMudarSelecao(remover(selecao, id));
-    if (saiu) setAnuncio(`${nomeOferta(saiu)} saiu da comparação.`);
-    // Com o resultado aberto e ainda duas ou mais, recalcula na hora, sem repetir o palpite.
+    if (saiu) anunciar(`${nomeOferta(saiu)} saiu da comparação.`);
+    // Com o resultado aberto e ainda duas ou mais, recalcula na hora, sem repetir o palpite. Nos outros casos a
+    // fase volta a EDITANDO: se a mesma oferta voltasse, o resultado antigo reapareceria sem recalcular.
     if (fase.tipo === 'resultado' && restantes.length >= 2) {
       try {
         focarFase.current = false;
@@ -232,6 +255,8 @@ export function Comparador({
       } catch {
         setFase(EDITANDO);
       }
+    } else {
+      setFase(EDITANDO);
     }
     // O botão ✕ some com a coluna: o foco vai para a coluna que ocupa o lugar dela (ou a anterior), ou para o "+ Adicionar".
     setFoco(restantes.length === 0 ? ID_BOTAO_ADICIONAR : idColuna(Math.min(Math.max(indice, 0), restantes.length - 1)));
@@ -300,7 +325,9 @@ export function Comparador({
       <p role="status" class="visualmente-oculto">{anuncio}</p>
 
       <AdicionarOferta catalogo={catalogo} selecao={selecao} gerarId={gerarId} destaque={poucas}
-        onAdicionar={(id) => onMudarSelecao(adicionar(selecao, id).ids)} onCriar={onCriarOferta} />
+        // Uma oferta que entra (do catálogo ou criada) invalida o resultado até comparar de novo.
+        onAdicionar={(id) => { onMudarSelecao(adicionar(selecao, id).ids); setFase(EDITANDO); }}
+        onCriar={(o) => { onCriarOferta(o); setFase(EDITANDO); }} />
       {poucas && <p id={`${PREFIXO}-vazio`} class="dica comparacao__vazio">{VAZIO}</p>}
 
       {fase.tipo === 'palpite' && (

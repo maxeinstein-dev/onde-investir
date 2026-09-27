@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
 import { render as renderizarDireto } from 'preact';
 import { useState } from 'preact/hooks';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { adicionar } from '../../src/armazenamento/comparacao';
 import { concluirLinhaDoTempo } from '../../src/conteudo/comparacao';
 import { ehDiaUtil } from '../../src/engine/calendario';
@@ -330,7 +330,7 @@ describe('Comparador', () => {
       montar({ selecao: ['x', 'y', 'z'] });
       comparar();
       fireEvent.click(screen.getByRole('button', { name: 'A: CDB 103% do CDI (Banco X)' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Tirar CDB 110% do CDI (Banco Z) da comparação' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Tirar da comparação: CDB 110% do CDI (Banco Z)' }));
       expect(tituloResultado()).toBeInTheDocument();
       expect(screen.queryByRole('heading', { name: /Qual lidera/ })).toBeNull();
       expect(colunas()).toHaveLength(2);
@@ -343,15 +343,47 @@ describe('Comparador', () => {
     it('ficando uma só, o resultado some e volta o estado vazio', () => {
       montar({ selecao: ['x', 'y'] });
       compararDireto();
-      fireEvent.click(screen.getByRole('button', { name: 'Tirar CDB 103% do CDI (Banco X) da comparação' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Tirar da comparação: CDB 103% do CDI (Banco X)' }));
       expect(tituloResultado()).toBeNull();
       expect(screen.getByText('Adicione pelo menos duas ofertas para comparar (até 5).')).toBeInTheDocument();
       expect(document.getElementById(idColuna(0))).toHaveFocus();
     });
 
+    it('o anúncio de saída se repete: a mesma mensagem é limpa e reescrita', () => {
+      vi.useFakeTimers();
+      onTestFinished(() => { vi.useRealTimers(); });
+      render(<Tela selecao={['x', 'y']} />);
+      const status = screen.getByRole('status');
+      const tirarX = () => fireEvent.click(screen.getByRole('button', { name: 'Tirar da comparação: CDB 103% do CDI (Banco X)' }));
+      tirarX();
+      expect(status).toHaveTextContent('CDB 103% do CDI (Banco X) saiu da comparação.');
+      fireEvent.click(screen.getByRole('button', { name: /^\+ Adicionar oferta/ }));
+      fireEvent.click(screen.getByRole('button', { name: 'Adicionar CDB 103% do CDI (Banco X)' }));
+      tirarX();
+      expect(status).toHaveTextContent('');
+      act(() => { vi.advanceTimersByTime(200); });
+      expect(screen.getByRole('status')).toBe(status);
+      expect(status).toHaveTextContent('CDB 103% do CDI (Banco X) saiu da comparação.');
+    });
+
+    it('[A, B] com resultado, tira B e adiciona B de novo: sem resultado até clicar "Comparar"', () => {
+      montar({ selecao: ['x', 'y'] });
+      compararDireto();
+      expect(tituloResultado()).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Tirar da comparação: LCI 80% do CDI (Banco Y)' }));
+      expect(tituloResultado()).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: /^\+ Adicionar oferta/ }));
+      fireEvent.click(screen.getByRole('button', { name: 'Adicionar LCI 80% do CDI (Banco Y)' }));
+      expect(colunas()).toHaveLength(2);
+      expect(tituloResultado()).toBeNull();
+      expect(valores()).toBeNull();
+      comparar();
+      expect(tituloResultado()).toBeInTheDocument();
+    });
+
     it('tirar a última deixa o foco no "+ Adicionar"', () => {
       render(<Tela selecao={['x']} />);
-      fireEvent.click(screen.getByRole('button', { name: 'Tirar CDB 103% do CDI (Banco X) da comparação' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Tirar da comparação: CDB 103% do CDI (Banco X)' }));
       expect(screen.queryByRole('table')).toBeNull();
       expect(screen.getByRole('button', { name: /^\+ Adicionar oferta/ })).toHaveFocus();
     });

@@ -140,6 +140,44 @@ describe('AdicionarOferta', () => {
     expect(botao()).toHaveFocus();
   });
 
+  it('a seleção enche por fora com o painel aberto: ao tirar uma coluna, o painel continua fechado', () => {
+    const props = { catalogo: CINCO, onAdicionar: () => {}, onCriar: () => {} };
+    const quatro = CINCO.slice(0, 4).map((o) => o.id);
+    const { rerender } = render(<AdicionarOferta {...props} selecao={quatro} />);
+    fireEvent.click(botao());
+    expect(painel()).toBeVisible();
+    rerender(<AdicionarOferta {...props} selecao={CINCO.map((o) => o.id)} />);
+    expect(painel()).not.toBeVisible();
+    rerender(<AdicionarOferta {...props} selecao={quatro} />);
+    expect(painel()).not.toBeVisible();
+    expect(botao()).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('Esc com uma dica (Termo) aberta dentro do painel fecha só a dica; o próximo Esc fecha o painel', () => {
+    render(<Tela />);
+    fireEvent.click(botao());
+    const termo = within(painel()).getByRole('button', { name: 'O que é liquidez?' });
+    fireEvent.click(termo);
+    const dica = document.getElementById(termo.getAttribute('aria-controls') ?? '') as HTMLElement;
+    expect(dica).toBeVisible();
+    fireEvent.keyDown(termo, { key: 'Escape' });
+    expect(dica).not.toBeVisible();
+    expect(painel()).toBeVisible();
+    fireEvent.keyDown(termo, { key: 'Escape' });
+    expect(painel()).not.toBeVisible();
+    expect(botao()).toHaveFocus();
+  });
+
+  it('Esc com o foco no "+ Adicionar" e o painel aberto fecha o painel', () => {
+    render(<Tela />);
+    fireEvent.click(botao());
+    botao().focus();
+    fireEvent.keyDown(botao(), { key: 'Escape' });
+    expect(painel()).not.toBeVisible();
+    expect(botao()).toHaveAttribute('aria-expanded', 'false');
+    expect(botao()).toHaveFocus();
+  });
+
   it('em destaque, o botão usa o estilo principal', () => {
     render(<AdicionarOferta catalogo={[]} selecao={[]} destaque onAdicionar={() => {}} onCriar={() => {}} />);
     expect(botao()).toHaveClass('primario');

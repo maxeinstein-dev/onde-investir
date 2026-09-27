@@ -49,8 +49,14 @@ describe('TabelaComparacao', () => {
     expect(cabecalhos[0]).toHaveTextContent('A');
     expect(cabecalhos[0]).toHaveTextContent('CDB 103% do CDI (Banco X)');
     expect(cabecalhos[2]).toHaveTextContent(/^C/);
-    expect(within(cabecalhos[1] as HTMLElement).getByRole('button', { name: 'Tirar LCI 80% do CDI (Banco Y) da comparação' }))
-      .toHaveTextContent('✕ Tirar da comparação');
+    // O botão fica numa linha de ações própria, fora do cabeçalho: o nome da coluna é só a letra e o nome da oferta.
+    expect(within(cabecalhos[1] as HTMLElement).queryByRole('button')).toBeNull();
+    // Sem CSS no jsdom, os spans (display: block no navegador) não ganham espaço entre si.
+    expect(cabecalhos[1]).toHaveAccessibleName(/^B\s?LCI 80% do CDI \(Banco Y\)$/);
+    const tirar = screen.getByRole('button', { name: 'Tirar da comparação: LCI 80% do CDI (Banco Y)' });
+    expect(tirar).toHaveTextContent('✕ Tirar da comparação');
+    expect(tirar.closest('th')).toBeNull();
+    expect(tirar.closest('thead')).not.toBeNull();
     // O cabeçalho recebe o foco quando a coluna entra.
     expect(cabecalhos[1]).toHaveAttribute('id', idColuna(1));
     expect(cabecalhos[1]).toHaveAttribute('tabindex', '-1');
@@ -63,7 +69,7 @@ describe('TabelaComparacao', () => {
 
   it('✕ chama onRemover com o id da oferta', () => {
     const onRemover = montar();
-    fireEvent.click(screen.getByRole('button', { name: 'Tirar LCI 80% do CDI (Banco Y) da comparação' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tirar da comparação: LCI 80% do CDI (Banco Y)' }));
     expect(onRemover).toHaveBeenCalledWith('lci');
   });
 

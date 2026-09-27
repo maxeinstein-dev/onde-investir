@@ -220,6 +220,8 @@ button:hover {
 
 .palpite__opcoes button {
   flex: 1 1 200px;
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: 0.75rem 1rem;
   font-weight: 600;
 }
@@ -230,6 +232,7 @@ button:hover {
 }
 
 .feedback {
+  overflow-wrap: anywhere;
   padding: 0.6rem 1rem;
   font-weight: 600;
   background: var(--fundo-suave);
@@ -375,6 +378,10 @@ button:hover {
   padding: 1rem;
   border: 1px solid var(--borda);
   border-radius: var(--raio);
+}
+
+.equivalencias h2 {
+  overflow-wrap: anywhere;
 }
 
 .equivalencias ul {
@@ -717,9 +724,14 @@ button:hover {
   overflow-wrap: anywhere;
 }
 
+/* A linha dos botões "Tirar" fica colada à dos nomes. */
+.tabela-comparacao__acoes td {
+  padding-top: 0;
+  border-top: 0;
+}
+
 .tabela-comparacao__tirar {
   min-height: 2.25rem;
-  margin-top: 0.35rem;
   padding: 0.2rem 0.6rem;
   font-size: 0.85rem;
   font-weight: 400;
@@ -812,17 +824,21 @@ button:hover {
   margin-bottom: 0;
 }
 
-/* "Por que … lidera em …?", abaixo da tabela. */
+/* "Por que … lidera em …?", abaixo da tabela. Os nomes das ofertas levam o emissor, que pode não ter espaço. */
 .lideranca {
   margin: 1.5rem 0;
+  overflow-wrap: anywhere;
 }
 
 .lideranca h3 {
   margin: 0 0 0.5rem;
+}
+
+/* Linha do tempo: marcos, rankings e conclusão citam as ofertas pelo nome, com o emissor. */
+.linha-do-tempo {
   overflow-wrap: anywhere;
 }
 
-/* Linha do tempo */
 .linha-do-tempo__marcos {
   margin: 0;
   padding-left: 1.25rem;
@@ -848,6 +864,7 @@ button:hover {
 
 .marco__lider {
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .linha-do-tempo__conclusao {

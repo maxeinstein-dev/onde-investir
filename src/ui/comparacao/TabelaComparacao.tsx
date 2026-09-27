@@ -115,11 +115,19 @@ export function TabelaComparacao({ ofertas, colunas, dataAplicacao, onRemover }:
               <th key={o.id} scope="col" id={idColuna(i)} tabIndex={-1} class="tabela-comparacao__oferta">
                 <span class="tabela-comparacao__letra">{letraDaOferta(i)}</span>
                 <span class="tabela-comparacao__nome">{nomeOferta(o)}</span>
-                <button type="button" class="tabela-comparacao__tirar" aria-label={`Tirar ${nomeOferta(o)} da comparação`}
+              </th>
+            ))}
+          </tr>
+          {/* Os botões ficam numa linha própria, fora do th: o nome da coluna é só a letra e o nome da oferta. */}
+          <tr class="tabela-comparacao__acoes">
+            <td />
+            {ofertas.map((o) => (
+              <td key={o.id}>
+                <button type="button" class="tabela-comparacao__tirar" aria-label={`Tirar da comparação: ${nomeOferta(o)}`}
                   onClick={() => onRemover(o.id)}>
                   ✕ Tirar da comparação
                 </button>
-              </th>
+              </td>
             ))}
           </tr>
         </thead>
