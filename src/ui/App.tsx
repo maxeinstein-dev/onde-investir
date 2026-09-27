@@ -1,122 +1,45 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import { armazenamentoLocal } from '../armazenamento/navegador';
-import { lerPalpitesLigados, salvarPalpitesLigados } from '../armazenamento/preferencias';
-import { descreverOferta } from '../conteudo/motivos';
-import { ehDiaUtil } from '../engine/calendario';
-import { duelar, type Duelo } from '../engine/comparador';
-import { somarMeses, type DataISO } from '../engine/datas';
-import { calcularEquivalencias, type ResultadoEquivalencia } from '../engine/equivalencia';
-import { cenarioConstante } from '../engine/indexadores';
-import type { Oferta } from '../engine/produtos';
-import { CampoNumerico } from './CampoNumerico';
-import { CENARIO_INICIAL, type ValoresCenario } from '../dados/cenarioInicial';
-import { Equivalencias } from './Equivalencias';
-import { FormOferta, taxaPreenchida } from './FormOferta';
-import { hoje } from './hoje';
-import { PalpiteAntesDeVer } from './PalpiteAntesDeVer';
-import { ResultadoDuelo } from './ResultadoDuelo';
-import { Termo } from './Termo';
+import { lerPreferencias, salvarPreferencias, type PreferenciasCenario } from '../armazenamento/preferencias';
+import { explicarCenario } from '../conteudo/comparacao';
+import { cenarioAtivo, type CenarioAtivo } from '../dados/cenarios';
+import type { IndicadoresCarregados } from '../dados/indicadores';
+import { Abas } from './Abas';
+import { DueloRapido } from './DueloRapido';
+import { PainelIndicadores } from './PainelIndicadores';
+import { SEM_INDICADORES, useIndicadores } from './useIndicadores';
 
-type Calculo = { duelo: Duelo; equivalencia: ResultadoEquivalencia };
-type Fase =
-  | { tipo: 'editando' }
-  | ({ tipo: 'palpite' } & Calculo)
-  | ({ tipo: 'resultado'; palpite: 'A' | 'B' | null } & Calculo);
+const CARREGANDO = 'Enquanto os indicadores carregam, vale o cenário manual.';
 
-const PRAZOS = [
-  { rotulo: '6 meses', meses: 6 }, { rotulo: '1 ano', meses: 12 }, { rotulo: '2 anos', meses: 24 },
-  { rotulo: '3 anos', meses: 36 }, { rotulo: '5 anos', meses: 60 },
-];
-
-const CAMPOS_CENARIO: { chave: keyof ValoresCenario; rotulo: string; artigo: 'o' | 'a'; termo: 'cdi' | 'selic' | 'ipca' | 'tr'; sufixo: string }[] = [
-  { chave: 'cdi', rotulo: 'CDI', artigo: 'o', termo: 'cdi', sufixo: '% a.a.' },
-  { chave: 'selicMeta', rotulo: 'Selic meta', artigo: 'a', termo: 'selic', sufixo: '% a.a.' },
-  { chave: 'ipca', rotulo: 'IPCA', artigo: 'o', termo: 'ipca', sufixo: '% a.a.' },
-  { chave: 'tr', rotulo: 'TR', artigo: 'a', termo: 'tr', sufixo: '% a.m.' },
-];
-
-interface Entrada {
-  cenario: ValoresCenario; valor: number; dataAplicacao: DataISO; dataResgate: DataISO; a: Oferta; b: Oferta;
+/** O cenário em uso: enquanto carrega, o manual; depois, o escolhido (ou o manual, se faltar dado). */
+function calcularAtivo(ind: IndicadoresCarregados | null, p: PreferenciasCenario): CenarioAtivo {
+  return ind === null
+    ? cenarioAtivo('MANUAL', SEM_INDICADORES, p.premissas, p.manual)
+    : cenarioAtivo(p.escolha, ind, p.premissas, p.manual);
 }
 
-/** Mensagem humana para o primeiro campo vazio ou inválido; null se dá para comparar. */
-function validarEntrada({ cenario, valor, dataAplicacao, dataResgate, a, b }: Entrada): string | null {
-  for (const c of CAMPOS_CENARIO) {
-    if (!Number.isFinite(cenario[c.chave])) return `Preencha ${c.artigo} ${c.rotulo} do cenário.`;
-  }
-  if (!Number.isFinite(valor)) return 'Preencha o valor da aplicação.';
-  if (dataAplicacao.trim() === '') return 'Informe a data da aplicação.';
-  if (dataResgate.trim() === '') return 'Informe a data do resgate.';
-  if (!taxaPreenchida(a.indexacao)) return 'Preencha a taxa da Opção A.';
-  if (!taxaPreenchida(b.indexacao)) return 'Preencha a taxa da Opção B.';
-  return null;
+export interface PropsApp {
+  /** Para testes e para trocar a fonte; por padrão, `fetch` + localStorage + `Date.now()`. */
+  carregar?: () => Promise<IndicadoresCarregados>;
 }
 
-/** Data preenchida e válida que não é dia útil. Data vazia ou inválida não gera aviso. */
-function naoEhDiaUtil(data: DataISO): boolean {
-  try {
-    return !ehDiaUtil(data);
-  } catch {
-    return false;
-  }
-}
+export function App({ carregar }: PropsApp = {}) {
+  const armazenamento = useMemo(armazenamentoLocal, []);
+  const indicadores = useIndicadores(carregar);
+  const [preferencias, setPreferencias] = useState(() => lerPreferencias(armazenamento));
 
-function AvisoDiaUtil({ id, data, oQue }: { id: string; data: DataISO; oQue: 'a aplicação' | 'o resgate' }) {
-  return naoEhDiaUtil(data)
-    ? <p id={id} class="dica">Não é dia útil: na prática {oQue} acontece no próximo dia útil.</p>
-    : null;
-}
+  // Memorizado: o objeto do cenário só muda quando muda a entrada, e trocar o cenário invalida resultados.
+  const ativo = useMemo(() => calcularAtivo(indicadores, preferencias), [indicadores, preferencias]);
+  const explicacao = useMemo(() => explicarCenario(ativo.projetado, ativo.motivoManual, {
+    dataColetaFocus: indicadores?.focus?.dataColeta,
+    focusDefasado: indicadores?.focusDefasado,
+    k: preferencias.premissas.k,
+  }), [ativo, indicadores, preferencias.premissas.k]);
+  const descricaoCenario = indicadores === null ? CARREGANDO : explicacao.join(' ');
 
-export function App() {
-  const [cenario, setCenario] = useState<ValoresCenario>(CENARIO_INICIAL.valores);
-  const [valor, setValor] = useState(10000);
-  const [dataAplicacao, setDataAplicacao] = useState<DataISO>(hoje());
-  const [dataResgate, setDataResgate] = useState<DataISO>(somarMeses(hoje(), 24));
-  const [a, setA] = useState<Oferta>({ produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 } });
-  const [b, setB] = useState<Oferta>({ produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.8 } });
-  const [fase, setFase] = useState<Fase>({ tipo: 'editando' });
-  const [erro, setErro] = useState<string | null>(null);
-  const [palpitesLigados, setPalpitesLigados] = useState(() => lerPalpitesLigados(armazenamentoLocal()));
-  const tituloPalpite = useRef<HTMLHeadingElement>(null);
-  const tituloResultado = useRef<HTMLHeadingElement>(null);
-
-  // Leva o foco para o título de cada fase nova (palpite ou resultado).
-  useEffect(() => {
-    if (fase.tipo === 'palpite') tituloPalpite.current?.focus();
-    else if (fase.tipo === 'resultado') tituloResultado.current?.focus();
-  }, [fase]);
-
-  /** Qualquer edição invalida o resultado anterior. */
-  function editar<T>(set: (v: T) => void) {
-    return (v: T) => { set(v); setFase({ tipo: 'editando' }); setErro(null); };
-  }
-
-  function comparar(e: Event) {
-    e.preventDefault();
-    const invalido = validarEntrada({ cenario, valor, dataAplicacao, dataResgate, a, b });
-    if (invalido !== null) {
-      setErro(invalido);
-      setFase({ tipo: 'editando' });
-      return;
-    }
-    try {
-      const cen = cenarioConstante({
-        cdiAA: cenario.cdi / 100, selicMetaAA: cenario.selicMeta / 100, ipcaAA: cenario.ipca / 100, trAM: cenario.tr / 100,
-      });
-      const duelo = duelar(valor, dataAplicacao, dataResgate, a, b, cen);
-      const equivalencia = calcularEquivalencias({ ...a, valor, dataAplicacao }, dataResgate, cen);
-      setErro(null);
-      setFase(palpitesLigados ? { tipo: 'palpite', duelo, equivalencia } : { tipo: 'resultado', palpite: null, duelo, equivalencia });
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : String(err));
-      setFase({ tipo: 'editando' });
-    }
-  }
-
-  function pularPalpites() {
-    salvarPalpitesLigados(armazenamentoLocal(), false);
-    setPalpitesLigados(false);
-    if (fase.tipo === 'palpite') setFase({ ...fase, tipo: 'resultado', palpite: null });
+  function mudarPreferencias(p: PreferenciasCenario) {
+    setPreferencias(p);
+    salvarPreferencias(armazenamento, p);
   }
 
   return (
@@ -127,72 +50,14 @@ export function App() {
         <p class="aviso">Conteúdo educativo: não é recomendação de investimento.</p>
       </header>
 
-      <form onSubmit={comparar} class="formulario" noValidate>
-        <fieldset class="cenario">
-          <legend>Cenário (valores de {CENARIO_INICIAL.dataReferencia}, Banco Central; edite à vontade)</legend>
-          {CAMPOS_CENARIO.map((c) => (
-            <div class="campo">
-              <label for={`cen-${c.chave}`}>{c.rotulo} ({c.sufixo})</label>
-              <Termo id={c.termo}>O que é {c.rotulo}?</Termo>
-              <CampoNumerico id={`cen-${c.chave}`} step="0.01" valor={cenario[c.chave]}
-                onChange={(v) => editar(setCenario)({ ...cenario, [c.chave]: v })} />
-            </div>
-          ))}
-          <p class="dica">Por enquanto o cenário fica constante até o resgate. As projeções do mercado (Boletim Focus) entram na próxima versão.</p>
-        </fieldset>
+      <PainelIndicadores indicadores={indicadores} preferencias={preferencias} ativo={ativo} explicacao={explicacao}
+        onChange={mudarPreferencias} />
 
-        <fieldset class="aplicacao">
-          <legend>Aplicação</legend>
-          <div class="campo">
-            <label for="valor">Valor (R$)</label>
-            <CampoNumerico id="valor" min="0" step="100" valor={valor} onChange={editar(setValor)} />
-          </div>
-          <div class="campo">
-            <label for="data-aplicacao">Data da aplicação</label>
-            <input id="data-aplicacao" type="date" value={dataAplicacao} onInput={(e) => editar(setDataAplicacao)(e.currentTarget.value)}
-              aria-describedby={naoEhDiaUtil(dataAplicacao) ? 'data-aplicacao-dica' : undefined} />
-            <AvisoDiaUtil id="data-aplicacao-dica" data={dataAplicacao} oQue="a aplicação" />
-          </div>
-          <div class="campo">
-            <label for="data-resgate">Data do resgate</label>
-            <input id="data-resgate" type="date" value={dataResgate} onInput={(e) => editar(setDataResgate)(e.currentTarget.value)}
-              aria-describedby={naoEhDiaUtil(dataResgate) ? 'data-resgate-dica' : undefined} />
-            <AvisoDiaUtil id="data-resgate-dica" data={dataResgate} oQue="o resgate" />
-          </div>
-          <div class="prazos" role="group" aria-label="Prazos rápidos">
-            {PRAZOS.map((p) => (
-              <button type="button" disabled={dataAplicacao.trim() === ''}
-                onClick={() => editar(setDataResgate)(somarMeses(dataAplicacao, p.meses))}>{p.rotulo}</button>
-            ))}
-          </div>
-        </fieldset>
-
-        <div class="ofertas">
-          <FormOferta id="a" titulo="Opção A" oferta={a} onChange={editar(setA)} />
-          <FormOferta id="b" titulo="Opção B" oferta={b} onChange={editar(setB)} />
-        </div>
-
-        <button type="submit" class="primario">Comparar</button>
-        {!palpitesLigados && (
-          <button type="button" class="link" onClick={() => { salvarPalpitesLigados(armazenamentoLocal(), true); setPalpitesLigados(true); }}>
-            Religar os palpites
-          </button>
-        )}
-      </form>
-
-      {erro && <p role="alert" class="erro">{erro}</p>}
-
-      {fase.tipo === 'palpite' && (
-        <PalpiteAntesDeVer refTitulo={tituloPalpite} nomeA={descreverOferta(a)} nomeB={descreverOferta(b)}
-          onEscolher={(palpite) => setFase({ ...fase, tipo: 'resultado', palpite })} onPular={pularPalpites} />
-      )}
-
-      {fase.tipo === 'resultado' && (
-        <>
-          <ResultadoDuelo refTitulo={tituloResultado} duelo={fase.duelo} palpite={fase.palpite} />
-          <Equivalencias origem={descreverOferta(a)} eq={fase.equivalencia} />
-        </>
-      )}
+      <Abas rotulo="O que você quer fazer" abas={[
+        // C6 e C7: "Minhas ofertas" e a comparação entram aqui, recebendo `ativo.cenario`.
+        { id: 'ofertas', rotulo: 'Comparar ofertas', conteudo: <p class="dica">Em construção.</p> },
+        { id: 'duelo', rotulo: 'Duelo rápido', conteudo: <DueloRapido cenario={ativo.cenario} descricaoCenario={descricaoCenario} /> },
+      ]} />
     </main>
   );
 }

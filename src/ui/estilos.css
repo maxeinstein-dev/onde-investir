@@ -410,6 +410,69 @@ button:hover {
   margin-top: 0.35rem;
 }
 
+/* Painel de indicadores (provisório na C4; a C5 completa) */
+.painel {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+.painel__cenarios {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.painel__rotulo {
+  font-weight: 600;
+}
+
+.painel__opcao {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.painel__opcao input {
+  width: auto;
+  min-height: auto;
+}
+
+/* Abas */
+.abas__lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 2px solid var(--borda);
+}
+
+.abas__aba {
+  margin-bottom: -2px;
+  color: var(--texto-suave);
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 6px 6px 0 0;
+  font-weight: 600;
+}
+
+.abas__aba[aria-selected='true'] {
+  color: var(--primaria);
+  border-bottom-color: var(--primaria);
+}
+
+.abas__painel {
+  padding-top: 1rem;
+}
+
+.abas__painel:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
 /* Celular: uma coluna só. */
 @media (max-width: 639px) {
   .pagina {
