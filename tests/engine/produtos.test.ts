@@ -51,3 +51,24 @@ describe('simular — renda fixa bancária (valores da referência)', () => {
     }
   });
 });
+
+describe('simular — Tesouro', () => {
+  const selic = (valor: number): Aplicacao => ({ produto: 'TESOURO_SELIC', indexacao: { tipo: 'SELIC' }, valor, dataAplicacao: INI });
+  it.each([
+    [8000, 0, 8893.286681],
+    [10100, 1.566999, 11226.48166],
+    [50000, 86.767323, 55511.458713],
+  ])('Tesouro Selic R$ %i por 1 ano', (valor, custodia, liquido) => {
+    const r = simular(selic(valor), '2027-09-28', CEN);
+    expect(r.custodia).toBeCloseTo(custodia, 4);
+    expect(r.valorLiquido).toBeCloseTo(liquido, 3);
+  });
+  it('a custódia sai da base do IR', () => {
+    const r = simular(selic(50000), '2027-09-28', CEN);
+    expect(r.ir).toBeCloseTo((r.rendimentoBruto - r.custodia) * 0.175, 8);
+  });
+  it('Tesouro Prefixado paga custódia sobre tudo', () => {
+    const r = simular({ produto: 'TESOURO_PREFIXADO', indexacao: { tipo: 'PRE', taxaAA: 0.13 }, valor: 8000, dataAplicacao: INI }, '2028-09-28', CEN);
+    expect(r.custodia).toBeGreaterThan(0);
+  });
+});

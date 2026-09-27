@@ -1,7 +1,8 @@
 // src/engine/produtos.ts
 import { diasUteis } from './calendario';
 import { type DataISO, diasCorridos } from './datas';
-import { type Cenario, fatorIPCA, fatorPercentualCDI, fatorPrefixado } from './indexadores';
+import { type Cenario, fatorIPCA, fatorPercentualCDI, fatorPrefixado, fatorSelic } from './indexadores';
+import { custodiaTesouro } from './regras/custodia';
 import { aliquotaIOF } from './regras/iof';
 import { aliquotaIR } from './regras/ir';
 
@@ -63,9 +64,9 @@ function fatorBruto(ap: Aplicacao, dataResgate: DataISO, cen: Cenario): number {
     case 'PRE': return fatorPrefixado(ix.taxaAA, ap.dataAplicacao, dataResgate);
     case 'IPCA_MAIS':
       return fatorIPCA(cen, ap.dataAplicacao, dataResgate) * fatorPrefixado(ix.taxaRealAA, ap.dataAplicacao, dataResgate);
-    case 'SELIC':
+    case 'SELIC': return fatorSelic(cen, ap.dataAplicacao, dataResgate);
     case 'POUPANCA':
-      throw new Error(`Indexação ${ix.tipo} ainda não suportada`);
+      throw new Error('Poupança é calculada por aniversário mensal (simularPoupanca)');
   }
 }
 
@@ -88,7 +89,9 @@ export function simular(ap: Aplicacao, dataResgate: DataISO, cen: Cenario): Resu
   const isentoIR = ehIsentoIR(ap.produto);
   const aliqIOF = isentoIR ? 0 : aliquotaIOF(dc, dataResgate);
   const iof = Math.max(0, rendimentoBruto) * aliqIOF;
-  const custodia = 0;
+  const custodia = ehTesouro(ap.produto)
+    ? custodiaTesouro({ selic: ap.produto === 'TESOURO_SELIC', valorAplicado: ap.valor, valorBruto, diasCorridos: dc, dataResgate })
+    : 0;
   const aliqIR = isentoIR ? 0 : aliquotaIR(dc, dataResgate);
   const ir = Math.max(0, rendimentoBruto - iof - custodia) * aliqIR;
   const base = {
