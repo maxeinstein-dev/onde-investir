@@ -3,14 +3,21 @@ import type { DataISO } from './datas';
 import type { Cenario } from './indexadores';
 import { simular, type Oferta, type ResultadoSimulacao } from './produtos';
 
-/** Diferença abaixo de meio centavo conta como empate. */
-export const LIMIAR_EMPATE = 0.005;
+/**
+ * Vencedor pela comparação em centavos arredondados: dois líquidos que viram o mesmo valor em
+ * centavos empatam (o que a pessoa vê na tela é igual).
+ */
+export function decidirVencedor(liquidoA: number, liquidoB: number): 'A' | 'B' | 'EMPATE' {
+  const centavosA = Math.round(liquidoA * 100);
+  const centavosB = Math.round(liquidoB * 100);
+  return centavosA === centavosB ? 'EMPATE' : centavosA > centavosB ? 'A' : 'B';
+}
 
 export interface Duelo {
   a: ResultadoSimulacao;
   b: ResultadoSimulacao;
   vencedor: 'A' | 'B' | 'EMPATE';
-  /** Em reais, sempre positiva. */
+  /** Em reais, sem arredondar, sempre positiva. */
   diferenca: number;
   /** Diferença sobre o líquido do perdedor. */
   diferencaPercentual: number;
@@ -22,12 +29,14 @@ export function duelar(
 ): Duelo {
   const ra = simular({ ...a, valor, dataAplicacao }, dataResgate, cen);
   const rb = simular({ ...b, valor, dataAplicacao }, dataResgate, cen);
-  const bruta = ra.valorLiquido - rb.valorLiquido;
-  const diferenca = Math.abs(bruta);
+  if (!Number.isFinite(ra.valorLiquido) || !Number.isFinite(rb.valorLiquido)) {
+    throw new Error('O valor líquido de uma das ofertas não é finito: confira o cenário e as taxas');
+  }
+  const diferenca = Math.abs(ra.valorLiquido - rb.valorLiquido);
   return {
     a: ra,
     b: rb,
-    vencedor: diferenca < LIMIAR_EMPATE ? 'EMPATE' : bruta > 0 ? 'A' : 'B',
+    vencedor: decidirVencedor(ra.valorLiquido, rb.valorLiquido),
     diferenca,
     diferencaPercentual: diferenca / Math.min(ra.valorLiquido, rb.valorLiquido),
   };
