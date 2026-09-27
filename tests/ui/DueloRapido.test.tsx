@@ -38,8 +38,6 @@ describe('DueloRapido', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Comparar' }));
     expect(screen.getByRole('heading', { name: 'Resultado' })).toBeInTheDocument();
   });
-  // O fieldset do cenário foi para o painel de indicadores.
-  it.todo('C5: labels do cenário manual são texto simples, com o Termo ao lado (migrado do App do M1)');
   it('mostra o cenário usado, sem campos de cenário', () => {
     render(<Duelo />);
     expect(screen.getByText(/Cenário manual de teste\./)).toBeInTheDocument();
@@ -74,9 +72,6 @@ describe('DueloRapido', () => {
       expect(screen.queryByRole('heading', { name: /qual você acha que rende mais/i })).toBeNull();
       expect(screen.queryByRole('heading', { name: 'Resultado' })).toBeNull();
     };
-    // Validação dos campos do cenário manual: agora no painel de indicadores (Tarefa C5).
-    it.todo('C5: CDI vazio continua vazio e gera alerta, sem resultado (migrado do App do M1)');
-    it.todo('C5: Selic meta, IPCA e TR vazios geram alerta (migrado do App do M1)');
     it('Valor (R$) vazio gera alerta', () => {
       render(<Duelo />);
       const campo = screen.getByLabelText('Valor (R$)') as HTMLInputElement;

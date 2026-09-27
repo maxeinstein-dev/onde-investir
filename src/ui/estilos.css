@@ -410,7 +410,7 @@ button:hover {
   margin-top: 0.35rem;
 }
 
-/* Painel de indicadores (provisório na C4; a C5 completa) */
+/* Painel de indicadores */
 .painel {
   margin: 1.5rem 0;
   padding: 1rem;
@@ -439,6 +439,64 @@ button:hover {
 .painel__opcao input {
   width: auto;
   min-height: auto;
+}
+
+.painel__motivo {
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+}
+
+.painel__valores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.painel__valor {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.painel__origem {
+  margin: 0.35rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.painel__explicacao {
+  margin-bottom: 0.75rem;
+}
+
+.painel__manual {
+  margin: 0.75rem 0;
+  padding: 1rem;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  min-width: 0;
+}
+
+.painel__manual legend {
+  padding: 0 0.35rem;
+  font-weight: 600;
+}
+
+.painel__campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 0.5rem 0;
+}
+
+.painel__premissas {
+  margin-top: 0.75rem;
+}
+
+.painel__premissas > summary {
+  font-weight: 600;
+  color: var(--primaria);
+  cursor: pointer;
 }
 
 /* Abas */
