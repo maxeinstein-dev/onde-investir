@@ -13,11 +13,19 @@ export function anunciosDoCalendario(dias: readonly DataISO[]): DataISO[] {
   });
 }
 
+/**
+ * Numera as reuniões como Rn/AAAA pela ordem no ano.
+ *
+ * A lista precisa começar em 1º de janeiro de cada ano presente (todas as reuniões do ano, desde a
+ * primeira): se faltar o começo do ano, a numeração sai deslocada e casa com a reunião errada do Focus.
+ * Lança RangeError se algum ano tiver mais de 8 reuniões (o Copom faz 8 por ano).
+ */
 export function numerarReunioes(anuncios: readonly DataISO[]): ReuniaoCopom[] {
   const contagem = new Map<string, number>();
   return [...anuncios].sort().map((anuncio) => {
     const ano = anuncio.slice(0, 4);
     const n = (contagem.get(ano) ?? 0) + 1;
+    if (n > 8) throw new RangeError(`O calendário do Copom trouxe mais de 8 reuniões em ${ano}`);
     contagem.set(ano, n);
     return { id: `R${n}/${ano}`, anuncio, estimada: false };
   });

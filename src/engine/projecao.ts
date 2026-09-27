@@ -46,6 +46,8 @@ export interface CenarioProjetado extends Cenario {
   /** A partir desta data a projeção é premissa, não expectativa de mercado. */
   inicioPremissa: DataISO;
   reunioesEstimadas: readonly string[];
+  /** Reuniões do Focus que não puderam ser datadas (nem pelo calendário oficial, nem por estimativa). */
+  reunioesSemData: readonly string[];
 }
 
 interface Ancora { data: DataISO; valor: number }
@@ -98,8 +100,12 @@ export function montarCenario(
   const pontosSelic: PontoCurva[] = [{ inicio: atuais.dataReferencia, valor: atuais.selicMetaAA }];
   const estimadas: string[] = [];
   let ultima: Ancora = { data: atuais.dataReferencia, valor: atuais.selicMetaAA };
-  const reunioes = focus.selicPorReuniao
-    .map((r) => ({ r, reuniao: dataDaReuniao(r.reuniao, reunioesOficiais) }))
+  const datadas = focus.selicPorReuniao.map((r) => ({ r, reuniao: dataDaReuniao(r.reuniao, reunioesOficiais) }));
+  const semData = datadas.flatMap(({ r, reuniao }) => (reuniao ? [] : [r.reuniao]));
+  if (focus.selicPorReuniao.length > 0 && semData.length === focus.selicPorReuniao.length) {
+    throw new OfertaInvalidaError('Sem o calendário do Copom não dá para posicionar as reuniões do Focus');
+  }
+  const reunioes = datadas
     .flatMap(({ r, reuniao }) => (reuniao ? [{ r, reuniao, vigencia: vigenciaDaDecisao(reuniao.anuncio) }] : []))
     .filter((x) => x.vigencia > atuais.dataReferencia)
     .sort((a, b) => (a.vigencia < b.vigencia ? -1 : 1));
@@ -163,6 +169,7 @@ export function montarCenario(
   return {
     tipo, curvaSelic, curvaIpcaMensal, ultimoAnoFocus: ultimoAno, inicioPremissa: `${ultimoAno + 1}-01-01`,
     reunioesEstimadas: estimadas,
+    reunioesSemData: semData,
     selicMetaAA: (d) => valorEm(curvaSelic, d),
     cdiAA: cdi,
     selicOverAA: cdi,

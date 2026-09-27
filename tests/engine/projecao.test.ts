@@ -3,6 +3,7 @@ import { montarCenario, PREMISSAS_PADRAO } from '../../src/engine/projecao';
 import { fatorIPCA } from '../../src/engine/indexadores';
 import { diasCorridos } from '../../src/engine/datas';
 import { ATUAIS, FOCUS, OFICIAIS, est } from './focusSintetico';
+import { OfertaInvalidaError } from '../../src/engine/erros';
 import { cenarioReal, FOCUS_REAL } from './cenarioReal';
 
 const base = () => montarCenario('BASE', FOCUS, ATUAIS, OFICIAIS, PREMISSAS_PADRAO);
@@ -108,6 +109,20 @@ describe('cenário projetado — IPCA com as fixtures reais (Focus de 18/09/2026
     const abertura = (ano: number) => anoCivil(cenarioReal('SOBEM'), ano) - anoCivil(cenarioReal('BASE'), ano);
     expect(abertura(2029)).toBeCloseTo(0.0047, 10);
     expect(abertura(2029)).toBeGreaterThanOrEqual(abertura(2027));
+  });
+});
+
+describe('reuniões do Focus sem data', () => {
+  it('sem calendário do Copom (nenhuma reunião datável) → erro', () => {
+    expect(() => montarCenario('BASE', FOCUS, ATUAIS, [], PREMISSAS_PADRAO)).toThrow(
+      new OfertaInvalidaError('Sem o calendário do Copom não dá para posicionar as reuniões do Focus'),
+    );
+  });
+  it('reunião que não pôde ser datada aparece em reunioesSemData', () => {
+    const semR8 = OFICIAIS.filter((r) => r.id !== 'R8/2026');
+    const c = montarCenario('BASE', FOCUS, ATUAIS, semR8, PREMISSAS_PADRAO);
+    expect(c.reunioesSemData).toEqual(['R8/2026']);
+    expect(base().reunioesSemData).toEqual([]);
   });
 });
 

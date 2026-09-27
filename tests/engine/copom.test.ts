@@ -13,6 +13,11 @@ describe('Copom', () => {
     expect(r.find((x) => x.id === 'R6/2026')).toEqual({ id: 'R6/2026', anuncio: '2026-09-16', estimada: false });
     expect(r.find((x) => x.id === 'R8/2027')?.anuncio).toBe('2027-12-08');
   });
+  it('mais de 8 reuniões num ano → RangeError (numeração seria inválida)', () => {
+    const nove = [...ANUNCIOS_2026_2027.slice(0, 8), '2026-12-30'];
+    expect(() => numerarReunioes(nove)).toThrow(RangeError);
+    expect(() => numerarReunioes(ANUNCIOS_2026_2027.slice(0, 8))).not.toThrow();
+  });
   it('reunião sem data oficial: mesma reunião do último ano oficial + 52 semanas', () => {
     const oficiais = numerarReunioes(ANUNCIOS_2026_2027);
     expect(dataDaReuniao('R1/2028', oficiais)).toEqual({ id: 'R1/2028', anuncio: '2028-01-26', estimada: true });
