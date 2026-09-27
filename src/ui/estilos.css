@@ -767,6 +767,91 @@ button:hover {
   border-radius: 4px;
 }
 
+/* Comparador: ofertas nas colunas, características e horizontes nas linhas. */
+.tabela-comparacao {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabela-comparacao caption {
+  padding: 0.6rem 0.75rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.tabela-comparacao th,
+.tabela-comparacao td {
+  padding: 0.6rem 0.75rem;
+  border-top: 1px solid var(--borda);
+  text-align: left;
+  vertical-align: top;
+}
+
+.tabela-comparacao thead th,
+.tabela-comparacao thead td {
+  background: var(--fundo-suave);
+}
+
+.tabela-comparacao__oferta {
+  min-width: 11rem;
+}
+
+.tabela-comparacao__oferta:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: -3px;
+}
+
+.tabela-comparacao__letra {
+  display: block;
+  font-size: 1.1rem;
+}
+
+.tabela-comparacao__nome {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.tabela-comparacao__tirar {
+  min-height: 2.25rem;
+  margin-top: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+/* A primeira coluna (rótulos) fica fixa quando a tabela rola na horizontal; o fundo sólido cobre o que passa por baixo. */
+.tabela-comparacao thead td:first-child,
+.tabela-comparacao tbody th[scope='row'] {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.tabela-comparacao tbody th[scope='row'] {
+  min-width: 8.5rem;
+  max-width: 10rem;
+  font-weight: 600;
+  background: var(--fundo);
+  box-shadow: inset -1px 0 0 var(--borda);
+}
+
+/* O título do bloco ocupa a largura toda; só o texto fica fixo à esquerda. */
+.tabela-comparacao__bloco th {
+  padding-top: 1rem;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--texto-suave);
+  background: var(--fundo);
+}
+
+.tabela-comparacao__bloco span {
+  position: sticky;
+  left: 0.75rem;
+}
+
 /* Linha do tempo */
 .linha-do-tempo__marcos {
   margin: 0;
