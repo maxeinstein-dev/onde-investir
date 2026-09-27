@@ -17,11 +17,24 @@ export function validadeDiaria(agoraMs: number): number {
   return instanteBRT(d, HORA_PUBLICACAO);
 }
 
-/** Boletim Focus: publicado às segundas pela manhã. */
+/** Primeiro dia útil da semana que começa em `segunda`; null se a semana não tiver dia útil. */
+function primeiroDiaUtilDaSemana(segunda: DataISO): DataISO | null {
+  for (let i = 0; i < 7; i++) {
+    const d = somarDias(segunda, i);
+    if (ehDiaUtil(d)) return d;
+  }
+  return null;
+}
+
+/** Boletim Focus: publicado no primeiro dia útil da semana (segunda, ou o dia útil seguinte se for feriado), às 10h BRT. */
 export function validadeFocus(agoraMs: number): number {
-  let d = dataBRT(agoraMs);
-  while (diaDaSemana(d) !== 1 || instanteBRT(d, HORA_PUBLICACAO) <= agoraMs) d = somarDias(d, 1);
-  return instanteBRT(d, HORA_PUBLICACAO);
+  const hoje = dataBRT(agoraMs);
+  let segunda = somarDias(hoje, -((diaDaSemana(hoje) + 6) % 7));
+  for (;;) {
+    const publicacao = primeiroDiaUtilDaSemana(segunda);
+    if (publicacao !== null && instanteBRT(publicacao, HORA_PUBLICACAO) > agoraMs) return instanteBRT(publicacao, HORA_PUBLICACAO);
+    segunda = somarDias(segunda, 7);
+  }
 }
 
 export const validadeHoras = (agoraMs: number, horas: number) => agoraMs + horas * 3_600_000;

@@ -15,6 +15,14 @@ describe('validade até o próximo evento (BRT)', () => {
     expect(validadeFocus(t('2026-09-28T09:00:00-03:00'))).toBe(t('2026-09-28T10:00:00-03:00'));
     expect(validadeFocus(t('2026-09-28T11:00:00-03:00'))).toBe(t('2026-10-05T10:00:00-03:00'));
   });
+  it('Focus: primeiro dia útil da semana (começando na segunda) às 10h', () => {
+    expect(validadeFocus(t('2026-10-11T12:00:00-03:00'))).toBe(t('2026-10-13T10:00:00-03:00')); // domingo; 12/10 é feriado
+    expect(validadeFocus(t('2026-10-13T09:00:00-03:00'))).toBe(t('2026-10-13T10:00:00-03:00'));
+    expect(validadeFocus(t('2026-10-13T11:00:00-03:00'))).toBe(t('2026-10-19T10:00:00-03:00'));
+    // Carnaval de 2027: segunda 08/02 e terça 09/02 → quarta 10/02
+    expect(validadeFocus(t('2027-02-08T09:00:00-03:00'))).toBe(t('2027-02-10T10:00:00-03:00'));
+    expect(validadeFocus(t('2027-02-10T11:00:00-03:00'))).toBe(t('2027-02-15T10:00:00-03:00'));
+  });
   it('horas', () => {
     expect(validadeHoras(1000, 24)).toBe(1000 + 86_400_000);
   });
