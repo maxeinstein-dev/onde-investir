@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CHAVE_OFERTAS } from '../../src/armazenamento/ofertas';
 import { CHAVE_PREFERENCIAS } from '../../src/armazenamento/preferencias';
 import {
   urlCalendarioCopom, urlFocusAnuais, urlFocusIpcaMensal, urlFocusSelic, urlSgsUltimos,
@@ -59,7 +60,7 @@ describe('App', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Rende' })).toBeInTheDocument();
     expect(screen.getByText(/não é recomendação de investimento/)).toBeInTheDocument();
     expect(aba('Comparar ofertas')).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tabpanel')).toHaveTextContent('Em construção');
+    expect(within(screen.getByRole('tabpanel')).getByRole('heading', { name: 'Minhas ofertas' })).toBeInTheDocument();
   });
   it('clicar em "Duelo rápido" muda o hash e a aba', () => {
     vi.stubGlobal('fetch', fetchForaDoAr);
@@ -106,5 +107,19 @@ describe('App', () => {
     fireEvent.click(within(painel()).getByRole('radio', { name: /Juros sobem/ }));
     expect(within(painel()).getByText(/^Juros sobem: Selic e IPCA 1 desvio-padrão acima/)).toBeInTheDocument();
     await waitFor(() => expect(JSON.parse(localStorage.getItem(CHAVE_PREFERENCIAS) ?? '{}').escolha).toBe('SOBEM'));
+  });
+  it('cadastrar uma oferta em "Comparar ofertas" salva no localStorage e sobrevive à recarga', () => {
+    vi.stubGlobal('fetch', fetchForaDoAr);
+    render(<App />);
+    const ofertas = screen.getByRole('tabpanel');
+    fireEvent.input(within(ofertas).getByLabelText('Emissor'), { target: { value: 'Banco X' } });
+    fireEvent.input(within(ofertas).getByLabelText('Conglomerado'), { target: { value: 'Grupo X' } });
+    fireEvent.click(within(ofertas).getByRole('button', { name: 'Adicionar oferta' }));
+    const salvas = JSON.parse(localStorage.getItem(CHAVE_OFERTAS) ?? '[]');
+    expect(salvas).toHaveLength(1);
+    expect(salvas[0]).toMatchObject({ produto: 'CDB', emissor: 'Banco X', conglomerado: 'Grupo X', liquidez: 'DIARIA' });
+    cleanup();
+    render(<App />);
+    expect(screen.getByRole('article', { name: /A: CDB 100% do CDI/ })).toBeInTheDocument();
   });
 });

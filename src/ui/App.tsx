@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'preact/hooks';
 import { armazenamentoLocal } from '../armazenamento/navegador';
+import { lerOfertas, salvarOfertas } from '../armazenamento/ofertas';
 import { lerPreferencias, salvarPreferencias, type PreferenciasCenario } from '../armazenamento/preferencias';
 import { explicarCenario } from '../conteudo/comparacao';
 import { cenarioAtivo, type CenarioAtivo } from '../dados/cenarios';
 import type { IndicadoresCarregados } from '../dados/indicadores';
+import type { OfertaCadastrada } from '../engine/ofertas';
 import { Abas } from './Abas';
 import { DueloRapido } from './DueloRapido';
+import { MinhasOfertas } from './ofertas/MinhasOfertas';
 import { PainelIndicadores } from './PainelIndicadores';
 import { SEM_INDICADORES, useIndicadores } from './useIndicadores';
 
@@ -27,6 +30,7 @@ export function App({ carregar }: PropsApp = {}) {
   const armazenamento = useMemo(armazenamentoLocal, []);
   const indicadores = useIndicadores(carregar);
   const [preferencias, setPreferencias] = useState(() => lerPreferencias(armazenamento));
+  const [ofertas, setOfertas] = useState(() => lerOfertas(armazenamento));
 
   // Memorizado: o objeto do cenário só muda quando muda a entrada, e trocar o cenário invalida resultados.
   const ativo = useMemo(() => calcularAtivo(indicadores, preferencias), [indicadores, preferencias]);
@@ -42,6 +46,11 @@ export function App({ carregar }: PropsApp = {}) {
     salvarPreferencias(armazenamento, p);
   }
 
+  function mudarOfertas(o: OfertaCadastrada[]) {
+    setOfertas(o);
+    salvarOfertas(armazenamento, o);
+  }
+
   return (
     <main class="pagina">
       <header>
@@ -54,8 +63,8 @@ export function App({ carregar }: PropsApp = {}) {
         onChange={mudarPreferencias} />
 
       <Abas rotulo="O que você quer fazer" abas={[
-        // C6 e C7: "Minhas ofertas" e a comparação entram aqui, recebendo `ativo.cenario`.
-        { id: 'ofertas', rotulo: 'Comparar ofertas', conteudo: <p class="dica">Em construção.</p> },
+        // C7: a comparação entra aqui, abaixo das ofertas, recebendo `ativo.cenario`.
+        { id: 'ofertas', rotulo: 'Comparar ofertas', conteudo: <MinhasOfertas ofertas={ofertas} onChange={mudarOfertas} /> },
         { id: 'duelo', rotulo: 'Duelo rápido', conteudo: <DueloRapido cenario={ativo.cenario} descricaoCenario={descricaoCenario} /> },
       ]} />
     </main>

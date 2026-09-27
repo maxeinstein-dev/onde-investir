@@ -531,6 +531,68 @@ button:hover {
   outline-offset: 2px;
 }
 
+/* Minhas ofertas */
+.lista-ofertas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.cartao--oferta h3 {
+  overflow-wrap: anywhere;
+}
+
+.cartao__detalhe {
+  margin: 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+
+.cartao__acoes,
+.cartao__confirmacao,
+.cadastro__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cartao__confirmacao p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.cadastro h3:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.cadastro__detalhes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.cadastro__prazo,
+.cadastro__aviso {
+  grid-column: 1 / -1;
+}
+
+.exportar-importar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1rem;
+  margin: 1rem 0 2rem;
+}
+
+.exportar-importar .erro,
+.exportar-importar .dica {
+  flex-basis: 100%;
+}
+
 /* Celular: uma coluna só. */
 @media (max-width: 639px) {
   .pagina {
