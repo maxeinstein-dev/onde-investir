@@ -42,6 +42,13 @@ export function validarOfertaCadastrada(o: OfertaCadastrada): void {
   if (o.liquidez === 'NO_VENCIMENTO' && o.vencimento === undefined) throw new OfertaInvalidaError('Informe o vencimento de uma oferta sem liquidez diária');
 }
 
+/** TAXA_FIXA exige taxa finita, maior que −100% e até 100% a.a. A UI valida antes; o engine lança. */
+export function validarRegraReinvestimento(regra: RegraReinvestimento): void {
+  if (regra.tipo !== 'TAXA_FIXA') return;
+  const t = regra.taxaAA;
+  if (!Number.isFinite(t) || t <= -1 || t > 1) throw new OfertaInvalidaError('Taxa de reinvestimento inválida');
+}
+
 function ofertaDeReinvestimento(o: Oferta, regra: RegraReinvestimento): Oferta {
   const mesma: Oferta = { produto: o.produto, indexacao: o.indexacao };
   switch (regra.tipo) {
@@ -84,6 +91,7 @@ export function projetar(
   o: OfertaCadastrada, valor: number, dataAplicacao: DataISO, dataAlvo: DataISO, cen: Cenario,
   regra: RegraReinvestimento = { tipo: 'PADRAO' },
 ): Projecao {
+  validarRegraReinvestimento(regra); // fora do try: regra inválida não vira fallback nem "indisponível"
   const aplicacao = { produto: o.produto, indexacao: o.indexacao, valor, dataAplicacao };
   const venc = o.vencimento;
   const prazo = conferirPrazoMinimo(o, dataAplicacao);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { conferirPrazoMinimo, projetar, validarOfertaCadastrada, type OfertaCadastrada } from '../../src/engine/ofertas';
+import { conferirPrazoMinimo, projetar, validarOfertaCadastrada, validarRegraReinvestimento, type OfertaCadastrada } from '../../src/engine/ofertas';
 import { simular } from '../../src/engine/produtos';
 import { OfertaInvalidaError } from '../../src/engine/erros';
 import { CEN, INI } from './cenarioPadrao';
@@ -118,5 +118,19 @@ describe('LCI/LCA com vencimento antes do prazo mínimo legal', () => {
     expect(conferirPrazoMinimo(lciVence2027, INI)).toBeNull();
     expect(conferirPrazoMinimo({ ...lciVence2027, vencimento: undefined, liquidez: 'DIARIA' }, INI)).toBeNull();
     expect(conferirPrazoMinimo(cdbVence2027, INI)).toBeNull();
+  });
+});
+
+describe('regra de reinvestimento', () => {
+  const erro = new OfertaInvalidaError('Taxa de reinvestimento inválida');
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, -1, -2, 1.01])('TAXA_FIXA com taxa %s → erro', (taxaAA) => {
+    expect(() => validarRegraReinvestimento({ tipo: 'TAXA_FIXA', taxaAA })).toThrow(erro);
+  });
+  it('taxas válidas e demais regras passam', () => {
+    for (const taxaAA of [-0.5, 0, 0.12, 1]) expect(() => validarRegraReinvestimento({ tipo: 'TAXA_FIXA', taxaAA })).not.toThrow();
+    for (const tipo of ['PADRAO', 'MESMA_TAXA', 'CDI_100'] as const) expect(() => validarRegraReinvestimento({ tipo })).not.toThrow();
+  });
+  it('projetar não transforma a regra inválida em fallback: lança', () => {
+    expect(() => projetar(lciVence2027, V, INI, '2028-09-28', CEN, { tipo: 'TAXA_FIXA', taxaAA: Number.NaN })).toThrow(erro);
   });
 });

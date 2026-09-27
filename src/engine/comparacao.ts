@@ -1,7 +1,7 @@
 // src/engine/comparacao.ts
 import { type DataISO, somarMeses } from './datas';
 import type { Cenario } from './indexadores';
-import { projetar, type OfertaCadastrada, type Projecao, type RegraReinvestimento } from './ofertas';
+import { projetar, validarRegraReinvestimento, type OfertaCadastrada, type Projecao, type RegraReinvestimento } from './ofertas';
 
 export interface Horizonte { rotulo: string; data: DataISO }
 export interface ColunaHorizonte extends Horizonte { projecoes: Projecao[]; lideres: number[] }
@@ -35,12 +35,14 @@ export function tabelaPorHorizonte(
   ofertas: readonly OfertaCadastrada[], valor: number, dataAplicacao: DataISO, horizontes: readonly Horizonte[],
   cen: Cenario, regra: RegraReinvestimento,
 ): ColunaHorizonte[] {
+  validarRegraReinvestimento(regra);
   return horizontes.map((h) => ({ ...h, ...projetarTodas(ofertas, valor, dataAplicacao, h.data, cen, regra) }));
 }
 
 export function linhaDoTempo(
   ofertas: readonly OfertaCadastrada[], valor: number, dataAplicacao: DataISO, cen: Cenario, regra: RegraReinvestimento,
 ): { marcos: Marco[] } {
+  validarRegraReinvestimento(regra);
   const datas = [...new Set(ofertas.flatMap((o) => (o.vencimento && o.vencimento > dataAplicacao ? [o.vencimento] : [])))].sort();
   return {
     marcos: datas.map((data) => ({

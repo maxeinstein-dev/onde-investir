@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { horizontesPadrao, lideres, linhaDoTempo, tabelaPorHorizonte } from '../../src/engine/comparacao';
 import type { OfertaCadastrada } from '../../src/engine/ofertas';
+import { OfertaInvalidaError } from '../../src/engine/erros';
 import { CEN, INI } from './cenarioPadrao';
 import { cenarioReal } from './cenarioReal';
 
@@ -59,6 +60,17 @@ describe('linhaDoTempo', () => {
   });
   it('sem vencimentos → sem marcos', () => {
     expect(linhaDoTempo([{ ...cdb2027, vencimento: undefined, liquidez: 'DIARIA' }], 10000, INI, CEN, { tipo: 'PADRAO' }).marcos).toEqual([]);
+  });
+});
+
+describe('regra de reinvestimento inválida', () => {
+  const invalida = { tipo: 'TAXA_FIXA', taxaAA: Number.NaN } as const;
+  const erro = new OfertaInvalidaError('Taxa de reinvestimento inválida');
+  it('tabelaPorHorizonte e linhaDoTempo lançam antes de projetar', () => {
+    expect(() => tabelaPorHorizonte([cdb2027], 10000, INI, horizontesPadrao(INI, null), CEN, invalida)).toThrow(erro);
+    expect(() => linhaDoTempo([cdb2027], 10000, INI, CEN, invalida)).toThrow(erro);
+    // mesmo sem nenhuma oferta que chegue a reinvestir
+    expect(() => tabelaPorHorizonte([], 10000, INI, horizontesPadrao(INI, null), CEN, invalida)).toThrow(erro);
   });
 });
 
