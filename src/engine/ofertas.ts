@@ -36,6 +36,9 @@ export function validarOfertaCadastrada(o: OfertaCadastrada): void {
     throw new OfertaInvalidaError('Poupança não tem vencimento e tem liquidez diária');
   }
   if (o.produto.startsWith('TESOURO_') && o.vencimento === undefined) throw new OfertaInvalidaError('Títulos do Tesouro têm vencimento: informe a data');
+  if (o.produto.startsWith('TESOURO_') && o.liquidez !== 'DIARIA') {
+    throw new OfertaInvalidaError('Títulos do Tesouro têm liquidez diária (com marcação a mercado nos prefixados e IPCA+)');
+  }
   if (o.liquidez === 'NO_VENCIMENTO' && o.vencimento === undefined) throw new OfertaInvalidaError('Informe o vencimento de uma oferta sem liquidez diária');
 }
 

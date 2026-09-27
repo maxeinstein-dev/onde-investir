@@ -23,6 +23,12 @@ describe('validarOfertaCadastrada', () => {
   it('poupança não tem vencimento e tem liquidez diária', () => {
     expect(() => validarOfertaCadastrada({ ...base, id: 'p', produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' }, liquidez: 'NO_VENCIMENTO', vencimento: '2030-01-01' })).toThrow(OfertaInvalidaError);
   });
+  it('Tesouro exige liquidez diária', () => {
+    expect(() => validarOfertaCadastrada({ ...preTesouro, liquidez: 'NO_VENCIMENTO' })).toThrow(
+      new OfertaInvalidaError('Títulos do Tesouro têm liquidez diária (com marcação a mercado nos prefixados e IPCA+)'),
+    );
+    expect(() => validarOfertaCadastrada(preTesouro)).not.toThrow();
+  });
   it('oferta válida passa', () => {
     expect(() => validarOfertaCadastrada(cdbVence2027)).not.toThrow();
   });
