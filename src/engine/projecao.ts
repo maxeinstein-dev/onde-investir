@@ -117,7 +117,7 @@ export function montarCenario(
   }
   const reunioes = datadas
     .flatMap(({ r, reuniao }) => (reuniao ? [{ r, reuniao, vigencia: vigenciaDaDecisao(reuniao.anuncio) }] : []))
-    .filter((x) => x.vigencia > atuais.dataReferencia)
+    .filter((x) => x.reuniao.anuncio > atuais.dataReferencia) // anunciada até a data de referência: já está na 432
     .sort((a, b) => (a.vigencia < b.vigencia ? -1 : 1));
   for (const { r, reuniao, vigencia } of reunioes) {
     const valor = ajustar(r.est, tipo, k);

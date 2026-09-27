@@ -68,6 +68,12 @@ describe('cenário projetado — Selic', () => {
       0.1325 + (0.12 - 0.1325) * (1 / 365), 12,
     );
   });
+  it('reunião anunciada na própria data de referência já está na 432: fica de fora', () => {
+    const focus = { ...FOCUS, selicPorReuniao: [{ reuniao: 'R6/2026', est: est(20) }, ...FOCUS.selicPorReuniao] };
+    const c = montarCenario('BASE', focus, { ...ATUAIS, dataReferencia: '2026-09-16' }, OFICIAIS, PREMISSAS_PADRAO);
+    expect(c.selicMetaAA('2026-09-17')).toBe(0.1375);
+    expect(c.selicMetaAA('2026-11-05')).toBeCloseTo(0.1325, 12);
+  });
   it('reunião sem data oficial entra como estimada', () => {
     const focus = { ...FOCUS, selicPorReuniao: [...FOCUS.selicPorReuniao, { reuniao: 'R1/2028', est: est(11) }] };
     const c = montarCenario('BASE', focus, ATUAIS, OFICIAIS, PREMISSAS_PADRAO);
