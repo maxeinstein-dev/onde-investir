@@ -62,9 +62,18 @@ const manual = { ...PREFERENCIAS_PADRAO, escolha: 'MANUAL' as const };
 describe('PainelIndicadores', () => {
   it('enquanto carrega, avisa em aria-live e deixa o manual disponível', () => {
     render(<ComEstado indicadores={null} />);
-    expect(screen.getByText('Buscando indicadores no Banco Central…')).toHaveAttribute('aria-live', 'polite');
+    expect(screen.getByText('Buscando indicadores no Banco Central…').closest('[aria-live="polite"]')).not.toBeNull();
     expect(radio(/Manual/)).toBeChecked();
     expect(radio(/Base/)).toBeDisabled();
+  });
+
+  it('o carregamento e a origem dividem um contêiner vivo permanente: só o texto muda', () => {
+    const { rerender } = render(<ComEstado indicadores={null} />);
+    const vivo = screen.getByText('Buscando indicadores no Banco Central…').closest('[aria-live="polite"]') as HTMLElement;
+    rerender(<ComEstado indicadores={ind} />);
+    expect(vivo).toBeInTheDocument();
+    expect(vivo).toContainElement(screen.getByRole('list', { name: 'Origem dos dados' }));
+    expect(vivo).not.toHaveTextContent('Buscando');
   });
 
   it('mostra os valores atuais em pt-BR, a data de referência e a origem de cada grupo', () => {

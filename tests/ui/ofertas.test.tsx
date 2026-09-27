@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
 import { useState } from 'preact/hooks';
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { exportarOfertas, LIMITE_OFERTAS } from '../../src/armazenamento/ofertas';
@@ -217,10 +217,10 @@ describe('Minhas ofertas', () => {
     const arquivo = (texto: string) => new File([texto], 'ofertas.json', { type: 'application/json' });
     const importar = (f: File) => fireEvent.change(screen.getByLabelText('Importar ofertas (.json)'), { target: { files: [f] } });
 
-    it('exportar baixa o JSON pelo createObjectURL', async () => {
+    /** jsdom não implementa createObjectURL: stub só no teste que chama. */
+    function stubUrl() {
       const criar = vi.fn<(b: Blob) => string>(() => 'blob:teste');
       const revogar = vi.fn();
-      // jsdom não implementa createObjectURL: stub só neste teste.
       const originais = { criar: URL.createObjectURL, revogar: URL.revokeObjectURL };
       URL.createObjectURL = criar;
       URL.revokeObjectURL = revogar;
@@ -229,16 +229,46 @@ describe('Minhas ofertas', () => {
         URL.revokeObjectURL = originais.revogar;
       });
       const clicar = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+      return { criar, revogar, clicar };
+    }
+
+    it('exportar baixa o JSON pelo createObjectURL e só revoga a URL depois de 1 s', async () => {
+      vi.useFakeTimers();
+      onTestFinished(() => { vi.useRealTimers(); });
+      const { criar, revogar, clicar } = stubUrl();
       render(<ComEstado inicial={[cdb]} />);
       fireEvent.click(screen.getByRole('button', { name: 'Exportar ofertas' }));
       expect(criar).toHaveBeenCalledTimes(1);
       const blob = criar.mock.calls[0]![0];
       expect(blob.type).toBe('application/json');
-      expect(JSON.parse(await blob.text()).ofertas).toEqual([cdb]);
       const baixado = clicar.mock.contexts[0] as HTMLAnchorElement;
       expect(baixado.download).toBe(`rende-ofertas-${hoje()}.json`);
       expect(baixado.href).toBe('blob:teste');
+      // Revogar logo depois do clique pode cancelar o download em alguns navegadores.
+      expect(revogar).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(999);
+      expect(revogar).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
       expect(revogar).toHaveBeenCalledWith('blob:teste');
+      vi.useRealTimers();
+      expect(JSON.parse(await blob.text()).ofertas).toEqual([cdb]);
+    });
+
+    it('o status é um contêiner vivo permanente; a mesma mensagem é limpa e reescrita', () => {
+      vi.useFakeTimers();
+      onTestFinished(() => { vi.useRealTimers(); });
+      stubUrl();
+      render(<ComEstado inicial={[cdb]} />);
+      const status = screen.getByRole('status');
+      expect(status).toHaveTextContent('');
+      fireEvent.click(screen.getByRole('button', { name: 'Exportar ofertas' }));
+      expect(screen.getByRole('status')).toBe(status);
+      expect(status).toHaveTextContent('1 oferta exportada.');
+      fireEvent.click(screen.getByRole('button', { name: 'Exportar ofertas' }));
+      expect(status).toHaveTextContent('');
+      act(() => { vi.advanceTimersByTime(200); });
+      expect(screen.getByRole('status')).toBe(status);
+      expect(status).toHaveTextContent('1 oferta exportada.');
     });
 
     it('sem ofertas, exportar fica desabilitado', () => {
@@ -250,7 +280,7 @@ describe('Minhas ofertas', () => {
       const aoMudar = vi.fn();
       render(<ComEstado inicial={[cdb]} aoMudar={aoMudar} />);
       importar(arquivo(exportarOfertas([cdb, lci], Date.now())));
-      expect(await screen.findByRole('status')).toHaveTextContent('2 ofertas importadas.');
+      expect(await screen.findByText('2 ofertas importadas.')).toBe(screen.getByRole('status'));
       expect(aoMudar).toHaveBeenLastCalledWith([cdb, { ...cdb, id: 'novo-1' }, { ...lci, id: 'novo-2' }]);
       expect(screen.getAllByRole('article')).toHaveLength(3);
     });

@@ -58,30 +58,31 @@ function descreverOrigem(status: StatusFonte, obtidoEm: number | undefined): str
 
 function ValoresAtuais({ indicadores }: { indicadores: IndicadoresCarregados }) {
   const a = indicadores.atuais;
+  return a === null ? (
+    <p class="dica">Os valores atuais estão indisponíveis agora. O cenário manual continua valendo.</p>
+  ) : (
+    <>
+      <ul class="painel__valores" aria-label="Indicadores atuais">
+        <li><Termo id="cdi">CDI</Termo> <span class="painel__valor">{formatarPercentual(a.cdiAA)} a.a.</span></li>
+        <li><Termo id="selic">Selic meta</Termo> <span class="painel__valor">{formatarPercentual(a.selicMetaAA)} a.a.</span></li>
+        <li><Termo id="ipca">IPCA 12 meses</Termo> <span class="painel__valor">{formatarPercentual(a.ipca12mAA)}</span></li>
+        <li><Termo id="tr">TR</Termo> <span class="painel__valor">{PERCENTUAL_PRECISO.format(a.trAM)} a.m.</span></li>
+      </ul>
+      <p class="dica">Valores de {dataBR(a.dataReferencia)}, do Banco Central.</p>
+    </>
+  );
+}
+
+function Origem({ indicadores }: { indicadores: IndicadoresCarregados }) {
   const grupos: { nome: string; status: StatusFonte; obtidoEm?: number }[] = [
     { nome: 'Valores atuais (SGS)', status: indicadores.status.sgs, obtidoEm: indicadores.obtidoEm.sgs },
     { nome: 'Focus', status: indicadores.status.focus, obtidoEm: indicadores.obtidoEm.focus },
     { nome: 'Calendário do Copom', status: indicadores.status.copom, obtidoEm: indicadores.obtidoEm.copom },
   ];
   return (
-    <>
-      {a === null ? (
-        <p class="dica">Os valores atuais estão indisponíveis agora. O cenário manual continua valendo.</p>
-      ) : (
-        <>
-          <ul class="painel__valores" aria-label="Indicadores atuais">
-            <li><Termo id="cdi">CDI</Termo> <span class="painel__valor">{formatarPercentual(a.cdiAA)} a.a.</span></li>
-            <li><Termo id="selic">Selic meta</Termo> <span class="painel__valor">{formatarPercentual(a.selicMetaAA)} a.a.</span></li>
-            <li><Termo id="ipca">IPCA 12 meses</Termo> <span class="painel__valor">{formatarPercentual(a.ipca12mAA)}</span></li>
-            <li><Termo id="tr">TR</Termo> <span class="painel__valor">{PERCENTUAL_PRECISO.format(a.trAM)} a.m.</span></li>
-          </ul>
-          <p class="dica">Valores de {dataBR(a.dataReferencia)}, do Banco Central.</p>
-        </>
-      )}
-      <ul class="painel__origem dica" aria-label="Origem dos dados" aria-live="polite">
-        {grupos.map((g) => <li key={g.nome}>{g.nome}: {descreverOrigem(g.status, g.obtidoEm)}</li>)}
-      </ul>
-    </>
+    <ul class="painel__origem dica" aria-label="Origem dos dados">
+      {grupos.map((g) => <li key={g.nome}>{g.nome}: {descreverOrigem(g.status, g.obtidoEm)}</li>)}
+    </ul>
   );
 }
 
@@ -243,9 +244,11 @@ export function PainelIndicadores({ indicadores, preferencias, ativo, explicacao
   return (
     <section class="painel" aria-labelledby="painel-titulo">
       <h2 id="painel-titulo">Indicadores e cenário</h2>
-      {indicadores === null
-        ? <p aria-live="polite">Buscando indicadores no Banco Central…</p>
-        : <ValoresAtuais indicadores={indicadores} />}
+      {indicadores !== null && <ValoresAtuais indicadores={indicadores} />}
+      {/* Contêiner vivo permanente: um aria-live criado junto com o conteúdo não é anunciado. Só o texto muda. */}
+      <div class="painel__status" aria-live="polite">
+        {indicadores === null ? <p>Buscando indicadores no Banco Central…</p> : <Origem indicadores={indicadores} />}
+      </div>
 
       <div role="radiogroup" aria-labelledby="painel-cenario" class="painel__cenarios">
         <span id="painel-cenario" class="painel__rotulo"><Termo id="cenario">Cenário</Termo></span>

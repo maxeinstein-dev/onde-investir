@@ -14,6 +14,7 @@ import { PainelIndicadores } from './PainelIndicadores';
 import { SEM_INDICADORES, useIndicadores } from './useIndicadores';
 
 const CARREGANDO = 'Enquanto os indicadores carregam, vale o cenário manual.';
+const FALHA_AO_GRAVAR = 'Não deu para salvar neste navegador. Exporte suas ofertas para não perdê-las.';
 
 /** O cenário em uso: enquanto carrega, o manual; depois, o escolhido (ou o manual, se faltar dado). */
 function calcularAtivo(ind: IndicadoresCarregados | null, p: PreferenciasCenario): CenarioAtivo {
@@ -35,6 +36,8 @@ export function App({ carregar }: PropsApp = {}) {
 
   /** O primeiro erro de um rascunho do painel; enquanto houver, os botões Comparar ficam desabilitados. */
   const [cenarioInvalido, setCenarioInvalido] = useState<string | null>(null);
+  /** O navegador recusou uma gravação (cheio ou bloqueado): o aviso fica até a página recarregar. */
+  const [falhouAoGravar, setFalhouAoGravar] = useState(false);
 
   // Memorizado pelas entradas que o cenário usa de fato, porque trocar o objeto do cenário invalida os resultados.
   // Só manual (escolhido, carregando ou sem dados): os valores manuais. Projetado: também escolha e premissas.
@@ -52,12 +55,12 @@ export function App({ carregar }: PropsApp = {}) {
 
   function mudarPreferencias(p: PreferenciasCenario) {
     setPreferencias(p);
-    salvarPreferencias(armazenamento, p);
+    if (!salvarPreferencias(armazenamento, p)) setFalhouAoGravar(true);
   }
 
   function mudarOfertas(o: OfertaCadastrada[]) {
     setOfertas(o);
-    salvarOfertas(armazenamento, o);
+    if (!salvarOfertas(armazenamento, o)) setFalhouAoGravar(true);
   }
 
   return (
@@ -67,6 +70,8 @@ export function App({ carregar }: PropsApp = {}) {
         <p>Compare investimentos pelo que sobra no bolso e entenda o porquê de cada resultado.</p>
         <p class="aviso">Conteúdo educativo: não é recomendação de investimento.</p>
       </header>
+
+      {falhouAoGravar && <p role="alert" class="erro">{FALHA_AO_GRAVAR}</p>}
 
       <PainelIndicadores indicadores={indicadores} preferencias={preferencias} ativo={ativo} explicacao={explicacao}
         onChange={mudarPreferencias} onCenarioInvalido={setCenarioInvalido} />

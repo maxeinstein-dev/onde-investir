@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { CHAVE_OFERTAS } from '../../src/armazenamento/ofertas';
 import { CHAVE_PREFERENCIAS } from '../../src/armazenamento/preferencias';
 import {
@@ -73,7 +73,36 @@ describe('App', () => {
   it('mostra que está buscando os indicadores enquanto carrega', () => {
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
     render(<App />);
-    expect(within(painel()).getByText('Buscando indicadores no Banco Central…')).toHaveAttribute('aria-live', 'polite');
+    expect(within(painel()).getByText('Buscando indicadores no Banco Central…').closest('[aria-live="polite"]')).not.toBeNull();
+  });
+  it('se o navegador recusar a gravação, avisa com um alerta persistente', () => {
+    vi.stubGlobal('fetch', fetchForaDoAr);
+    const gravar = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('cheio', 'QuotaExceededError');
+    });
+    onTestFinished(() => gravar.mockRestore());
+    render(<App />);
+    const aviso = 'Não deu para salvar neste navegador. Exporte suas ofertas para não perdê-las.';
+    expect(screen.queryByText(aviso)).toBeNull();
+    const ofertas = screen.getByRole('tabpanel');
+    fireEvent.input(within(ofertas).getByLabelText('Emissor'), { target: { value: 'Banco X' } });
+    fireEvent.input(within(ofertas).getByLabelText('Conglomerado'), { target: { value: 'Grupo X' } });
+    fireEvent.click(within(ofertas).getByRole('button', { name: 'Adicionar oferta' }));
+    expect(screen.getByText(aviso)).toHaveAttribute('role', 'alert');
+    // Continua na tela depois de outras ações.
+    fireEvent.click(aba('Duelo rápido'));
+    expect(screen.getByText(aviso)).toBeInTheDocument();
+  });
+  it('se falhar ao gravar as preferências, também avisa', async () => {
+    vi.stubGlobal('fetch', fetchFixtures);
+    render(<App />);
+    await within(painel()).findByText(/medianas do Focus/);
+    const gravar = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('bloqueado', 'SecurityError');
+    });
+    onTestFinished(() => gravar.mockRestore());
+    fireEvent.click(within(painel()).getByRole('radio', { name: /Juros sobem/ }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Não deu para salvar neste navegador. Exporte suas ofertas para não perdê-las.');
   });
   it('com fetch rejeitando, mostra o aviso de cenário manual e o duelo funciona', async () => {
     vi.stubGlobal('fetch', fetchForaDoAr);
