@@ -28,7 +28,7 @@ describe('explicarVencedor', () => {
   });
   it('isenção compensa rendimento bruto menor', () => {
     const linhas = explicarVencedor(duelar(10000, INI, '2028-09-28', cdb(1.03), lci(0.95), CEN));
-    expect(linhas.join(' ')).toMatch(/A isenção compensou/);
+    expect(linhas.join(' ')).toMatch(/rende menos antes do imposto, mas como não paga IR fica na frente/);
   });
   it('isenta que rende mais até no bruto', () => {
     const linhas = explicarVencedor(duelar(10000, INI, '2028-09-28', cdb(0.9), lci(0.95), CEN));

@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import type { Equivalente, ResultadoEquivalencia } from '../engine/equivalencia';
-import { formatarMoeda, formatarPercentual } from '../formato';
+import { formatarMoeda, formatarNumero, formatarPercentual } from '../formato';
 import { Termo } from './Termo';
 
 function Valor({ eq, formatar }: { eq: Equivalente; formatar: (taxa: number) => string }) {
@@ -18,6 +18,7 @@ const ipcaMais = (t: number) => `IPCA + ${formatarPercentual(t)} ao ano`;
 export function Equivalencias({ origem, eq }: { origem: string; eq: ResultadoEquivalencia }) {
   const bolso = eq.regraDeBolso;
   const exata = bolso === null ? null : bolso.destino === 'TRIBUTADO' ? eq.tributadoPosCDI : eq.isentoPosCDI;
+  const pontos = bolso !== null && exata?.disponivel ? formatarNumero(Math.abs(bolso.taxa - exata.taxa) * 100) : '';
   return (
     <section class="equivalencias" aria-labelledby="eq-titulo">
       <h2 id="eq-titulo">Equivalências de {origem}</h2>
@@ -32,10 +33,10 @@ export function Equivalencias({ origem, eq }: { origem: string; eq: ResultadoEqu
       {bolso !== null && exata?.disponivel && eq.aliquotaIR !== null && (
         <p class="dica">
           A regra de bolso do mercado daria {bolso.destino === 'TRIBUTADO' ? 'um CDB' : 'uma LCI/LCA'} de{' '}
-          {formatarPercentual(bolso.taxa)} do CDI: ela {bolso.destino === 'TRIBUTADO' ? 'divide' : 'multiplica'} a taxa por
-          (1 − {formatarPercentual(eq.aliquotaIR)} de IR). Isso fica {formatarPercentual(Math.abs(bolso.taxa - exata.taxa))} do CDI{' '}
-          {bolso.taxa > exata.taxa ? 'acima' : 'abaixo'} da conta exata, porque o imposto incide uma vez sobre os juros
-          compostos no resgate, e não sobre a taxa de cada dia.
+          {formatarPercentual(bolso.taxa)} do CDI, {bolso.destino === 'TRIBUTADO' ? 'dividindo' : 'multiplicando'} a taxa por
+          (1 − {formatarPercentual(eq.aliquotaIR)} de IR). Ela fica {pontos} {pontos === '1' ? 'ponto percentual' : 'pontos percentuais'}{' '}
+          {bolso.taxa > exata.taxa ? 'acima' : 'abaixo'} da conta exata, porque o IR incide uma vez sobre os juros
+          compostos no resgate e a regra trata como se ele saísse da taxa de cada dia.
         </p>
       )}
     </section>

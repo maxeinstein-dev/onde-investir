@@ -14,7 +14,7 @@ const lci = { produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.8 }
 describe('ResultadoDuelo', () => {
   it('mostra acerto/erro do palpite, motivos e o passo a passo', () => {
     render(<ResultadoDuelo duelo={duelar(10000, INI, '2028-09-28', cdb, lci, CEN)} palpite="B" />);
-    expect(screen.getByText(/Você errou/)).toBeInTheDocument();
+    expect(screen.getByText(/Não foi dessa vez/)).toBeInTheDocument();
     expect(screen.getByText(/CDB 103% do CDI termina com/)).toBeInTheDocument();
     expect(screen.getAllByText('Por que esse resultado?')).toHaveLength(2);
     expect(screen.getAllByText(/Imposto de Renda/).length).toBeGreaterThan(0);
@@ -35,6 +35,12 @@ describe('Equivalencias', () => {
     const dica = screen.getByText(/regra de bolso/i).closest('p');
     expect(dica).toHaveTextContent(/LCI\/LCA/);
     expect(dica).toHaveTextContent(/87,55%/);
+  });
+  it('regra de bolso mostra a diferença em pontos percentuais', () => {
+    const eq = calcularEquivalencias({ ...cdb, valor: 10000, dataAplicacao: INI }, '2028-09-28', CEN);
+    render(<Equivalencias origem="CDB 103% do CDI" eq={eq} />);
+    const dica = screen.getByText(/regra de bolso/i).closest('p');
+    expect(dica).toHaveTextContent(/fica 1,62 pontos percentuais abaixo da conta exata/);
   });
   it('o título não contém o Termo: ele fica ao lado, fora do h2', () => {
     const eq = calcularEquivalencias({ ...cdb, valor: 10000, dataAplicacao: INI }, '2028-09-28', CEN);

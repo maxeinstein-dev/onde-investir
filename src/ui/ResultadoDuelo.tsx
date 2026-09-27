@@ -25,7 +25,7 @@ export function ResultadoDuelo({ duelo, palpite, refTitulo }: { duelo: Duelo; pa
   let feedback: string | null = null;
   if (palpite !== null) {
     feedback = duelo.vencedor === 'EMPATE' ? 'Deu empate: os dois palpites valiam.'
-      : palpite === duelo.vencedor ? 'Você acertou!' : 'Você errou, e tudo bem: é assim que se aprende. Veja o porquê abaixo.';
+      : palpite === duelo.vencedor ? 'Você acertou.' : 'Não foi dessa vez. O motivo está logo abaixo.';
   }
   return (
     <section class="resultado" aria-labelledby="resultado-titulo">

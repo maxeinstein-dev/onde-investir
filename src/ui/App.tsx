@@ -137,7 +137,7 @@ export function App() {
                 onChange={(v) => editar(setCenario)({ ...cenario, [c.chave]: v })} />
             </div>
           ))}
-          <p class="dica">No M1 o cenário fica constante até o resgate. Projeções do mercado (Focus) chegam na próxima versão.</p>
+          <p class="dica">Por enquanto o cenário fica constante até o resgate. As projeções do mercado (Boletim Focus) entram na próxima versão.</p>
         </fieldset>
 
         <fieldset class="aplicacao">

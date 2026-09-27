@@ -7,4 +7,8 @@ const PERCENTUAL = new Intl.NumberFormat('pt-BR', { style: 'percent', minimumFra
 export const formatarMoeda = (valor: number): string => MOEDA.format(valor);
 export const formatarPercentual = (fracao: number): string => PERCENTUAL.format(fracao);
 
+const NUMERO = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+/** Número pt-BR com até 2 casas, sem símbolo (ex.: 1.6123 → "1,61"). */
+export const formatarNumero = (valor: number): string => NUMERO.format(valor);
+
 export const formatarData = (data: DataISO): string => dataBR(data);

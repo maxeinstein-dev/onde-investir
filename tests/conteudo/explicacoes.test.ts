@@ -13,7 +13,7 @@ describe('explicarSimulacao', () => {
     expect(ir?.curto).toMatch(/731 dias/);
     expect(ir?.curto).toMatch(/15%/);
     expect(ir?.fonte).toMatch(/l11033/);
-    expect(passos.find((p) => p.id === 'iof')?.curto).toMatch(/Sem IOF/);
+    expect(passos.find((p) => p.id === 'iof')?.curto).toMatch(/Não tem IOF/);
     expect(passos.find((p) => p.id === 'rendimentoBruto')?.matematica).toMatch(/502 dias úteis/);
   });
   it('IOF cobrado aparece com a alíquota', () => {

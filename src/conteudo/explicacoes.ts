@@ -34,7 +34,7 @@ function explicarRendimento(r: ResultadoSimulacao): Pick<ExplicacaoPasso, 'curto
     case 'POS_CDI':
       return {
         curto: `Rendeu ${formatarPercentual(ix.percentualCDI)} do CDI durante ${du}.`,
-        matematica: `fator = ∏ [1 + ((1 + CDI)^(1/252) − 1) × ${formatarPercentual(ix.percentualCDI)}] nos ${du} = ${fator}. O percentual incide sobre a taxa de cada dia útil, não sobre a taxa anual.`,
+        matematica: `fator = ∏ [1 + ((1 + CDI)^(1/252) − 1) × ${formatarPercentual(ix.percentualCDI)}] nos ${du} = ${fator}. O percentual é aplicado na taxa de cada dia útil, e o resultado vai se acumulando.`,
         termo: 'cdi',
       };
     case 'PRE':
@@ -57,7 +57,7 @@ function explicarRendimento(r: ResultadoSimulacao): Pick<ExplicacaoPasso, 'curto
       };
     case 'POUPANCA':
       return {
-        curto: `${r.mesesPoupanca ?? 0} aniversários mensais completos. A poupança só rende na data de aniversário: o mês incompleto não conta.`,
+        curto: `Foram ${r.mesesPoupanca ?? 0} aniversários mensais completos. A poupança só rende no dia do aniversário, então o mês incompleto não conta.`,
         matematica: 'Com a Selic acima de 8,5% a.a., o rendimento é 0,5% ao mês + TR. Com a Selic em até 8,5%, é 70% da Selic mensalizada + TR.',
         fonte: FONTE_POUPANCA,
         termo: 'poupanca',
@@ -81,7 +81,7 @@ export function explicarSimulacao(r: ResultadoSimulacao): ExplicacaoPasso[] {
       id: 'iof', titulo: 'IOF', sinal: '−', valor: r.iof,
       curto: r.aliquotaIOF > 0
         ? `Resgate com ${r.diasCorridos} dias: o IOF fica com ${formatarPercentual(r.aliquotaIOF)} do rendimento.`
-        : `Sem IOF: o resgate aconteceu com ${r.diasCorridos} dias, e o IOF só é cobrado nos primeiros 29.`,
+        : `Não tem IOF, porque ele só é cobrado em resgates com menos de 30 dias e esse foi com ${r.diasCorridos}.`,
       matematica: 'IOF = rendimento × alíquota da tabela regressiva (96% no 1º dia até 0% a partir do 30º). É cobrado antes do IR.',
       fonte: FONTE_IOF, termo: 'iof',
     });
@@ -101,7 +101,7 @@ export function explicarSimulacao(r: ResultadoSimulacao): ExplicacaoPasso[] {
   passos.push(r.isentoIR
     ? {
         id: 'ir', titulo: 'Imposto de Renda', sinal: '−', valor: 0,
-        curto: `${nome.split(' ')[0]} é isenta de IR para pessoa física: todo o rendimento fica com você.`,
+        curto: `${nome.split(' ')[0]} é isenta de IR para pessoa física, então todo o rendimento fica com você.`,
         matematica: 'Isenção prevista em lei para pessoa física.', termo: 'ir-regressivo',
       }
     : {

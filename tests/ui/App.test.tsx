@@ -17,7 +17,7 @@ describe('App', () => {
     expect(screen.queryByRole('heading', { name: 'Resultado' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'B: LCI 80% do CDI' }));
     expect(screen.getByRole('heading', { name: 'Resultado' })).toBeInTheDocument();
-    expect(screen.getByText(/Você errou/)).toBeInTheDocument();
+    expect(screen.getByText(/Não foi dessa vez/)).toBeInTheDocument();
     expect(screen.getByText(/CDB 103% do CDI termina com/)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Equivalências de CDB 103% do CDI/ })).toBeInTheDocument();
   });

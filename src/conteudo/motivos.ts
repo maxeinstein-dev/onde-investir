@@ -41,7 +41,7 @@ export function explicarVencedor(d: Duelo): string[] {
     if (!v.isentoIR) {
       linhas.push(`Mesmo pagando IR, ${nv} vence porque rende ${formatarMoeda(v.rendimentoBruto - p.rendimentoBruto)} a mais antes do imposto.`);
     } else if (v.rendimentoBruto < p.rendimentoBruto) {
-      linhas.push(`A isenção compensou: mesmo rendendo menos antes do imposto, ${nv} fica à frente.`);
+      linhas.push(`${nv} rende menos antes do imposto, mas como não paga IR fica na frente.`);
     } else {
       linhas.push(`${nv} rende mais antes dos descontos e ainda é ${isento(v.aplicacao.produto)}.`);
     }
