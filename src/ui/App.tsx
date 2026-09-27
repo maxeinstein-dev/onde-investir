@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { armazenamentoLocal } from '../armazenamento/navegador';
+import { lerPalpitesLigados, salvarPalpitesLigados } from '../armazenamento/preferencias';
 import { descreverOferta } from '../conteudo/motivos';
 import { ehDiaUtil } from '../engine/calendario';
 import { duelar, type Duelo } from '../engine/comparador';
@@ -12,7 +14,6 @@ import { Equivalencias } from './Equivalencias';
 import { FormOferta, taxaPreenchida } from './FormOferta';
 import { hoje } from './hoje';
 import { PalpiteAntesDeVer } from './PalpiteAntesDeVer';
-import { lerPalpitesLigados, salvarPalpitesLigados } from './preferencias';
 import { ResultadoDuelo } from './ResultadoDuelo';
 import { Termo } from './Termo';
 
@@ -75,7 +76,7 @@ export function App() {
   const [b, setB] = useState<Oferta>({ produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.8 } });
   const [fase, setFase] = useState<Fase>({ tipo: 'editando' });
   const [erro, setErro] = useState<string | null>(null);
-  const [palpitesLigados, setPalpitesLigados] = useState(lerPalpitesLigados());
+  const [palpitesLigados, setPalpitesLigados] = useState(() => lerPalpitesLigados(armazenamentoLocal()));
   const tituloPalpite = useRef<HTMLHeadingElement>(null);
   const tituloResultado = useRef<HTMLHeadingElement>(null);
 
@@ -113,7 +114,7 @@ export function App() {
   }
 
   function pularPalpites() {
-    salvarPalpitesLigados(false);
+    salvarPalpitesLigados(armazenamentoLocal(), false);
     setPalpitesLigados(false);
     if (fase.tipo === 'palpite') setFase({ ...fase, tipo: 'resultado', palpite: null });
   }
@@ -173,7 +174,7 @@ export function App() {
 
         <button type="submit" class="primario">Comparar</button>
         {!palpitesLigados && (
-          <button type="button" class="link" onClick={() => { salvarPalpitesLigados(true); setPalpitesLigados(true); }}>
+          <button type="button" class="link" onClick={() => { salvarPalpitesLigados(armazenamentoLocal(), true); setPalpitesLigados(true); }}>
             Religar os palpites
           </button>
         )}
