@@ -1,3 +1,4 @@
+// src/dados/cenarioInicial.ts
 /** Valores do SGS/BCB em 24/09/2026 (séries 4389, 432, 433 acumulada 12m, 226). No M2 vêm ao vivo. */
 export const CENARIO_INICIAL = {
   dataReferencia: '24/09/2026',

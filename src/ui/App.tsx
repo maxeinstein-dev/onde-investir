@@ -7,7 +7,7 @@ import { calcularEquivalencias, type ResultadoEquivalencia } from '../engine/equ
 import { cenarioConstante } from '../engine/indexadores';
 import type { Oferta } from '../engine/produtos';
 import { CampoNumerico } from './CampoNumerico';
-import { CENARIO_INICIAL, type ValoresCenario } from './cenarioInicial';
+import { CENARIO_INICIAL, type ValoresCenario } from '../dados/cenarioInicial';
 import { Equivalencias } from './Equivalencias';
 import { FormOferta, taxaPreenchida } from './FormOferta';
 import { hoje } from './hoje';

@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import {
   urlCalendarioCopom, urlFocusAnuais, urlFocusIpcaMensal, urlFocusSelic, urlSgsUltimos,
 } from '../../src/dados/bcb';
+import { CENARIO_INICIAL } from '../../src/dados/cenarioInicial';
 import { cenarioAtivo, type ValoresManuais } from '../../src/dados/cenarios';
 import { carregarIndicadores, type Buscar, type IndicadoresCarregados } from '../../src/dados/indicadores';
 import { PREMISSAS_PADRAO } from '../../src/engine/projecao';
@@ -87,5 +88,25 @@ describe('cenarioAtivo', () => {
     expect(r?.projetado).toBeNull();
     expect(r?.motivoManual).toBe('Premissas do cenário inválidas: usando o cenário manual.');
     expect(r?.cenario.cdiAA('2026-09-24')).toBeCloseTo(0.149, 12);
+  });
+
+  it('BASE sem Focus e manual com CDI NaN → valores de referência, com os dois motivos, sem lançar', () => {
+    let r: ReturnType<typeof cenarioAtivo> | undefined;
+    expect(() => { r = cenarioAtivo('BASE', { ...ind, focus: null }, PREMISSAS_PADRAO, { ...MANUAL, cdi: Number.NaN }); }).not.toThrow();
+    expect(r?.projetado).toBeNull();
+    expect(r?.motivoManual).toBe(
+      `Sem dados do Focus: usando o cenário manual. Valores manuais inválidos: usando os valores de referência de ${CENARIO_INICIAL.dataReferencia}.`,
+    );
+    expect(r?.cenario.cdiAA('2026-09-24')).toBeCloseTo(CENARIO_INICIAL.valores.cdi / 100, 12);
+    expect(r?.cenario.selicMetaAA('2026-09-24')).toBeCloseTo(CENARIO_INICIAL.valores.selicMeta / 100, 12);
+  });
+
+  it('MANUAL com −150 → valores de referência, com motivo, sem lançar', () => {
+    let r: ReturnType<typeof cenarioAtivo> | undefined;
+    expect(() => { r = cenarioAtivo('MANUAL', ind, PREMISSAS_PADRAO, { ...MANUAL, ipca: -150 }); }).not.toThrow();
+    expect(r?.projetado).toBeNull();
+    expect(r?.motivoManual).toBe(`Valores manuais inválidos: usando os valores de referência de ${CENARIO_INICIAL.dataReferencia}.`);
+    expect(r?.cenario.ipcaAA('2026-09-24')).toBeCloseTo(CENARIO_INICIAL.valores.ipca / 100, 12);
+    expect(r?.cenario.trAM('2026-09-24')).toBeCloseTo(CENARIO_INICIAL.valores.tr / 100, 12);
   });
 });
