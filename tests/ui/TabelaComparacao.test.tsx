@@ -82,7 +82,7 @@ describe('TabelaComparacao', () => {
     // A garantia é um termo explicado: o botão tem o nome, e o painel da dica fica dentro da célula.
     const garantias = within(linha(/^Garantia$/)).getAllByRole('cell').map((c) => within(c).getByRole('button').textContent);
     expect(garantias).toEqual(['FGC', 'FGC', 'Tesouro Nacional']);
-    expect(valores(/^Imposto de Renda$/)).toEqual(['Tabela regressiva', 'Isento', 'Tabela regressiva']);
+    expect(valores(/^Imposto de Renda$/)).toEqual(['Tabela regressiva (de 22,5% a 15%)', 'Isento', 'Tabela regressiva (de 22,5% a 15%)']);
   });
 
   it('oferta sem vencimento diz "Sem vencimento"', () => {

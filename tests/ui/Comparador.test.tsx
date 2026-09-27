@@ -195,7 +195,7 @@ describe('Comparador', () => {
       expect(screen.getByLabelText('Calcular equivalências para')).toHaveValue('x');
       expect(screen.getByLabelText('no prazo de')).toHaveValue('2031-09-28');
       expect(screen.getByRole('heading', { name: 'Equivalências de CDB 103% do CDI (Banco X)' })).toBeInTheDocument();
-      expect(secaoEquivalencias()).toHaveTextContent('As equivalências consideram CDB 103% do CDI aplicado direto até 28/09/2031, sem a reaplicação no vencimento.');
+      expect(secaoEquivalencias()).toHaveTextContent('As equivalências consideram CDB 103% do CDI aplicado de uma vez até 28/09/2031, sem reaplicar no vencimento.');
     });
 
     it('para a oferta B em 2 anos', () => {

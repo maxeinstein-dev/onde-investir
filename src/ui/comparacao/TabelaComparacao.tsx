@@ -57,7 +57,7 @@ const CARACTERISTICAS: { rotulo: string; valor: (o: OfertaCadastrada, dataAplica
   { rotulo: 'Vencimento', valor: (o) => vencimento(o) },
   { rotulo: 'Prazo mínimo', valor: (o, d) => prazoMinimo(o, d) },
   { rotulo: 'Garantia', valor: (o) => garantia(o) },
-  { rotulo: 'Imposto de Renda', valor: (o) => (ehIsentoIR(o.produto) ? 'Isento' : 'Tabela regressiva') },
+  { rotulo: 'Imposto de Renda', valor: (o) => (ehIsentoIR(o.produto) ? 'Isento' : 'Tabela regressiva (de 22,5% a 15%)') },
 ];
 
 function Celula({ p, lider }: { p: Projecao; lider: boolean }) {

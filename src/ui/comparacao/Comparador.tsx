@@ -347,7 +347,7 @@ interface PropsEquivalenciasDaComparacao {
   onData: (data: DataISO) => void;
 }
 
-/** A escolha da oferta e do prazo, e as equivalências dela: aplicada direto até a data, sem a reaplicação. */
+/** A escolha da oferta e do prazo, e as equivalências dela: aplicada de uma vez até a data, sem reaplicar. */
 function EquivalenciasDaComparacao({ calculo, eqId, eqData, onOferta, onData }: PropsEquivalenciasDaComparacao) {
   const { ofertas, colunas, entrada, cenario } = calculo;
   const indice = Math.max(0, ofertas.findIndex((o) => o.id === eqId));
@@ -364,7 +364,7 @@ function EquivalenciasDaComparacao({ calculo, eqId, eqData, onOferta, onData }: 
     try {
       const eq = calcularEquivalencias({ produto: oferta.produto, indexacao: oferta.indexacao, valor: entrada.valor, dataAplicacao: entrada.dataAplicacao }, coluna.data, cenario);
       const aviso = projecao.reinvestimento
-        ? `As equivalências consideram ${descreverOferta(oferta)} aplicado direto até ${dataBR(coluna.data)}, sem a reaplicação no vencimento.`
+        ? `As equivalências consideram ${descreverOferta(oferta)} aplicado de uma vez até ${dataBR(coluna.data)}, sem reaplicar no vencimento.`
         : undefined;
       return <Equivalencias origem={origem} eq={eq} aviso={aviso} />;
     } catch (err) {
