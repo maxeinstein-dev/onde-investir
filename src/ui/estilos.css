@@ -1,0 +1,423 @@
+/* Estilos do M1: básicos, sem dependência externa (a CSP só aceita 'self').
+   Contraste AA: todas as combinações de texto e fundo abaixo ficam acima de 4,5:1. */
+
+:root {
+  color-scheme: light;
+  --texto: #1a1a1a;
+  --texto-suave: #4a4a4a;
+  --fundo: #ffffff;
+  --fundo-suave: #f4f6f8;
+  --borda: #c9ced4;
+  --primaria: #0b5cad;
+  --primaria-escura: #084785;
+  --sucesso: #1d6b3a;
+  --sucesso-fundo: #e8f5ec;
+  --erro: #a4161a;
+  --erro-fundo: #fdecea;
+  --aviso-fundo: #fff6d6;
+  --foco: #0b5cad;
+  --raio: 8px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--texto);
+  background: var(--fundo);
+}
+
+a {
+  color: var(--primaria);
+}
+
+a:hover {
+  color: var(--primaria-escura);
+}
+
+/* Foco visível em tudo que é interativo. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+/* Página */
+.pagina {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.pagina h1 {
+  margin: 0 0 0.25rem;
+  font-size: 2rem;
+}
+
+.pagina h2 {
+  font-size: 1.35rem;
+  margin: 0 0 0.75rem;
+}
+
+.pagina h3 {
+  font-size: 1.1rem;
+  margin: 0 0 0.5rem;
+}
+
+.aviso {
+  display: inline-block;
+  margin: 0.5rem 0 0;
+  padding: 0.35rem 0.75rem;
+  background: var(--aviso-fundo);
+  border-radius: var(--raio);
+  font-size: 0.9rem;
+}
+
+/* Formulário */
+.formulario {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.formulario fieldset {
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  min-width: 0;
+}
+
+.formulario legend {
+  padding: 0 0.35rem;
+  font-weight: 600;
+}
+
+.cenario,
+.aplicacao {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.cenario .dica,
+.aplicacao .prazos {
+  grid-column: 1 / -1;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+label {
+  font-weight: 500;
+}
+
+input,
+select {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.4rem 0.6rem;
+  font: inherit;
+  color: var(--texto);
+  background: var(--fundo);
+  border: 1px solid var(--texto-suave);
+  border-radius: 6px;
+}
+
+button {
+  font: inherit;
+  min-height: 2.5rem;
+  padding: 0.4rem 0.9rem;
+  color: var(--primaria);
+  background: var(--fundo);
+  border: 1px solid var(--primaria);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--fundo-suave);
+}
+
+.prazos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ofertas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.oferta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.oferta label:not(:first-of-type) {
+  margin-top: 0.5rem;
+}
+
+.primario {
+  justify-self: start;
+  padding: 0.6rem 1.75rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--primaria);
+  border-color: var(--primaria);
+}
+
+.primario:hover {
+  background: var(--primaria-escura);
+}
+
+.link {
+  justify-self: start;
+  min-height: auto;
+  padding: 0.25rem 0;
+  color: var(--primaria);
+  background: none;
+  border: none;
+  text-decoration: underline;
+}
+
+.link:hover {
+  background: none;
+  color: var(--primaria-escura);
+}
+
+.erro {
+  padding: 0.75rem 1rem;
+  color: var(--erro);
+  background: var(--erro-fundo);
+  border-left: 4px solid var(--erro);
+  border-radius: var(--raio);
+}
+
+.dica {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  color: var(--texto-suave);
+}
+
+/* Palpite */
+.palpite {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: var(--fundo-suave);
+  border-radius: var(--raio);
+}
+
+.palpite__opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.palpite__opcoes button {
+  flex: 1 1 200px;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+}
+
+/* Resultado */
+.resultado {
+  margin: 1.5rem 0;
+}
+
+.feedback {
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+  background: var(--fundo-suave);
+  border-radius: var(--raio);
+}
+
+.motivos {
+  padding-left: 1.25rem;
+}
+
+.motivos li + li {
+  margin-top: 0.35rem;
+}
+
+.cartoes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.cartao {
+  padding: 1rem;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  min-width: 0;
+}
+
+.cartao--vencedor {
+  border: 2px solid var(--sucesso);
+  background: var(--sucesso-fundo);
+}
+
+.selo {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--sucesso);
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+.cartao__liquido {
+  margin: 0.25rem 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.cartao__garantia {
+  margin: 0 0 0.75rem;
+  color: var(--texto-suave);
+}
+
+/* Por que esse resultado? */
+.porque > summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.passos {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.passo {
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--borda);
+}
+
+.passo--liquido {
+  font-weight: 600;
+}
+
+.passo__linha {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.passo__valor {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.passo__curto {
+  margin: 0.25rem 0 0;
+  font-size: 0.92rem;
+  font-weight: 400;
+  color: var(--texto-suave);
+}
+
+.passo__matematica {
+  margin-top: 0.35rem;
+  font-size: 0.88rem;
+  font-weight: 400;
+}
+
+.passo__matematica > summary {
+  color: var(--primaria);
+  cursor: pointer;
+}
+
+.passo__matematica p {
+  margin: 0.35rem 0;
+  overflow-wrap: anywhere;
+}
+
+/* Termo explicado */
+.termo {
+  display: inline;
+}
+
+.termo__botao {
+  display: inline;
+  min-height: auto;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  border-bottom: 1px dashed currentColor;
+  border-radius: 0;
+  cursor: help;
+}
+
+.termo__botao:hover {
+  background: none;
+  color: var(--primaria);
+}
+
+.termo__painel {
+  display: block;
+  margin: 0.35rem 0;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--texto);
+  background: var(--fundo-suave);
+  border-left: 3px solid var(--primaria);
+  border-radius: 4px;
+}
+
+/* Equivalências */
+.equivalencias {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+.equivalencias ul {
+  padding-left: 1.25rem;
+}
+
+.equivalencias li + li {
+  margin-top: 0.35rem;
+}
+
+/* Celular: uma coluna só. */
+@media (max-width: 639px) {
+  .pagina {
+    padding: 1rem 1rem 2rem;
+  }
+
+  .ofertas,
+  .cartoes {
+    grid-template-columns: 1fr;
+  }
+
+  .primario {
+    justify-self: stretch;
+  }
+}
