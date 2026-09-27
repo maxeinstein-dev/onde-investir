@@ -110,8 +110,7 @@ summary:focus-visible {
   gap: 0.75rem 1rem;
 }
 
-.cenario .dica,
-.aplicacao .prazos {
+.cenario .dica {
   grid-column: 1 / -1;
 }
 
@@ -150,18 +149,6 @@ button {
 
 button:hover {
   background: var(--fundo-suave);
-}
-
-.prazos {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.ofertas {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
 }
 
 .oferta {
@@ -569,7 +556,7 @@ button:hover {
   outline-offset: 2px;
 }
 
-/* Minhas ofertas */
+/* Catálogo de ofertas */
 .lista-ofertas {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -646,12 +633,6 @@ button:hover {
 }
 
 /* Comparação */
-.comparacao {
-  margin-top: 2rem;
-  padding-top: 1rem;
-  border-top: 2px solid var(--borda);
-}
-
 .comparacao h2:focus-visible,
 .palpite h2:focus-visible,
 .resultado h2:focus-visible {
@@ -673,36 +654,6 @@ button:hover {
   outline-offset: 2px;
 }
 
-.tabela-horizontes {
-  width: 100%;
-  border-collapse: collapse;
-  font-variant-numeric: tabular-nums;
-}
-
-.tabela-horizontes caption {
-  padding: 0.6rem 0.75rem;
-  font-weight: 600;
-  text-align: left;
-}
-
-.tabela-horizontes th,
-.tabela-horizontes td {
-  padding: 0.6rem 0.75rem;
-  border-top: 1px solid var(--borda);
-  text-align: left;
-  vertical-align: top;
-}
-
-.tabela-horizontes thead th {
-  background: var(--fundo-suave);
-  white-space: nowrap;
-}
-
-.tabela-horizontes tbody th {
-  min-width: 11rem;
-  font-weight: 600;
-}
-
 .tabela__data {
   display: block;
   font-size: 0.8rem;
@@ -710,7 +661,10 @@ button:hover {
   color: var(--texto-suave);
 }
 
+/* Posicionada para conter o texto visualmente oculto (absoluto): sem isso ele escapa do contêiner que rola
+   e alarga a página no celular. */
 .celula {
+  position: relative;
   min-width: 10rem;
 }
 
@@ -847,6 +801,7 @@ button:hover {
   background: var(--fundo);
 }
 
+.tabela-comparacao caption span,
 .tabela-comparacao__bloco span {
   position: sticky;
   left: 0.75rem;
@@ -949,7 +904,6 @@ button:hover {
     padding: 1rem 1rem 2rem;
   }
 
-  .ofertas,
   .cartoes {
     grid-template-columns: 1fr;
   }

@@ -34,7 +34,38 @@ const salvarNova = () => fireEvent.click(screen.getByRole('button', { name: 'Adi
 const preencher = (rotulo: string, valor: string) => fireEvent.input(screen.getByLabelText(rotulo), { target: { value: valor } });
 const escolher = (rotulo: string, valor: string) => fireEvent.change(screen.getByLabelText(rotulo), { target: { value: valor } });
 
-describe('Minhas ofertas', () => {
+describe('Catálogo de ofertas', () => {
+  it('o título é "Catálogo de ofertas"', () => {
+    render(<ComEstado />);
+    expect(screen.getByRole('heading', { level: 2, name: 'Catálogo de ofertas' })).toBeInTheDocument();
+  });
+
+  describe('botão "Comparar" em cada cartão', () => {
+    const outras = [1, 2, 3, 4, 5].map((n) => ({ ...cdb, id: `c${n}`, emissor: `Banco ${n}` }));
+    it('fora da comparação: "Comparar" chama onComparar com o id', () => {
+      const onComparar = vi.fn();
+      render(<MinhasOfertas ofertas={[cdb, lci]} onChange={() => {}} selecao={['lci']} onComparar={onComparar} />);
+      fireEvent.click(within(cartao(/A: CDB/)).getByRole('button', { name: 'Comparar' }));
+      expect(onComparar).toHaveBeenCalledWith('cdb');
+    });
+    it('já na comparação: "Na comparação ✓", desabilitado', () => {
+      render(<MinhasOfertas ofertas={[cdb, lci]} onChange={() => {}} selecao={['lci']} onComparar={() => {}} />);
+      const ja = within(cartao(/B: LCI/)).getByRole('button', { name: 'Na comparação ✓' });
+      expect(ja).toBeDisabled();
+      expect(within(cartao(/B: LCI/)).queryByRole('button', { name: 'Comparar' })).toBeNull();
+    });
+    it('com a comparação cheia, "Comparar" fica desabilitado e diz o limite', () => {
+      render(<MinhasOfertas ofertas={[...outras, lci]} onChange={() => {}} selecao={outras.map((o) => o.id)} onComparar={() => {}} />);
+      const comparar = within(cartao(/LCI/)).getByRole('button', { name: 'Comparar' });
+      expect(comparar).toBeDisabled();
+      expect(comparar).toHaveAccessibleDescription('A comparação já tem 5 ofertas. Tire uma para adicionar outra.');
+    });
+    it('sem onComparar, o cartão não tem o botão', () => {
+      render(<ComEstado inicial={[cdb]} />);
+      expect(within(cartao(/A: CDB/)).queryByRole('button', { name: 'Comparar' })).toBeNull();
+    });
+  });
+
   it('estado vazio', () => {
     render(<ComEstado />);
     expect(screen.getByText('Cadastre as ofertas que você está avaliando para comparar.')).toBeInTheDocument();
@@ -125,11 +156,11 @@ describe('Minhas ofertas', () => {
 
   describe('foco depois de remover e de salvar', () => {
     const titulo = (nome: RegExp) => screen.getByRole('heading', { name: nome });
-    it('remover a última oferta leva o foco ao título "Minhas ofertas"', () => {
+    it('remover a última oferta leva o foco ao título "Catálogo de ofertas"', () => {
       render(<ComEstado inicial={[cdb, lci]} />);
       fireEvent.click(within(cartao(/B: LCI/)).getByRole('button', { name: 'Remover' }));
       fireEvent.click(within(cartao(/B: LCI/)).getByRole('button', { name: 'Sim, remover' }));
-      expect(titulo(/^Minhas ofertas$/)).toHaveFocus();
+      expect(titulo(/^Catálogo de ofertas$/)).toHaveFocus();
     });
     it('remover uma oferta do meio leva o foco à próxima', () => {
       render(<ComEstado inicial={[cdb, lci]} />);

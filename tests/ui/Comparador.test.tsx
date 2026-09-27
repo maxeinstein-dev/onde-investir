@@ -385,6 +385,14 @@ describe('Comparador', () => {
     expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
   });
 
+  it('o cenário recebido entra no cálculo', () => {
+    const baixo = cenarioConstante({ cdiAA: 0.05, selicMetaAA: 0.051, ipcaAA: 0.04, trAM: 0 });
+    montar({ selecao: ['z', 'x'], cenario: baixo });
+    compararDireto();
+    // 10 mil a 110% de um CDI de 5% por 2 anos, depois do IR, fica abaixo de R$ 11 mil (no cenário padrão passa de R$ 12 mil).
+    expect(celula(/^2 anos/, 0)).toHaveTextContent(/^R\$\s10\./);
+  });
+
   it('mostra o cenário usado', () => {
     render(<Tela />);
     expect(screen.getByText('Cenário: Cenário de teste.')).toBeInTheDocument();

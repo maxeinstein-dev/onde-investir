@@ -18,9 +18,12 @@ export interface PropsMinhasOfertas {
   /** A lista nova (cadastro, edição, remoção ou importação). Quem chama persiste. */
   onChange: (ofertas: OfertaCadastrada[]) => void;
   gerarId?: () => string;
+  /** Os ids na comparação; com `onComparar`, cada cartão ganha o botão "Comparar". */
+  selecao?: readonly string[];
+  onComparar?: (id: string) => void;
 }
 
-export function MinhasOfertas({ ofertas, onChange, gerarId = novoIdOferta }: PropsMinhasOfertas) {
+export function MinhasOfertas({ ofertas, onChange, gerarId = novoIdOferta, selecao = [], onComparar }: PropsMinhasOfertas) {
   const [editando, setEditando] = useState<string | null>(null);
   const emEdicao = ofertas.find((o) => o.id === editando) ?? null;
   const conglomerados = [...new Set(ofertas.map((o) => o.conglomerado))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
@@ -57,8 +60,9 @@ export function MinhasOfertas({ ofertas, onChange, gerarId = novoIdOferta }: Pro
 
   return (
     <section class="minhas-ofertas" aria-labelledby="ofertas-titulo" ref={secao}>
-      <h2 id="ofertas-titulo" ref={titulo} tabIndex={-1}>Minhas ofertas</h2>
-      <ListaOfertas ofertas={ofertas} onEditar={setEditando} onRemover={remover} />
+      <h2 id="ofertas-titulo" ref={titulo} tabIndex={-1}>Catálogo de ofertas</h2>
+      <ListaOfertas ofertas={ofertas} onEditar={setEditando} onRemover={remover}
+        comparacao={onComparar && { selecao, onComparar }} />
       {cheio && !emEdicao ? (
         <p class="dica">Limite de {LIMITE_OFERTAS} ofertas: remova uma para cadastrar outra.</p>
       ) : (

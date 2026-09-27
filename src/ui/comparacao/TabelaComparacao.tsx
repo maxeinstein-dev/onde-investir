@@ -107,7 +107,7 @@ export function TabelaComparacao({ ofertas, colunas, dataAplicacao, onRemover }:
     // No celular a tabela rola dentro deste contêiner, sem rolar a página; tabindex para rolar pelo teclado.
     <div class="tabela-rolavel" role="region" aria-labelledby={ID_LEGENDA} tabIndex={0}>
       <table class="tabela-comparacao">
-        <caption id={ID_LEGENDA}>Comparação de {n} {n === 1 ? 'oferta' : 'ofertas'}</caption>
+        <caption id={ID_LEGENDA}><span>Comparação de {n} {n === 1 ? 'oferta' : 'ofertas'}</span></caption>
         <thead>
           <tr>
             <td />

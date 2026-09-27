@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { LIMITE_COMPARACAO } from '../../armazenamento/comparacao';
 import { descreverOferta } from '../../conteudo/motivos';
 import { dataBR, ehDataValida } from '../../engine/datas';
 import type { OfertaCadastrada } from '../../engine/ofertas';
@@ -10,7 +11,11 @@ export interface PropsListaOfertas {
   ofertas: readonly OfertaCadastrada[];
   onEditar: (id: string) => void;
   onRemover: (id: string) => void;
+  /** Sem ele, os cartões não têm o botão "Comparar". */
+  comparacao?: { selecao: readonly string[]; onComparar: (id: string) => void };
 }
+
+const ID_LIMITE = 'catalogo-comparacao-cheia';
 
 /** "Liquidez diária", "Liquidez diária · vence em dd/mm/aaaa" ou "No vencimento: dd/mm/aaaa". */
 export function descreverPrazo(o: OfertaCadastrada): string {
@@ -22,7 +27,27 @@ export function descreverPrazo(o: OfertaCadastrada): string {
   return o.vencimento ? `Liquidez diária · vence em ${dataBR(o.vencimento)}` : 'Liquidez diária';
 }
 
-function Cartao({ o, indice, onEditar, onRemover }: { o: OfertaCadastrada; indice: number; onEditar: () => void; onRemover: () => void }) {
+type EstadoComparacao = 'fora' | 'dentro' | 'cheia';
+
+interface PropsCartao {
+  o: OfertaCadastrada;
+  indice: number;
+  onEditar: () => void;
+  onRemover: () => void;
+  /** Onde a oferta está em relação à comparação; sem ele, o cartão não tem o botão. */
+  comparacao?: { estado: EstadoComparacao; onComparar: () => void };
+}
+
+function BotaoComparar({ estado, onComparar }: { estado: EstadoComparacao; onComparar: () => void }) {
+  if (estado === 'dentro') return <button type="button" disabled>Na comparação ✓</button>;
+  return (
+    <button type="button" disabled={estado === 'cheia'} aria-describedby={estado === 'cheia' ? ID_LIMITE : undefined} onClick={onComparar}>
+      Comparar
+    </button>
+  );
+}
+
+function Cartao({ o, indice, onEditar, onRemover, comparacao }: PropsCartao) {
   const [confirmando, setConfirmando] = useState(false);
   const botaoConfirmar = useRef<HTMLButtonElement>(null);
   const idTitulo = `oferta-${indice}-titulo`;
@@ -48,6 +73,7 @@ function Cartao({ o, indice, onEditar, onRemover }: { o: OfertaCadastrada; indic
           </div>
         ) : (
           <div class="cartao__acoes">
+            {comparacao && <BotaoComparar {...comparacao} />}
             <button type="button" onClick={onEditar}>Editar</button>
             <button type="button" onClick={() => setConfirmando(true)}>Remover</button>
           </div>
@@ -57,13 +83,21 @@ function Cartao({ o, indice, onEditar, onRemover }: { o: OfertaCadastrada; indic
   );
 }
 
-export function ListaOfertas({ ofertas, onEditar, onRemover }: PropsListaOfertas) {
+export function ListaOfertas({ ofertas, onEditar, onRemover, comparacao }: PropsListaOfertas) {
   if (ofertas.length === 0) return <p class="dica">Cadastre as ofertas que você está avaliando para comparar.</p>;
+  const cheia = comparacao !== undefined && comparacao.selecao.length >= LIMITE_COMPARACAO;
+  const estado = (id: string): EstadoComparacao => (comparacao?.selecao.includes(id) ? 'dentro' : cheia ? 'cheia' : 'fora');
   return (
-    <ul class="lista-ofertas" aria-label="Ofertas cadastradas">
-      {ofertas.map((o, i) => (
-        <Cartao key={o.id} o={o} indice={i} onEditar={() => onEditar(o.id)} onRemover={() => onRemover(o.id)} />
-      ))}
-    </ul>
+    <>
+      {cheia && (
+        <p id={ID_LIMITE} class="dica">A comparação já tem {LIMITE_COMPARACAO} ofertas. Tire uma para adicionar outra.</p>
+      )}
+      <ul class="lista-ofertas" aria-label="Ofertas cadastradas">
+        {ofertas.map((o, i) => (
+          <Cartao key={o.id} o={o} indice={i} onEditar={() => onEditar(o.id)} onRemover={() => onRemover(o.id)}
+            comparacao={comparacao && { estado: estado(o.id), onComparar: () => comparacao.onComparar(o.id) }} />
+        ))}
+      </ul>
+    </>
   );
 }

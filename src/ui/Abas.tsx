@@ -3,29 +3,63 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 
 export interface Aba { id: string; rotulo: string; conteudo: ComponentChildren }
 
-/** A aba do hash atual (`#duelo` → "duelo"); a primeira se o hash não for de nenhuma. */
-function abaDoHash(abas: readonly Aba[]): string {
-  const id = location.hash.replace(/^#/, '');
-  return abas.some((a) => a.id === id) ? id : (abas[0]?.id ?? '');
+/** Hashes antigos que levam a uma aba de hoje (`#duelo` → "comparar"). */
+export type Apelidos = Readonly<Record<string, string>>;
+
+/**
+ * A aba do hash atual; a primeira se o hash não for de nenhuma. Hash com apelido vira o da aba de destino, sem
+ * criar uma entrada nova no histórico.
+ */
+function abaDoHash(ids: readonly string[], apelidos: Apelidos): string {
+  const hash = location.hash.replace(/^#/, '');
+  const destino = Object.hasOwn(apelidos, hash) ? apelidos[hash] : undefined;
+  if (destino !== undefined && ids.includes(destino)) {
+    history.replaceState(null, '', `#${destino}`);
+    return destino;
+  }
+  return ids.includes(hash) ? hash : (ids[0] ?? '');
+}
+
+/** A aba ativa sincronizada com o hash da URL (e com o voltar do navegador), para quem precisa trocar de aba por fora. */
+export function useAbaDaUrl(ids: readonly string[], apelidos: Apelidos = {}): [string, (id: string) => void] {
+  const [ativa, setAtiva] = useState(() => abaDoHash(ids, apelidos));
+  const atuais = useRef({ ids, apelidos });
+  atuais.current = { ids, apelidos };
+
+  useEffect(() => {
+    const aoMudarHash = () => setAtiva(abaDoHash(atuais.current.ids, atuais.current.apelidos));
+    window.addEventListener('hashchange', aoMudarHash);
+    return () => window.removeEventListener('hashchange', aoMudarHash);
+  }, []);
+
+  function ativar(id: string) {
+    setAtiva(id);
+    if (location.hash !== `#${id}`) location.hash = id;
+  }
+  return [ativa, ativar];
+}
+
+export interface PropsAbas {
+  abas: readonly Aba[];
+  rotulo: string;
+  apelidos?: Apelidos;
+  /** Controlada: a aba ativa e a troca vêm de fora (em geral, do `useAbaDaUrl`). */
+  ativa?: string;
+  onAtivar?: (id: string) => void;
 }
 
 /**
  * Abas acessíveis (padrão WAI-ARIA com ativação automática), sincronizadas com o hash da URL.
  * Todos os painéis ficam montados; os inativos, com `hidden`, para não perder o que foi digitado.
  */
-export function Abas({ abas, rotulo }: { abas: readonly Aba[]; rotulo: string }) {
-  const [ativa, setAtiva] = useState(() => abaDoHash(abas));
+export function Abas({ abas, rotulo, apelidos, ativa: ativaExterna, onAtivar }: PropsAbas) {
+  const [ativaInterna, ativarInterna] = useAbaDaUrl(abas.map((a) => a.id), apelidos);
+  const ativa = ativaExterna ?? ativaInterna;
+  const trocar = onAtivar ?? ativarInterna;
   const botoes = useRef<Record<string, HTMLButtonElement | null>>({});
 
-  useEffect(() => {
-    const aoMudarHash = () => setAtiva(abaDoHash(abas));
-    window.addEventListener('hashchange', aoMudarHash);
-    return () => window.removeEventListener('hashchange', aoMudarHash);
-  }, [abas]);
-
   function ativar(id: string, focar = false) {
-    setAtiva(id);
-    if (location.hash !== `#${id}`) location.hash = id;
+    trocar(id);
     if (focar) botoes.current[id]?.focus();
   }
 

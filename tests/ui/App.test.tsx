@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import { CHAVE_COMPARACAO } from '../../src/armazenamento/comparacao';
 import { CHAVE_OFERTAS } from '../../src/armazenamento/ofertas';
 import { CHAVE_PREFERENCIAS } from '../../src/armazenamento/preferencias';
 import {
   urlCalendarioCopom, urlFocusAnuais, urlFocusIpcaMensal, urlFocusSelic, urlSgsUltimos,
 } from '../../src/dados/bcb';
 import { App } from '../../src/ui/App';
+import { idColuna } from '../../src/ui/comparacao/TabelaComparacao';
 import copom from '../fixtures/bcb/copom.json';
 import focusAnuais from '../fixtures/bcb/focus-anuais.json';
 import focusIpcaMensal from '../fixtures/bcb/focus-ipca-mensal.json';
@@ -53,22 +55,45 @@ afterEach(() => {
 const painel = () => screen.getByRole('region', { name: 'Indicadores e cenário' });
 const aba = (nome: string) => screen.getByRole('tab', { name: nome });
 
+const base = { conglomerado: 'G', liquidez: 'DIARIA' };
+const X = { ...base, id: 'a', emissor: 'Banco X', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 } };
+const Y = { ...base, id: 'b', emissor: 'Banco Y', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.1 } };
+/** Grava o catálogo e, se vier, a seleção da comparação, como uma visita anterior faria. */
+function semear(ofertas: unknown[], selecao?: string[]) {
+  localStorage.setItem(CHAVE_OFERTAS, JSON.stringify(ofertas));
+  if (selecao) localStorage.setItem(CHAVE_COMPARACAO, JSON.stringify(selecao));
+}
+const painelAtivo = () => screen.getByRole('tabpanel');
+const colunas = () => within(painelAtivo()).queryAllByRole('columnheader').filter((c) => c.getAttribute('scope') === 'col');
+const nomesDasColunas = () => colunas().map((c) => c.querySelector('.tabela-comparacao__nome')?.textContent);
+const salvas = (chave: string) => JSON.parse(localStorage.getItem(chave) ?? 'null');
+
 describe('App', () => {
-  it('abre em "Comparar ofertas"', () => {
+  it('abre em "Comparar", com duas abas', () => {
     vi.stubGlobal('fetch', fetchForaDoAr);
     render(<App />);
     expect(screen.getByRole('heading', { level: 1, name: 'Rende' })).toBeInTheDocument();
     expect(screen.getByText(/não é recomendação de investimento/)).toBeInTheDocument();
-    expect(aba('Comparar ofertas')).toHaveAttribute('aria-selected', 'true');
-    expect(within(screen.getByRole('tabpanel')).getByRole('heading', { name: 'Minhas ofertas' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Comparar', 'Catálogo']);
+    expect(aba('Comparar')).toHaveAttribute('aria-selected', 'true');
+    expect(within(painelAtivo()).getByRole('heading', { level: 2, name: 'Comparar' })).toBeInTheDocument();
   });
-  it('clicar em "Duelo rápido" muda o hash e a aba', () => {
+  it.each(['#duelo', '#ofertas'])('o hash antigo %s leva para "Comparar"', (hash) => {
+    vi.stubGlobal('fetch', fetchForaDoAr);
+    history.replaceState(null, '', `/${hash}`);
+    render(<App />);
+    expect(aba('Comparar')).toHaveAttribute('aria-selected', 'true');
+    expect(location.hash).toBe('#comparar');
+  });
+  it('clicar em "Catálogo" muda o hash e a aba; #catalogo abre nela', () => {
     vi.stubGlobal('fetch', fetchForaDoAr);
     render(<App />);
-    fireEvent.click(aba('Duelo rápido'));
-    expect(location.hash).toBe('#duelo');
-    expect(aba('Duelo rápido')).toHaveAttribute('aria-selected', 'true');
-    expect(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Comparar' })).toBeInTheDocument();
+    fireEvent.click(aba('Catálogo'));
+    expect(location.hash).toBe('#catalogo');
+    expect(within(painelAtivo()).getByRole('heading', { name: 'Catálogo de ofertas' })).toBeInTheDocument();
+    cleanup();
+    render(<App />);
+    expect(aba('Catálogo')).toHaveAttribute('aria-selected', 'true');
   });
   it('mostra que está buscando os indicadores enquanto carrega', () => {
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
@@ -84,14 +109,27 @@ describe('App', () => {
     render(<App />);
     const aviso = 'Não deu para salvar neste navegador. Exporte suas ofertas para não perdê-las.';
     expect(screen.queryByText(aviso)).toBeNull();
-    const ofertas = screen.getByRole('tabpanel');
-    fireEvent.input(within(ofertas).getByLabelText('Emissor'), { target: { value: 'Banco X' } });
-    fireEvent.input(within(ofertas).getByLabelText('Conglomerado'), { target: { value: 'Grupo X' } });
-    fireEvent.click(within(ofertas).getByRole('button', { name: 'Adicionar oferta' }));
+    fireEvent.click(aba('Catálogo'));
+    const catalogo = painelAtivo();
+    fireEvent.input(within(catalogo).getByLabelText('Emissor'), { target: { value: 'Banco X' } });
+    fireEvent.input(within(catalogo).getByLabelText('Conglomerado'), { target: { value: 'Grupo X' } });
+    fireEvent.click(within(catalogo).getByRole('button', { name: 'Adicionar oferta' }));
     expect(screen.getByText(aviso)).toHaveAttribute('role', 'alert');
     // Continua na tela depois de outras ações.
-    fireEvent.click(aba('Duelo rápido'));
+    fireEvent.click(aba('Comparar'));
     expect(screen.getByText(aviso)).toBeInTheDocument();
+  });
+  it('se falhar ao gravar a seleção da comparação, também avisa', () => {
+    vi.stubGlobal('fetch', fetchForaDoAr);
+    semear([X, Y]);
+    render(<App />);
+    const gravar = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('cheio', 'QuotaExceededError');
+    });
+    onTestFinished(() => gravar.mockRestore());
+    fireEvent.click(within(painelAtivo()).getByRole('button', { name: /^\+ Adicionar oferta/ }));
+    fireEvent.click(within(painelAtivo()).getByRole('button', { name: 'Adicionar CDB 103% do CDI (Banco X)' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Não deu para salvar neste navegador.');
   });
   it('se falhar ao gravar as preferências, também avisa', async () => {
     vi.stubGlobal('fetch', fetchFixtures);
@@ -104,29 +142,31 @@ describe('App', () => {
     fireEvent.click(within(painel()).getByRole('radio', { name: /Juros sobem/ }));
     expect(screen.getByRole('alert')).toHaveTextContent('Não deu para salvar neste navegador. Exporte suas ofertas para não perdê-las.');
   });
-  it('com fetch rejeitando, mostra o aviso de cenário manual e o duelo funciona', async () => {
+  it('com fetch rejeitando, mostra o aviso de cenário manual e a comparação funciona', async () => {
     vi.stubGlobal('fetch', fetchForaDoAr);
+    semear([X, Y], ['a', 'b']);
     render(<App />);
     expect(await within(painel()).findByText('Sem dados do SGS: usando o cenário manual.')).toBeInTheDocument();
     expect(within(painel()).getByRole('radio', { name: /Manual/ })).toBeChecked();
     expect(within(painel()).getByRole('radio', { name: /Base/ })).toBeDisabled();
-    fireEvent.click(aba('Duelo rápido'));
-    const duelo = screen.getByRole('tabpanel');
-    expect(within(duelo).getByText(/usando o cenário manual/)).toBeInTheDocument();
-    fireEvent.click(within(duelo).getByRole('button', { name: 'Comparar' }));
-    expect(screen.getByRole('heading', { name: /qual você acha que rende mais/i })).toBeInTheDocument();
+    expect(within(painelAtivo()).getByText(/^Cenário: Sem dados do SGS: usando o cenário manual./)).toBeInTheDocument();
+    fireEvent.click(within(painelAtivo()).getByRole('button', { name: 'Comparar' }));
+    expect(screen.getByRole('heading', { name: 'Qual lidera em 5 anos?' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'B: CDB 110% do CDI (Banco Y)' }));
+    expect(screen.getByText('Você acertou.')).toBeInTheDocument();
+    expect(within(painelAtivo()).getByRole('rowgroup', { name: 'Valor líquido' })).toBeInTheDocument();
   });
   it('com os indicadores, usa o cenário Base do Focus, buscando uma vez só', async () => {
     vi.stubGlobal('fetch', fetchFixtures);
+    semear([X, Y], ['a', 'b']);
     render(<App />);
     expect(await within(painel()).findByText('Selic e IPCA seguem as medianas do Focus de 18/09/2026.')).toBeInTheDocument();
     expect(within(painel()).getByRole('radio', { name: /Base/ })).toBeChecked();
     expect(fetchFixtures).toHaveBeenCalledTimes(RESPOSTAS.size);
-    fireEvent.click(aba('Duelo rápido'));
-    expect(within(screen.getByRole('tabpanel')).getByText(/medianas do Focus de 18\/09\/2026/)).toBeInTheDocument();
-    fireEvent.click(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Comparar' }));
+    expect(within(painelAtivo()).getByText(/medianas do Focus de 18\/09\/2026/)).toBeInTheDocument();
+    fireEvent.click(within(painelAtivo()).getByRole('button', { name: 'Comparar' }));
     fireEvent.click(screen.getByRole('button', { name: /pular/i }));
-    expect(screen.getByRole('heading', { name: 'Resultado' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Resultado da comparação' })).toBeInTheDocument();
     expect(fetchFixtures).toHaveBeenCalledTimes(RESPOSTAS.size);
   });
   it('trocar para "Juros sobem" muda a explicação e fica salvo', async () => {
@@ -137,93 +177,149 @@ describe('App', () => {
     expect(within(painel()).getByText(/^Juros sobem: Selic e IPCA 1 desvio-padrão acima/)).toBeInTheDocument();
     await waitFor(() => expect(JSON.parse(localStorage.getItem(CHAVE_PREFERENCIAS) ?? '{}').escolha).toBe('SOBEM'));
   });
-  it('cadastrar uma oferta em "Comparar ofertas" salva no localStorage e sobrevive à recarga', () => {
+  it('cadastrar uma oferta no catálogo salva no localStorage e sobrevive à recarga', () => {
     vi.stubGlobal('fetch', fetchForaDoAr);
     render(<App />);
-    const ofertas = screen.getByRole('tabpanel');
-    fireEvent.input(within(ofertas).getByLabelText('Emissor'), { target: { value: 'Banco X' } });
-    fireEvent.input(within(ofertas).getByLabelText('Conglomerado'), { target: { value: 'Grupo X' } });
-    fireEvent.click(within(ofertas).getByRole('button', { name: 'Adicionar oferta' }));
-    const salvas = JSON.parse(localStorage.getItem(CHAVE_OFERTAS) ?? '[]');
-    expect(salvas).toHaveLength(1);
-    expect(salvas[0]).toMatchObject({ produto: 'CDB', emissor: 'Banco X', conglomerado: 'Grupo X', liquidez: 'DIARIA' });
+    fireEvent.click(aba('Catálogo'));
+    const catalogo = painelAtivo();
+    fireEvent.input(within(catalogo).getByLabelText('Emissor'), { target: { value: 'Banco X' } });
+    fireEvent.input(within(catalogo).getByLabelText('Conglomerado'), { target: { value: 'Grupo X' } });
+    fireEvent.click(within(catalogo).getByRole('button', { name: 'Adicionar oferta' }));
+    const lista = salvas(CHAVE_OFERTAS);
+    expect(lista).toHaveLength(1);
+    expect(lista[0]).toMatchObject({ produto: 'CDB', emissor: 'Banco X', conglomerado: 'Grupo X', liquidez: 'DIARIA' });
     cleanup();
     render(<App />);
     expect(screen.getByRole('article', { name: /A: CDB 100% do CDI/ })).toBeInTheDocument();
   });
-  it('com duas ofertas salvas, "Comparar ofertas" mostra a tabela no cenário ativo', async () => {
-    vi.stubGlobal('fetch', fetchForaDoAr);
-    const base = { conglomerado: 'G', liquidez: 'NO_VENCIMENTO', vencimento: '2027-09-28' };
-    localStorage.setItem(CHAVE_OFERTAS, JSON.stringify([
-      { ...base, id: 'a', emissor: 'Banco X', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 } },
-      { ...base, id: 'b', emissor: 'Banco Y', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.1 } },
-    ]));
-    render(<App />);
-    const painelOfertas = screen.getByRole('tabpanel');
-    await within(painel()).findByText('Sem dados do SGS: usando o cenário manual.');
-    expect(within(painelOfertas).getByText(/^Cenário: Sem dados do SGS: usando o cenário manual./)).toBeInTheDocument();
-    fireEvent.click(within(painelOfertas).getByRole('button', { name: 'Comparar' }));
-    expect(screen.getByRole('heading', { name: 'Qual lidera em 5 anos?' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'B: CDB 110% do CDI (Banco Y)' }));
-    expect(screen.getByText('Você acertou.')).toBeInTheDocument();
-    expect(within(painelOfertas).getByRole('table')).toBeInTheDocument();
+
+  describe('catálogo e comparação', () => {
+    it('na primeira carga, sem seleção salva, a comparação começa vazia mesmo com ofertas no catálogo', () => {
+      vi.stubGlobal('fetch', fetchForaDoAr);
+      semear([X, Y]);
+      render(<App />);
+      expect(within(painelAtivo()).getByText('Adicione pelo menos duas ofertas para comparar (até 5).')).toBeInTheDocument();
+      expect(colunas()).toHaveLength(0);
+      expect(localStorage.getItem(CHAVE_COMPARACAO)).toBeNull();
+    });
+    it('"Comparar" no catálogo adiciona, troca de aba e leva o foco para a coluna nova', () => {
+      vi.stubGlobal('fetch', fetchForaDoAr);
+      semear([X, Y], ['b']);
+      history.replaceState(null, '', '/#catalogo');
+      render(<App />);
+      const cartaoX = () => screen.getByRole('article', { name: /A: CDB 103% do CDI/ });
+      fireEvent.click(within(cartaoX()).getByRole('button', { name: 'Comparar' }));
+      expect(aba('Comparar')).toHaveAttribute('aria-selected', 'true');
+      expect(location.hash).toBe('#comparar');
+      expect(nomesDasColunas()).toEqual(['CDB 110% do CDI (Banco Y)', 'CDB 103% do CDI (Banco X)']);
+      expect(document.getElementById(idColuna(1))).toHaveFocus();
+      expect(salvas(CHAVE_COMPARACAO)).toEqual(['b', 'a']);
+      // De volta ao catálogo, o cartão diz que já está na comparação.
+      fireEvent.click(aba('Catálogo'));
+      expect(within(cartaoX()).getByRole('button', { name: 'Na comparação ✓' })).toBeDisabled();
+    });
+    it('remover do catálogo tira a oferta da comparação', () => {
+      vi.stubGlobal('fetch', fetchForaDoAr);
+      semear([X, Y], ['a', 'b']);
+      history.replaceState(null, '', '/#catalogo');
+      render(<App />);
+      const cartaoX = screen.getByRole('article', { name: /A: CDB 103% do CDI/ });
+      fireEvent.click(within(cartaoX).getByRole('button', { name: 'Remover' }));
+      fireEvent.click(within(cartaoX).getByRole('button', { name: 'Sim, remover' }));
+      expect(salvas(CHAVE_COMPARACAO)).toEqual(['b']);
+      fireEvent.click(aba('Comparar'));
+      expect(nomesDasColunas()).toEqual(['CDB 110% do CDI (Banco Y)']);
+    });
+    it('a seleção persiste ao recarregar, na ordem', () => {
+      vi.stubGlobal('fetch', fetchForaDoAr);
+      semear([X, Y]);
+      render(<App />);
+      const adicionarDoCatalogo = (nome: string) => {
+        fireEvent.click(within(painelAtivo()).getByRole('button', { name: /^\+ Adicionar oferta/ }));
+        fireEvent.click(within(painelAtivo()).getByRole('button', { name: `Adicionar ${nome}` }));
+      };
+      adicionarDoCatalogo('CDB 110% do CDI (Banco Y)');
+      adicionarDoCatalogo('CDB 103% do CDI (Banco X)');
+      expect(salvas(CHAVE_COMPARACAO)).toEqual(['b', 'a']);
+      cleanup();
+      render(<App />);
+      expect(nomesDasColunas()).toEqual(['CDB 110% do CDI (Banco Y)', 'CDB 103% do CDI (Banco X)']);
+    });
+    it('seleção salva com ids que não existem mais: eles somem', () => {
+      vi.stubGlobal('fetch', fetchForaDoAr);
+      semear([X, Y], ['sumiu', 'b']);
+      render(<App />);
+      expect(nomesDasColunas()).toEqual(['CDB 110% do CDI (Banco Y)']);
+    });
+    it('criar uma oferta pelo seletor grava no catálogo e na comparação', () => {
+      vi.stubGlobal('fetch', fetchForaDoAr);
+      render(<App />);
+      const p = painelAtivo();
+      fireEvent.click(within(p).getByRole('button', { name: /^\+ Adicionar oferta/ }));
+      fireEvent.input(within(p).getByLabelText('Emissor'), { target: { value: 'Banco Novo' } });
+      fireEvent.input(within(p).getByLabelText('Conglomerado'), { target: { value: 'Grupo Novo' } });
+      fireEvent.click(within(p).getByRole('button', { name: 'Salvar no catálogo e comparar' }));
+      const catalogo = salvas(CHAVE_OFERTAS);
+      expect(catalogo).toHaveLength(1);
+      expect(catalogo[0]).toMatchObject({ emissor: 'Banco Novo' });
+      expect(salvas(CHAVE_COMPARACAO)).toEqual([catalogo[0].id]);
+      expect(colunas()).toHaveLength(1);
+      fireEvent.click(aba('Catálogo'));
+      expect(screen.getByRole('article', { name: /A: CDB 100% do CDI/ })).toBeInTheDocument();
+    });
   });
+
   describe('o objeto do cenário só muda quando muda o que ele usa', () => {
-    const verResultadoDoDuelo = () => {
-      fireEvent.click(aba('Duelo rápido'));
-      fireEvent.click(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Comparar' }));
+    const verResultado = () => {
+      fireEvent.click(within(painelAtivo()).getByRole('button', { name: 'Comparar' }));
       // Pular desliga os palpites: da segunda vez, o resultado vem direto.
       const pular = screen.queryByRole('button', { name: /pular/i });
       if (pular) fireEvent.click(pular);
-      expect(screen.getByRole('heading', { name: 'Resultado' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Resultado da comparação' })).toBeInTheDocument();
     };
-    it('no Manual (por falta de dados), mudar as premissas não invalida o resultado do duelo', async () => {
+    const resultado = () => screen.queryByRole('heading', { name: 'Resultado da comparação' });
+    it('no Manual (por falta de dados), mudar as premissas não invalida o resultado', async () => {
       vi.stubGlobal('fetch', fetchForaDoAr);
+      semear([X, Y], ['a', 'b']);
       render(<App />);
       await within(painel()).findByText('Sem dados do SGS: usando o cenário manual.');
-      verResultadoDoDuelo();
+      verResultado();
       fireEvent.input(within(painel()).getByLabelText('Desvios-padrão (k)'), { target: { value: '2' } });
-      expect(screen.getByRole('heading', { name: 'Resultado' })).toBeInTheDocument();
+      expect(resultado()).toBeInTheDocument();
       // Os valores manuais, sim, mudam o cenário.
       fireEvent.input(within(painel()).getByLabelText('CDI (% a.a.)'), { target: { value: '12' } });
-      expect(screen.queryByRole('heading', { name: 'Resultado' })).toBeNull();
+      expect(resultado()).toBeNull();
     });
     it('no Manual escolhido, mudar as premissas não invalida; num projetado, invalida', async () => {
       vi.stubGlobal('fetch', fetchFixtures);
+      semear([X, Y], ['a', 'b']);
       render(<App />);
       await within(painel()).findByText(/medianas do Focus/);
       fireEvent.click(within(painel()).getByRole('radio', { name: /Manual/ }));
-      verResultadoDoDuelo();
+      verResultado();
       fireEvent.input(within(painel()).getByLabelText('Desvios-padrão (k)'), { target: { value: '2' } });
-      expect(screen.getByRole('heading', { name: 'Resultado' })).toBeInTheDocument();
+      expect(resultado()).toBeInTheDocument();
       fireEvent.click(within(painel()).getByRole('radio', { name: /Juros sobem/ }));
-      verResultadoDoDuelo();
+      verResultado();
       fireEvent.input(within(painel()).getByLabelText('Desvios-padrão (k)'), { target: { value: '1.5' } });
-      expect(screen.queryByRole('heading', { name: 'Resultado' })).toBeNull();
+      expect(resultado()).toBeNull();
     });
   });
-  it('com um rascunho inválido no painel, os dois "Comparar" ficam desabilitados, com o aviso', async () => {
+  it('com um rascunho inválido no painel, "Comparar" fica desabilitado, com o aviso', async () => {
     vi.stubGlobal('fetch', fetchForaDoAr);
-    const base = { conglomerado: 'G', liquidez: 'DIARIA' };
-    localStorage.setItem(CHAVE_OFERTAS, JSON.stringify([
-      { ...base, id: 'a', emissor: 'Banco X', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 } },
-      { ...base, id: 'b', emissor: 'Banco Y', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.1 } },
-    ]));
+    semear([X, Y], ['a', 'b']);
     render(<App />);
     await within(painel()).findByText('Sem dados do SGS: usando o cenário manual.');
     const aviso = 'Corrija o cenário no painel antes de comparar.';
     const conferir = (bloqueado: boolean) => {
-      for (const nome of ['Comparar ofertas', 'Duelo rápido']) {
-        fireEvent.click(aba(nome));
-        const p = screen.getByRole('tabpanel');
-        const botao = within(p).getByRole('button', { name: 'Comparar' });
-        if (bloqueado) {
-          expect(botao).toBeDisabled();
-          expect(within(p).getByText(aviso)).toBeInTheDocument();
-        } else {
-          expect(botao).toBeEnabled();
-          expect(within(p).queryByText(aviso)).toBeNull();
-        }
+      const p = painelAtivo();
+      const botao = within(p).getByRole('button', { name: 'Comparar' });
+      if (bloqueado) {
+        expect(botao).toBeDisabled();
+        expect(within(p).getByText(aviso)).toBeInTheDocument();
+      } else {
+        expect(botao).toBeEnabled();
+        expect(within(p).queryByText(aviso)).toBeNull();
       }
     };
     fireEvent.input(within(painel()).getByLabelText('CDI (% a.a.)'), { target: { value: '' } });
@@ -235,19 +331,16 @@ describe('App', () => {
     fireEvent.click(within(painel()).getByRole('button', { name: 'Restaurar padrão' }));
     conferir(false);
   });
-  it('o duelo e a comparação ficam montados juntos sem ids repetidos, mesmo com os dois palpites abertos', () => {
+  it('o comparador e o catálogo ficam montados juntos sem ids repetidos, com o seletor e o palpite abertos', () => {
     vi.stubGlobal('fetch', fetchForaDoAr);
-    const base = { conglomerado: 'G', liquidez: 'DIARIA' };
-    localStorage.setItem(CHAVE_OFERTAS, JSON.stringify([
-      { ...base, id: 'a', emissor: 'Banco X', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 } },
-      { ...base, id: 'b', emissor: 'Banco Y', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.1 } },
-    ]));
+    semear([X, Y, { ...X, id: 'c', emissor: 'Banco Z' }], ['a', 'b']);
     render(<App />);
-    fireEvent.click(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Comparar' }));
-    fireEvent.click(aba('Duelo rápido'));
-    fireEvent.click(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Comparar' }));
-    expect(document.getElementById('comparacao-palpite-titulo')).not.toBeNull();
-    expect(document.getElementById('duelo-palpite-titulo')).not.toBeNull();
+    const p = painelAtivo();
+    fireEvent.click(within(p).getByRole('button', { name: 'Comparar' }));
+    fireEvent.click(within(p).getByRole('button', { name: /^\+ Adicionar oferta/ }));
+    expect(document.getElementById('comparador-palpite-titulo')).not.toBeNull();
+    expect(document.getElementById('comparador-nova-titulo')).not.toBeNull();
+    expect(document.getElementById('cadastro-titulo')).not.toBeNull();
     const ids = [...document.querySelectorAll('[id]')].map((e) => e.id);
     expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
   });

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Abas } from '../../src/ui/Abas';
+import { useState } from 'preact/hooks';
+import { Abas, useAbaDaUrl } from '../../src/ui/Abas';
 
 afterEach(cleanup);
 beforeEach(() => history.replaceState(null, '', '/'));
@@ -67,5 +68,35 @@ describe('Abas', () => {
     render(<Abas rotulo="Seções" abas={ABAS} />);
     fireEvent.click(aba('Duelo rápido'));
     expect(screen.getByText('Conteúdo das ofertas')).toBeInTheDocument();
+  });
+  it('hash antigo com apelido abre a aba de destino e troca o hash', () => {
+    history.replaceState(null, '', '/#antiga');
+    render(<Abas rotulo="Seções" abas={ABAS} apelidos={{ antiga: 'duelo' }} />);
+    expect(aba('Duelo rápido')).toHaveAttribute('aria-selected', 'true');
+    expect(location.hash).toBe('#duelo');
+    history.replaceState(null, '', '/#antiga');
+    fireEvent(window, new HashChangeEvent('hashchange'));
+    expect(aba('Duelo rápido')).toHaveAttribute('aria-selected', 'true');
+    expect(location.hash).toBe('#duelo');
+  });
+  it('controlada: quem usa o useAbaDaUrl troca a aba por fora, e o hash acompanha', () => {
+    function Controlada() {
+      const [ativa, ativar] = useAbaDaUrl(['ofertas', 'duelo']);
+      const [n, setN] = useState(0);
+      return (
+        <>
+          <button type="button" onClick={() => { ativar('duelo'); setN(n + 1); }}>Ir para o duelo</button>
+          <Abas rotulo="Seções" abas={ABAS} ativa={ativa} onAtivar={ativar} />
+        </>
+      );
+    }
+    render(<Controlada />);
+    expect(aba('Comparar ofertas')).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Ir para o duelo' }));
+    expect(aba('Duelo rápido')).toHaveAttribute('aria-selected', 'true');
+    expect(location.hash).toBe('#duelo');
+    fireEvent.click(aba('Comparar ofertas'));
+    expect(aba('Comparar ofertas')).toHaveAttribute('aria-selected', 'true');
+    expect(location.hash).toBe('#ofertas');
   });
 });
