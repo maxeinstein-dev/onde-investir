@@ -1,337 +1,452 @@
 # Onde Investir — Design / Spec
 
-- **Data:** 2026-09-27
+- **Data:** 2026-09-27 (revisada após sessão de grill no mesmo dia)
 - **Repositório:** `github.com/maxeinstein-dev/onde-investir`
 - **URL de produção:** `https://rende.maxsueleinstein.dev`
-- **Status:** design aprovado, aguardando revisão da spec escrita
+- **Status:** design aprovado e refinado; pronto para o plano de implementação
 
 ## 1. Objetivo
 
-Calculadora pessoal e gratuita para decidir **onde aplicar um valor**, comparando
-investimentos pelo **valor líquido** (após IR, IOF e custos), considerando prazos,
-liquidez e garantia (FGC). Usa indicadores em tempo real de APIs gratuitas e ensina
-o usuário sobre investimentos ao longo do uso.
+Calculadora pessoal e gratuita com **dois pilares de igual peso**:
 
-Exemplo-guia: *CDB 103% do CDI vs LCI 80% do CDI — qual rende mais, em quais prazos?*
+1. **Comparar** onde aplicar um valor pelo **valor líquido** (após IR, IOF e custos),
+   considerando prazos, liquidez e garantia (FGC), com indicadores em tempo real.
+2. **Ensinar** sobre investimentos: cada resultado explica o porquê, e o uso frequente
+   deve deixar o usuário capaz de decidir sozinho.
+
+Exemplo-guia: *CDB 103% do CDI vs LCI 80% do CDI — qual rende mais, em quais prazos, e por quê?*
 
 ### Restrições
 
 - **Custo zero:** apenas APIs e hospedagem gratuitas.
-- **Uso pessoal, pessoa física.**
-- **Caráter educativo:** as sugestões de carteira são genéricas, baseadas em regras
+- **Pessoa física.** Uso pessoal e de poucos amigos; **site aberto, sem login**.
+- **Caráter educativo:** sugestões de carteira são genéricas, baseadas em regras
   explícitas e visíveis; não são recomendação personalizada. O app exibe esse aviso.
 
-### Fases
+### Marcos de entrega
 
-| Fase | Escopo |
+Cada marco é utilizável e publicado. Fluxo: uma branch por marco → Pull Request →
+URL de preview do Cloudflare Pages → merge na `main` (produção). Testes no GitHub
+Actions bloqueiam o merge se falharem.
+
+| Marco | Escopo |
 |---|---|
-| **1** | Motor de cálculo (TDD), indicadores via API, cenários, ofertas, comparação por horizonte, linha do tempo de vencimentos, gráficos, alertas, dicas educativas, deploy |
-| **2** | Sugestão de carteira por objetivo, renda variável (educativo + histórico via brapi) |
+| **M1** | Setup (Vite, Vitest, CI, Pages + domínio) · motor de cálculo com TDD · **Equivalência rápida** · educação nível 1: "Por que esse resultado?", "Palpite antes de ver", termos com explicação |
+| **M2** | Indicadores ao vivo e cenários (Focus anual, Copom, IPCA mensal) · ofertas · comparação por horizonte · linha do tempo de vencimentos com reinvestimento |
+| **M3** | Gráficos com cruzamentos · alertas que ensinam · posições + FGC · link compartilhável · educação nível 2: trilha, casos clássicos, progresso |
+| **M4** | Proxy brapi (Turnstile, cache, cota, KV) · página /status · sugestão por objetivo · renda variável |
 
-Fora do escopo (por ora): CRI/CRA/debêntures, fundos (come-cotas), estimativa de
-marcação a mercado do Tesouro, pessoa jurídica, contas/login.
+Fora do escopo por ora: CRI/CRA/debêntures, fundos (come-cotas), títulos do Tesouro
+**com cupom** (IPCA+ com juros semestrais, Prefixado com juros semestrais, Renda+,
+Educa+), estimativa de marcação a mercado, pessoa jurídica, login/sincronização,
+acompanhamento contínuo da carteira (o modelo de dados já nasce preparado — ver 5.3).
 
 ## 2. Arquitetura
 
-- **Front-end estático:** Vite + TypeScript + Preact, hospedado no **Cloudflare Pages**
-  com deploy automático a cada push na `main`.
-- **Uma Pages Function** (`functions/api/brapi/[[path]].ts`) como proxy da brapi,
-  guardando o token como secret e fazendo cache/controle de cota (seção 7).
+- **Front-end estático:** Vite + TypeScript + Preact, no **Cloudflare Pages**.
+- **Pages Functions** (só a partir do M4): proxy da brapi e verificação do Turnstile.
 - **APIs do Banco Central chamadas direto do navegador** (CORS verificado em
   2026-09-27: SGS `*`, Olinda/Focus libera a origem, BrasilAPI `*`).
-- **Testes:** Vitest. TDD estrito em `src/engine/` e na lógica de cache.
+- **Testes:** Vitest. TDD estrito em `src/engine/`, na validação de entradas e na lógica
+  de cache/cota.
 
 ```
 onde-investir/
-├── functions/api/brapi/[[path]].ts  ← proxy brapi (token secreto, cache, cota)
+├── functions/api/                   ← M4: brapi proxy, sessão Turnstile, status
+├── public/_headers                  ← cabeçalhos de segurança (CSP etc.)
 ├── src/
-│   ├── engine/                      ← TypeScript puro, sem dependência de UI
+│   ├── engine/                      ← TypeScript puro, sem UI, sem rede, sem storage
 │   │   ├── calendario.ts            ← dias úteis ANBIMA e pregões B3
 │   │   ├── regras/                  ← regras como dados versionados por vigência
 │   │   ├── indexadores.ts           ← evolução diária de CDI/Selic/IPCA/TR por cenário
-│   │   ├── produtos.ts              ← cálculo por tipo de produto
+│   │   ├── produtos.ts              ← cálculo por produto, devolve resultado + passos
 │   │   ├── comparador.ts            ← horizontes, linha do tempo, reinvestimento, cruzamentos
 │   │   ├── equivalencia.ts          ← taxa equivalente entre produtos
-│   │   └── alertas.ts               ← geração de alertas
-│   ├── dados/                       ← clientes SGS, Focus, BrasilAPI, proxy brapi + cache
-│   ├── conteudo/                    ← dicas, "Você sabia?", glossário (dados, não código)
+│   │   ├── fgc.ts                   ← exposição por conglomerado ao longo do tempo
+│   │   └── alertas.ts               ← alertas com vínculo a lições
+│   ├── esquemas/                    ← zod: ofertas, posições, cenários, import, link, APIs
+│   ├── dados/                       ← clientes SGS, Focus, BrasilAPI, /api + cache
+│   ├── conteudo/                    ← lições, dicas, casos, glossário (dados, não código)
 │   ├── ui/                          ← componentes Preact + Chart.js
 │   └── armazenamento.ts             ← localStorage + exportar/importar JSON
 └── tests/
 ```
 
-**Princípio:** o `engine/` recebe dados (ofertas, cenário, regras, calendário) e
-devolve resultados. Não chama rede nem lê armazenamento. Tudo que ele faz é testável
-de forma determinística.
+**Princípio:** o `engine/` recebe dados (ofertas, cenário, regras, calendário) e devolve
+resultados **com a memória de cálculo** (lista de passos). Não chama rede nem lê
+armazenamento; tudo nele é testável de forma determinística.
 
 ## 3. Regras de negócio
 
 ### 3.1 Regras como dados versionados
 
-`src/engine/regras/` contém cada regra com `vigenciaInicio`, `vigenciaFim?` e `fonte`
-(link da norma). O motor aplica a versão vigente na **data da aplicação** (ou do fato
-gerador, quando a norma disser). Regras cobertas: tabela de IR, tabela de IOF,
-isenções por produto, carência mínima LCI/LCA, limites do FGC, custódia B3 do Tesouro,
-regra da poupança.
+`src/engine/regras/` contém cada regra com `vigenciaInicio`, `vigenciaFim?`, `fonte`
+(URL) e `criterio` (data de aplicação, de emissão ou do fato gerador). Regra sem versão
+vigente para a data → erro explícito, nunca fallback silencioso.
 
-> ⚠️ **Verificação obrigatória antes de implementar (primeira tarefa do plano):**
-> conferir a legislação vigente em set/2026 para (a) isenção de IR de LCI/LCA (houve
-> propostas de tributação em 2025), (b) carência mínima de LCI e LCA (Res. CMN 2024 e
-> alterações posteriores), (c) regra atual da taxa de custódia da B3 no Tesouro Direto
-> (isenção do Tesouro Selic até certo valor), (d) limites do FGC. Registrar a fonte de
-> cada uma no arquivo de regras.
+**Situação verificada em 2026-09-27** (pesquisa com fontes oficiais; registrar as URLs
+no arquivo de regras):
+
+| Regra | Vigente | Fonte principal |
+|---|---|---|
+| IR LCI/LCA PF | **Isentas.** MP 1303/2025 caducou em 08/10/2025 sem conversão | InfoMoney / B3 Bora Investir |
+| Tabela regressiva IR | 22,5 / 20 / 17,5 / 15% — Lei 11.033/2004, sem mudança | Lei 11.033/2004 |
+| IOF regressivo | Tabela do Decreto 6.306/2007, sem mudança para renda fixa PF | Decreto 6.306/2007 |
+| Prazo mínimo LCI/LCA (emitidas a partir de 23/05/2025, Res. CMN 5.215/2025) | Pós/pré: **6 meses** · LCI-IPCA: **36 meses** · LCA-IPCA: **12 meses** | Comunicado B3 CE 016/2025-VPC |
+| Prazo mínimo LCI/LCA anteriores | Versões de 2024 (Res. CMN 5.118/2024: LCA 9m, LCI 12m) e fev/2025 (LCI 9m) | Res. CMN 5.118/2024 |
+| Custódia B3 Tesouro | 0,20% a.a., provisionada diariamente, **descontada só em resgate/vencimento/cupom**, proporcional (desde 31/12/2024). **Tesouro Selic isento até R$ 10.000** por CPF (soma das posições Selic); taxa só sobre o excedente | Tarifas B3 |
+| FGC | R$ 250 mil por CPF por instituição/conglomerado; teto R$ 1 milhão a cada 4 anos | fgc.org.br |
+| Poupança | Selic meta > 8,5%: 0,5% a.m. + TR; senão 70% da Selic meta + TR (Lei 12.703/2012) | BCB |
+
+Pontos com confiança média, a conferir no texto da norma durante a implementação:
+prazos LCI/LCA atrelados a IPCA (36/12 meses) e hipóteses de resgate antecipado.
 
 ### 3.2 Tributos
 
-- **IR regressivo** (renda fixa tributada), sobre o rendimento:
-  até 180 dias 22,5% · 181–360 20% · 361–720 17,5% · acima de 720 15%.
-  Prazo contado em dias corridos entre aplicação e resgate.
-- **IOF regressivo** nos resgates com menos de 30 dias corridos, sobre o rendimento,
-  **calculado antes do IR** (o IR incide sobre rendimento − IOF). Tabela oficial:
-  dia 1 = 96%, 2 = 93%, 3 = 90%, 4 = 86%, 5 = 83%, 6 = 80%, 7 = 76%, 8 = 73%, 9 = 70%,
-  10 = 66%, 11 = 63%, 12 = 60%, 13 = 56%, 14 = 53%, 15 = 50%, 16 = 46%, 17 = 43%,
-  18 = 40%, 19 = 36%, 20 = 33%, 21 = 30%, 22 = 26%, 23 = 23%, 24 = 20%, 25 = 16%,
-  26 = 13%, 27 = 10%, 28 = 6%, 29 = 3%, 30+ = 0%.
-- **Isentos de IR (PF):** LCI, LCA, poupança (sujeito à verificação 3.1).
+- **IR regressivo** sobre o rendimento: até 180 dias 22,5% · 181–360 20% ·
+  361–720 17,5% · acima de 720 15%. Prazo em dias corridos.
+- **IOF regressivo** em resgates com menos de 30 dias corridos, sobre o rendimento,
+  **calculado antes do IR** (IR incide sobre rendimento − IOF): dia 1 = 96%, 2 = 93%,
+  3 = 90%, 4 = 86%, 5 = 83%, 6 = 80%, 7 = 76%, 8 = 73%, 9 = 70%, 10 = 66%, 11 = 63%,
+  12 = 60%, 13 = 56%, 14 = 53%, 15 = 50%, 16 = 46%, 17 = 43%, 18 = 40%, 19 = 36%,
+  20 = 33%, 21 = 30%, 22 = 26%, 23 = 23%, 24 = 20%, 25 = 16%, 26 = 13%, 27 = 10%,
+  28 = 6%, 29 = 3%, 30+ = 0%.
+- **Isentos de IR (PF):** LCI, LCA, poupança.
 
-### 3.3 Produtos (fase 1)
+### 3.3 Produtos
 
 | Produto | Rendimento | IR | Garantia | Liquidez |
 |---|---|---|---|---|
-| CDB / RDB / LC pós | % do CDI, capitalização diária em dias úteis (base 252) | Regressivo | FGC | Diária ou no vencimento (informado) |
-| LCI / LCA pós | % do CDI, idem | Isento* | FGC | Carência mínima* e vencimento |
-| Prefixado (CDB, LCI, LCA, Tesouro Prefixado) | Taxa a.a. base 252 | Conforme produto | Conforme emissor | Conforme produto |
-| IPCA+ (CDB, LCI, LCA, Tesouro IPCA+) | IPCA projetado + taxa real a.a. | Conforme produto | Conforme emissor | Conforme produto |
-| Tesouro Selic | Selic diária (+ ágio/deságio informado opcional) | Regressivo | Tesouro Nacional | D+0/D+1 |
-| Poupança | Selic meta > 8,5% a.a.: 0,5% a.m. + TR; senão 70% da Selic meta + TR | Isenta | FGC | Diária, **rendimento só no aniversário mensal** |
-
-\* ver 3.1.
+| CDB / RDB / LC pós | % do CDI, capitalização diária em dias úteis (base 252) | Regressivo | FGC | Diária ou no vencimento |
+| LCI / LCA pós | % do CDI | Isento | FGC | Prazo mínimo legal (3.1) + vencimento |
+| Prefixado (CDB, LCI, LCA, Tesouro Prefixado sem cupom) | Taxa a.a. base 252 | Conforme produto | Conforme emissor | Conforme produto |
+| IPCA+ (CDB, LCI, LCA, Tesouro IPCA+ sem cupom) | IPCA projetado + taxa real a.a. | Conforme produto | Conforme emissor | Conforme produto |
+| Tesouro Selic | Selic diária (+ ágio/deságio opcional) | Regressivo | Tesouro Nacional | D+0/D+1 |
+| Poupança | Regra de 3.1 | Isenta | FGC | Diária, rendimento só no aniversário mensal |
 
 Detalhes:
-- **% do CDI:** fator diário = `(1 + CDI_aa)^(1/252) − 1` multiplicado pelo percentual,
-  acumulado em cada dia útil do período (padrão de mercado B3/CETIP).
-- **IPCA+:** o IPCA mensal projetado vem do cenário; aplicado pró-rata em dias úteis.
-- **Poupança:** depósitos nos dias 29, 30 e 31 fazem aniversário no dia 1º do mês
-  seguinte. Resgate antes do aniversário perde o rendimento do mês incompleto.
-- **Tesouro:** custódia B3 descontada pró-rata conforme regra vigente (3.1). Resgate
-  antes do vencimento, exceto Tesouro Selic, fica marcado como
-  **"sujeito a marcação a mercado"**, sem estimativa de valor na fase 1.
-- **Custo extra opcional por oferta** (% a.a. ou valor fixo).
-- **Precisão:** cálculos em ponto flutuante de dupla precisão com fator acumulado;
-  arredondamento **só na exibição** (centavos). Tolerância de teste: R$ 0,01 por
-  R$ 10.000 aplicados, comparando com simuladores oficiais.
+- **% do CDI:** fator diário `(1 + CDI_aa)^(1/252) − 1` × percentual, acumulado por
+  dia útil (padrão B3).
+- **IPCA+:** IPCA mensal projetado do cenário, pró-rata em dias úteis.
+- **Poupança:** depósitos nos dias 29, 30 e 31 fazem aniversário no dia 1º. Resgate
+  antes do aniversário perde o mês incompleto.
+- **Tesouro:** custódia conforme 3.1. Resgate antes do vencimento (exceto Selic) =
+  **"sujeito a marcação a mercado"**, sem estimativa de valor.
+- **Prazo mínimo LCI/LCA:** o app **sugere o mínimo legal** pelo tipo, indexador e data
+  de emissão (padrão: data de aplicação). O usuário pode aumentar, nunca reduzir
+  abaixo do mínimo.
+- **Custo extra opcional** por oferta (% a.a. ou valor fixo).
+- **Precisão:** dupla precisão com fator acumulado; arredondamento **só na exibição**.
+  Tolerância de teste: R$ 0,01 por R$ 10.000 aplicados vs simuladores oficiais.
 
 ### 3.4 FGC
 
-- Cobertos: CDB, RDB, LC, LCI, LCA, poupança. Tesouro: garantia do Tesouro Nacional
-  (selo próprio). Outros: "Sem garantia".
-- **Limite por CPF por instituição/conglomerado** (R$ 250 mil, verificar em 3.1),
-  contando **principal + rendimentos**. O motor soma o valor bruto projetado de todas
-  as ofertas do mesmo conglomerado em cada data e alerta quando ultrapassa.
-- **Teto global** (R$ 1 milhão a cada 4 anos, verificar em 3.1): alerta informativo
-  quando o total coberto pelo FGC passa do teto.
-- Cada oferta tem o campo obrigatório `conglomerado` (texto livre com autocompletar
-  dos já cadastrados).
+- Cobertos: CDB, RDB, LC, LCI, LCA, poupança. Tesouro: selo "Tesouro Nacional".
+  Outros: "Sem garantia".
+- Limite por conglomerado conta **principal + rendimentos**. O `engine/fgc.ts` soma o
+  valor bruto projetado de **ofertas e posições atuais** do mesmo conglomerado em cada
+  data e aponta a primeira data em que excede.
+- Teto global: alerta informativo.
+- `conglomerado` é obrigatório em ofertas e posições (texto livre com autocompletar).
 
 ### 3.5 Calendário
 
-- **Dias úteis ANBIMA** para CDI/Selic: fins de semana + feriados nacionais fixos +
-  móveis (Carnaval seg/ter, Sexta-feira Santa, Corpus Christi, calculados pela Páscoa),
-  incluindo 20/11 (Consciência Negra, nacional desde 2024).
-- **Pregões B3** para cache de cotações: calendário ANBIMA + dias sem pregão da B3
-  (ex.: 24/12, 31/12). Lista de exceções mantida como dado versionado.
+- **Dias úteis ANBIMA:** fins de semana + feriados nacionais fixos + móveis (Carnaval
+  seg/ter, Sexta-feira Santa, Corpus Christi, pela Páscoa), com 20/11 a partir de 2024.
+- **Pregões B3:** calendário ANBIMA + exceções da B3 (ex.: 24/12, 31/12), como dado
+  versionado.
 
 ## 4. Indicadores e cenários
 
-| Dado | Fonte | Série / endpoint |
+| Dado | Fonte | Recurso |
 |---|---|---|
-| CDI diário | BCB SGS | série 12 |
-| Selic meta | BCB SGS | série 432 |
-| IPCA mensal | BCB SGS | série 433 |
-| TR diária | BCB SGS | série 226 |
-| Projeções anuais Selic e IPCA | BCB Olinda | `Expectativas/…/ExpectativasMercadoAnuais` (mediana, data mais recente) |
+| CDI diário | SGS | série 12 (% a.d.) |
+| Selic diária | SGS | série 11 |
+| Selic meta | SGS | série 432 |
+| IPCA mensal | SGS | série 433 |
+| TR | SGS | série 226 |
+| Selic por reunião do Copom | Olinda | `ExpectativasMercadoSelic` (campo `Reuniao`, ex. "R5/2026") |
+| IPCA mensal esperado | Olinda | `ExpectativaMercadoMensais` (`DataReferencia` "MM/AAAA") |
+| Selic e IPCA anuais | Olinda | `ExpectativasMercadoAnuais` |
 | Reserva | BrasilAPI | `/api/taxas/v1` |
 
-(Os números das séries SGS devem ser confirmados na primeira tarefa de dados.)
+Consultas SGS: `https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados?formato=json&dataInicial=…&dataFinal=…`
+(janelas de até 10 anos por consulta nas séries diárias). Focus: usar `baseCalculo eq 0`
+e a data de publicação mais recente.
 
-- **Cenário base = Focus.** A Selic projetada para cada ano gera o CDI (CDI ≈ Selic
-  meta − 0,10 p.p., parâmetro editável). O IPCA anual é distribuído mensalmente.
-- **Cenários otimista e pessimista** editáveis (curva Selic/IPCA por ano), inicializados
-  como base ± deslocamento configurável.
-- **Resiliência:** falha de API → último valor em cache com a data exibida → entrada
-  manual. O app nunca trava por falta de dado.
+### 4.1 Curva projetada (cenário base)
+1. **Curto prazo:** Selic pela mediana por **reunião do Copom** (degrau na data de cada
+   reunião); IPCA pela mediana **mensal** (~18 meses).
+2. **Médio prazo:** medianas **anuais**.
+3. **Longo prazo (após o último ano do Focus):** convergência gradual para premissas
+   editáveis (padrão: IPCA na meta de 3% a.a., juro real de 5% a.a.). A UI avisa:
+   *"após 20XX a projeção é premissa, não expectativa de mercado"*.
+- CDI projetado = Selic − 0,10 p.p. (parâmetro editável).
 
-## 5. Funcionalidades — Fase 1
+### 4.2 Cenários
+**"Juros sobem" / "Base (Focus)" / "Juros caem"**, com inflação editável em cada um.
+Padrão: mediana ± 1 desvio-padrão do Focus em cada horizonte (usando também
+mínimo/máximo como limites), portanto a abertura cresce com o prazo. Tudo editável.
 
-### 5.1 Painel de indicadores
-CDI, Selic, IPCA 12m e TR atuais; Focus ano a ano; data/hora da última atualização;
-botão para editar cenários.
+### 4.3 Histórico (posições)
+CDI/IPCA/TR realizados do SGS, desde a data da posição mais antiga, com cache
+permanente para o passado (dado que não muda mais).
 
-### 5.2 Minhas ofertas
-Cadastro com: tipo de produto, emissor, conglomerado, indexador + taxa, data de
-aplicação, vencimento (opcional para liquidez diária), liquidez, carência, valor,
-custo extra. O selo de garantia é derivado automaticamente. Ofertas persistidas em
-localStorage, com exportar/importar JSON.
+### 4.4 Resiliência
+Falha de API → último valor em cache, com a data → entrada manual. O app nunca trava
+por falta de dado.
 
-### 5.3 Comparação
-Entrada: valor (ou valores por oferta) e horizonte desejado.
+## 5. Funcionalidades — comparação
 
-1. **Tabela por horizonte:** colunas 6m, 1a, 2a, 3a, 5a e a data do usuário; valor
-   líquido por oferta; vencedor destacado. Estados especiais: *"indisponível nesse
-   prazo"* (sem liquidez), *"sujeito a marcação a mercado"* (Tesouro antes do vencimento).
-   Ofertas que vencem antes do horizonte → reinvestimento (5.3.2), sinalizado.
-2. **Linha do tempo de vencimentos:** cada vencimento é um marco, com o ranking em
-   cada marco. Projeção até o vencimento mais longo com **reinvestimento** do valor
-   líquido na taxa escolhida: *mesma do ativo original* (padrão), *CDI do cenário* ou
-   *taxa digitada*. **O IR recomeça na reaplicação** (nova data de aplicação). Conclusão
-   em texto: *"Mesmo vencendo antes, A reaplicado termina em R$ X, R$ Y a mais que B."*
-3. **Gráficos (Chart.js):**
-   - Valor líquido × tempo por oferta, com **pontos de cruzamento anotados**
-     ("a partir de 14/08/2027, X passa Y") e degraus do IR visíveis.
-   - Diferença entre duas ofertas escolhidas × tempo (onde troca de sinal).
-4. **Seletor de cenário** (base/otimista/pessimista) que recalcula tudo.
-5. **Ranking:** ordenado por valor líquido, com **alertas de trade-off** (5.5).
+### 5.1 Painel de indicadores (M2)
+CDI, Selic, IPCA 12m e TR atuais; curva projetada por cenário; data da última
+atualização; edição de cenários e premissas de longo prazo.
 
-### 5.4 Equivalência rápida
-Entrada: produto + taxa + prazo (ex.: LCI 80% CDI, 2 anos). Saída: % do CDI
-equivalente em produto tributado, taxa prefixada equivalente e IPCA+ equivalente
-no cenário ativo. Não exige cadastro.
+### 5.2 Ofertas (M2)
+Opções em avaliação: tipo, emissor, conglomerado, indexador + taxa, data de aplicação,
+vencimento (opcional em liquidez diária), liquidez, prazo mínimo, custo extra. Selo de
+garantia derivado automaticamente.
 
-### 5.5 Alertas
-- **Quase empate com melhor liquidez/garantia:** diferença líquida < limiar
-  configurável (padrão 0,5%) e a outra oferta tem liquidez maior ou garantia melhor.
-- **Ultrapassa o FGC** (por conglomerado, em alguma data até o horizonte).
-- **Teto global do FGC.**
-- **IR reinicia na reaplicação** (e quanto isso custou).
-- **Carência/liquidez incompatível com o horizonte.**
-- **Resgate com IOF** (< 30 dias).
+### 5.3 Posições atuais (M3)
+O que o usuário já tem aplicado. Modelo preparado para a futura carteira completa:
+`id, produto, emissor, conglomerado, indexador, taxa, dataAplicacao, vencimento,
+liquidez, valorAplicado, eventos[]` (aporte, resgate, vencimento), mais
+`valorExtrato?` com `dataExtrato`.
+- Valor atual **calculado pelo histórico real** (4.3). Quando `valorExtrato` existe,
+  ele prevalece e a UI mostra a diferença para o calculado (diferenças grandes sugerem
+  taxa digitada errada).
+- Na fase atual, as posições alimentam **FGC** e **diversificação**; não há tela de
+  acompanhamento de rentabilidade.
 
-### 5.6 Conteúdo educativo
-Arquivos em `src/conteudo/` (JSON/Markdown), separados do código:
-- **Dicas contextuais** com gatilhos (ex.: cadastrou LCI → carência e por que não
-  serve para reserva; alerta de IR reiniciado → tabela regressiva; FGC → limite por
-  instituição).
-- **"Você sabia?"** rotativo por visita.
-- **Glossário** (CDI, Selic, IPCA, marcação a mercado, FGC, come-cotas, TR, etc.).
+### 5.4 Comparação (M2)
+- **Valor único** aplicado em todas as ofertas (base igual para comparar). Os valores
+  próprios de ofertas/posições valem só para FGC e diversificação.
+- **Horizonte** informado pelo usuário.
 
-## 6. Funcionalidades — Fase 2
+1. **Tabela por horizonte:** 6m, 1a, 2a, 3a, 5a e a data do usuário; valor líquido
+   por oferta; vencedor destacado. Estados: *"indisponível nesse prazo"*,
+   *"sujeito a marcação a mercado"*, *"reinvestido a partir de dd/mm"*.
+2. **Linha do tempo de vencimentos:** ranking em cada vencimento; projeção até o
+   vencimento mais longo com **reinvestimento** do valor líquido.
+   - Padrão: **pós → mesmo % do CDI; pré/IPCA+/poupança → 100% do CDI do cenário**
+     na data da reaplicação. Seletor: mesma taxa, 100% CDI ou taxa digitada.
+   - **O IR recomeça na reaplicação.** A premissa usada fica escrita no resultado.
+   - Conclusão em texto: *"Mesmo vencendo antes, A reaplicado termina em R$ X,
+     R$ Y a mais que B."*
+3. **Gráficos (M3, Chart.js):** valor líquido × tempo com **pontos de cruzamento
+   anotados** e degraus do IR visíveis; diferença entre duas ofertas × tempo.
+4. **Seletor de cenário**, que recalcula tudo.
+5. **Ranking** por valor líquido, com alertas de trade-off (5.6).
 
-### 6.1 Sugestão por objetivo
-Questionário por objetivo; vários objetivos salvos ao mesmo tempo. Cada sugestão
-mostra **o motivo de cada fatia**, respeita o limite do FGC por conglomerado
-(sugerindo espalhar entre emissores) e pode usar as ofertas cadastradas.
+### 5.5 Equivalência rápida (M1)
+Produto + taxa + prazo → % do CDI equivalente em produto tributado, taxa prefixada
+equivalente e IPCA+ equivalente no cenário ativo. Sem cadastro. No M1, antes de haver
+indicadores ao vivo, o cenário é digitado (com valores iniciais razoáveis e editáveis).
+
+### 5.6 Alertas que ensinam (M3)
+Cada alerta tem **o que acontece**, **por quê** (a regra) e **link para a lição**:
+- quase empate (< 0,5%, configurável) com liquidez ou garantia melhor;
+- ultrapassa o FGC (conglomerado, data);
+- teto global do FGC;
+- IR reinicia na reaplicação (e quanto custou);
+- prazo mínimo/liquidez incompatível com o horizonte;
+- resgate com IOF.
+
+### 5.7 Link compartilhável (M3)
+Ofertas + cenário + horizonte codificados (comprimidos) no **fragmento da URL** (`#…`),
+que não chega a nenhum servidor. **Nunca inclui posições.** Ao abrir, o conteúdo é
+validado por esquema (7.2) antes de qualquer uso.
+
+### 5.8 Persistência
+localStorage por navegador + exportar/importar JSON (validado por esquema). Sem
+sincronização entre dispositivos. A UI lembra periodicamente de exportar um backup.
+
+## 6. Pilar educativo
+
+Conteúdo em `src/conteudo/` (dados, separado do código). **Toda afirmação cita a fonte
+oficial** (BCB, FGC, Tesouro, B3, lei/resolução). Fluxo editorial: rascunho gerado →
+passado pelo **/vozmax** → **revisado pelo usuário** → publicado.
+
+**Profundidade em camadas:** explicação curta e simples por padrão; **"ver a matemática"**
+abre a fórmula, os números da simulação e o link da norma.
+
+| Mecanismo | Marco | Descrição |
+|---|---|---|
+| **"Por que esse resultado?"** | M1 | Em todo cálculo: bruto → IOF → IR → custódia → líquido, cada passo explicado com os números reais da simulação (vem da memória de cálculo do `engine`) |
+| **"Palpite antes de ver"** | M1 | Antes de revelar o vencedor, o usuário escolhe quem acha que rende mais; depois, a explicação do acerto/erro. Pode ser desligado |
+| **Termos explicados** | M1 | Todo termo técnico vira link/tooltip para o glossário |
+| **Trilha de aprendizado** | M3 | Lições curtas: renda fixa, indexadores, tributação, FGC, liquidez, marcação a mercado, reserva, diversificação, renda variável. Cada uma termina em **"experimente"**, que abre a calculadora com um exemplo pré-montado |
+| **Casos clássicos** | M3 | "LCI × CDB: o ponto de virada", "Poupança × Tesouro Selic", "Por que o prefixado assusta quando os juros sobem", "O custo escondido de reaplicar" |
+| **Progresso** | M3 | Lições concluídas e taxa de acerto dos palpites, no localStorage |
+| **Dicas contextuais e "Você sabia?"** | M3 | Gatilhos por ação (cadastrou LCI → prazo mínimo e por que não serve de reserva etc.) |
+| **Alertas que ensinam** | M3 | Ver 5.6 |
+
+## 7. Segurança
+
+### 7.1 Cabeçalhos (`public/_headers`)
+CSP restrita: `script-src` só do próprio domínio + Turnstile; `connect-src` só para
+`api.bcb.gov.br`, `olinda.bcb.gov.br`, `brasilapi.com.br` e o próprio `/api`;
+`frame-ancestors 'none'`; `X-Content-Type-Options: nosniff`; `Referrer-Policy:
+strict-origin-when-cross-origin`; `Permissions-Policy` restritiva.
+
+### 7.2 Entradas externas
+**Validação por esquema (zod)** em tudo que vem de fora: fragmento da URL, JSON
+importado, localStorage e respostas de APIs. Fora do esquema → rejeita com mensagem,
+nunca renderiza parcialmente. Limites de tamanho (quantidade de ofertas, tamanho do
+link/arquivo).
+
+### 7.3 Renderização
+Sem `dangerouslySetInnerHTML`. Conteúdo educativo em Markdown restrito (negrito,
+itálico, listas, links com `rel="noopener noreferrer"`), renderizado por componente
+próprio.
+
+### 7.4 Dependências e processo
+Dependências mínimas; Dependabot no GitHub; **security-review antes do merge do M4**
+(primeira exposição de API) e revisão dos itens 7.1–7.3 no M1.
+
+## 8. Dados da brapi: segredo, proteção, cache e cota (M4)
+
+**Plano gratuito (verificado em 2026-09-27):** 15.000 req/mês; 1 ativo por requisição;
+1 requisição simultânea; atraso de ~30 min; histórico de até 3 meses (exceto os tickers
+de teste PETR4, VALE3, ITUB4 e MGLU3); dividendos não incluídos; `Authorization: Bearer`;
+403 = recurso fora do plano, 429 = limite (com `Retry-After`). A cobertura de FIIs/ETFs no
+plano gratuito será testada com o token no início do M4, e a UI se adapta ao que existir.
+
+### 8.1 Segredos
+Na Cloudflare, como secrets do Pages: `BRAPI_TOKEN`, `TURNSTILE_SECRET_KEY`,
+`SESSION_HMAC_KEY`. Localmente em `.env`/`.dev.vars` (ignorados pelo git; `.env.example`
+documenta). Nunca com prefixo `VITE_`, nunca no bundle. A *site key* do Turnstile é
+pública e pode ir no front.
+
+### 8.2 Proteção sem login
+1. **Turnstile invisível, uma vez por sessão:** a Function valida o token e devolve um
+   **cookie assinado (HMAC)** `HttpOnly; Secure; SameSite=Strict`, válido por 24 h.
+   Chamadas a `/api/*` sem cookie válido → 401. As calculadoras de renda fixa nunca
+   passam pelo Turnstile.
+2. **Limite por IP:** 30 requisições **externas** (as servidas do cache não contam)
+   por IP por dia.
+3. **Regra de rate limiting da Cloudflare** (plano gratuito) em `/api/*`.
+4. **Allowlist de endpoints e parâmetros**, e ticker validado por regex, para não virar
+   proxy aberto.
+5. **Orçamento de cota** (8.4).
+
+### 8.3 Cache em camadas e validade
+Camadas: localStorage (navegador) → Cache API na borda → **Workers KV** (histórico
+permanente + contadores).
+
+| Dado | Dia de pregão, 10h–18h BRT | Fora do pregão / fim de semana / feriado |
+|---|---|---|
+| Cotação atual | **30 min** (igual ao atraso do plano) | até a próxima abertura |
+| Candles diários passados | permanente em KV | permanente |
+| Candle do dia | não buscado | 1× após o fechamento |
+| Histórico solicitado | só o intervalo que falta desde o último candle salvo | idem |
+
+**Histórico acumulado:** como o plano gratuito dá só 3 meses, cada candle diário fica
+salvo em KV para sempre a partir do primeiro uso. O histórico cresce com o tempo, e a UI
+mostra *"histórico disponível desde dd/mm/aaaa"*.
+
+BCB segue a mesma lógica de validade até o próximo evento: CDI até o próximo dia útil,
+IPCA até a próxima divulgação, Focus até a próxima publicação semanal.
+
+### 8.4 Orçamento de cota
+- Contadores mensal e diário em KV. Orçamento diário = restante do mês ÷ dias restantes
+  (com teto).
+- Estourou: serve o cache (mesmo vencido) com flag de desatualizado; nunca chama acima
+  do orçamento.
+- Fila com **1 requisição por vez** (limite do plano) e deduplicação por chave.
+
+### 8.5 Página /status
+Só leitura, sem dados pessoais: uso do mês e do dia, orçamento restante, última
+atualização de cada fonte, quantidade de tickers com histórico acumulado.
+
+## 9. Fase 2 — sugestão por objetivo e renda variável (M4)
+
+### 9.1 Sugestão por objetivo
+Questionário por objetivo; vários objetivos salvos. Cada sugestão mostra **o motivo de
+cada fatia**, respeita o FGC por conglomerado **considerando as posições atuais**
+(sugerindo espalhar entre emissores) e pode usar as ofertas cadastradas. Cada fatia tem
+link para a lição correspondente.
 
 | Objetivo | Entradas | Lógica |
 |---|---|---|
-| Reserva de emergência | gasto mensal, estabilidade da renda | 6–12× o gasto (mais para renda instável); **só liquidez diária** com FGC ou Tesouro Selic; exclui LCI/LCA com carência e prefixados |
-| Objetivo com data | valor-alvo, data | casar vencimento com a data; pré ou pós com vencimento próximo; evitar marcação a mercado |
-| Longo prazo / aposentadoria | horizonte em anos | parcela relevante em IPCA+ + pós para liquidez; menciona renda variável (6.2) acima de 5 anos |
+| Reserva de emergência | gasto mensal, estabilidade da renda | 6–12× o gasto; **só liquidez diária** com FGC ou Tesouro Selic; exclui LCI/LCA no prazo mínimo e prefixados |
+| Objetivo com data | valor-alvo, data | casar vencimento com a data; evitar marcação a mercado |
+| Longo prazo / aposentadoria | horizonte | parcela em IPCA+ + pós para liquidez; renda variável explicada acima de 5 anos |
 | Sem objetivo definido | horizonte aproximado | mistura pós/pré/IPCA+ por faixa de prazo |
 
 Aviso fixo: conteúdo educativo, não é recomendação de investimento.
 
-### 6.2 Renda variável
-- **Educativo:** papel de ações, FIIs e ETFs em prazos longos; risco e volatilidade;
-  dividendos de FII isentos para PF; isenção de R$ 20 mil/mês em vendas de ações
-  (regras em `regras/`, com verificação de vigência). Nunca indica ativos específicos.
-- **Calculável:** para um ticker digitado, histórico de preço com rentabilidade no
-  período, volatilidade anualizada e **drawdown máximo**, comparados com CDI e IPCA
-  acumulados no mesmo período.
+### 9.2 Renda variável
+- **Educativo:** papel de ações, FIIs e ETFs; risco, volatilidade; dividendos de FII
+  isentos para PF; isenção de R$ 20 mil/mês em vendas de ações (regras em `regras/`
+  com vigência e fonte). Nunca indica ativos específicos.
+- **Calculável:** para um ticker, rentabilidade no período disponível, volatilidade
+  anualizada e drawdown máximo, **comparados a CDI e IPCA no mesmo período**.
 
-## 7. Dados da brapi: segredo, cache e cota
+## 10. Tratamento de erros
+- API indisponível → cache com data → entrada manual.
+- Oferta/posição inválida → validação no formulário **e** no `engine` (erro tipado).
+- Regra sem versão vigente → erro explícito.
+- Link/arquivo inválido → mensagem clara, nada é carregado.
+- `/api` sem sessão, acima do limite ou sem orçamento → resposta tipada que a UI
+  explica ao usuário.
 
-**Cota:** plano gratuito com 15.000 requisições/mês. Meta: consumo típico < 10% disso.
+## 11. Estratégia de testes (TDD)
 
-### 7.1 Segredo
-- `BRAPI_TOKEN` fica **só no servidor**: `.env` (ou `.dev.vars`) no desenvolvimento
-  local, **secret do Cloudflare Pages** em produção. Nunca com prefixo `VITE_`, nunca
-  no bundle. `.env` está no `.gitignore`; `.env.example` documenta a variável.
-- O front chama apenas `/api/brapi/...`. O proxy aceita **só os endpoints e parâmetros
-  usados pelo app** (allowlist), para não virar um proxy aberto.
+**TDD estrito:** para cada regra, os testes vêm primeiro, com os valores esperados, são
+executados e vistos **falhando**; só então vem a implementação. Critérios de aceite:
 
-### 7.2 Cache em camadas
-1. **Navegador (localStorage):** mesma política de validade abaixo; evita chamar o proxy.
-2. **Borda (Cache API da Cloudflare na Pages Function):** compartilhado entre
-   dispositivos.
-3. **KV (Workers KV, plano gratuito):** histórico diário persistente e contador de cota.
+**Calendário:** Páscoa 2024–2035 correta; Carnaval, Sexta-feira Santa e Corpus Christi
+derivados; dias úteis entre datas conhecidas batem com a calculadora ANBIMA; 20/11
+feriado a partir de 2024.
 
-### 7.3 Política de validade (TTL) por tipo de dado
-| Dado | Durante o pregão (dia de pregão, 10h–18h BRT) | Fora do pregão / fim de semana / feriado |
-|---|---|---|
-| Cotação atual | 15 min | **até a próxima abertura** do pregão |
-| Candles diários **passados** | imutáveis: cache permanente em KV | idem |
-| Candle do dia corrente | não buscado (histórico vai até o último fechamento) | busca 1× após o fechamento |
-| Histórico solicitado | busca **só o intervalo que falta** desde o último candle salvo | idem |
+**Regras versionadas:** duas versões fictícias de uma regra → aplica a correta pela data;
+data sem versão → erro. Prazo mínimo LCI/LCA: emissão em 22/05/2025 vs 23/05/2025 dá
+resultados diferentes; LCI-IPCA → 36 meses; LCA-IPCA → 12 meses.
 
-A mesma lógica de "válido até o próximo evento" vale para o BCB: CDI até o próximo dia
-útil, IPCA até a próxima divulgação mensal, Focus até a próxima segunda-feira.
+**Tributos:** IR nas fronteiras 180→22,5%, 181→20%, 360→20%, 361→17,5%, 720→17,5%,
+721→15%. IOF: dia 1 = 96%, 15 = 50%, 29 = 3%, 30 = 0%; IR sobre rendimento − IOF.
 
-### 7.4 Proteção de cota
-- Contador mensal e diário em KV. **Orçamento diário** = restante do mês ÷ dias
-  restantes (com teto).
-- Estourou o orçamento: devolve o dado em cache (mesmo vencido), com cabeçalho/flag
-  de "dado desatualizado", e a UI avisa. Nunca faz chamada acima do orçamento.
-- Uma requisição simultânea por chave (deduplicação), para não disparar várias chamadas
-  iguais ao mesmo tempo.
-- **Verificar na implementação:** limites do plano gratuito da brapi quanto a `range`,
-  `interval` e tickers disponíveis, e ajustar a UI ao que o plano permite.
-
-## 8. Tratamento de erros
-- API indisponível → cache com data → entrada manual; mensagem clara.
-- Dados de oferta inválidos (vencimento antes da aplicação, taxa negativa etc.) →
-  validação no formulário e também no `engine` (erro tipado, nunca resultado silencioso).
-- Regra sem versão vigente para a data → erro explícito ("regra de IR não cadastrada
-  para 2031"), não fallback silencioso.
-
-## 9. Estratégia de testes (TDD)
-
-O plano de implementação segue **TDD estrito**: para cada regra, os testes são escritos
-primeiro com os valores esperados, executados e vistos **falhando**, e só então vem a
-implementação. Critérios de aceite mínimos:
-
-**Calendário**
-- Páscoa correta em 2024–2035; Carnaval, Sexta-feira Santa e Corpus Christi derivados.
-- Contagem de dias úteis entre datas conhecidas bate com a calculadora ANBIMA.
-- 20/11 é feriado a partir de 2024.
-
-**Tributos**
-- Alíquota de IR nas fronteiras: 180→22,5%, 181→20%, 360→20%, 361→17,5%,
-  720→17,5%, 721→15%.
-- IOF: dia 1 = 96%, dia 15 = 50%, dia 29 = 3%, dia 30 = 0%; IR incide sobre
-  rendimento − IOF.
-- Regra aplicada conforme a vigência (teste com duas versões fictícias de regra).
-
-**Produtos** (valores esperados obtidos de simuladores oficiais: Calculadora do
-Cidadão/BCB, simulador do Tesouro Direto; registrar fonte e data em cada caso)
-- CDB 100% CDI com CDI constante por N dias úteis = `(1+CDI)^(N/252)`.
-- CDB 103% CDI e LCI 80% CDI, R$ 10.000, prazos de 6m, 1a, 2a e 3a.
+**Produtos** (valores esperados de simuladores oficiais — Calculadora do Cidadão/BCB,
+simulador do Tesouro Direto — com fonte e data registradas em cada caso):
+- 100% CDI com CDI constante por N dias úteis = `(1+CDI)^(N/252)`.
+- CDB 103% e LCI 80% do CDI, R$ 10.000, prazos 6m, 1a, 2a, 3a.
 - Prefixado e IPCA+ com cenário fixo.
-- Poupança: aniversário, depósito no dia 31, resgate antes do aniversário, as duas
-  regras (Selic acima/abaixo de 8,5%).
-- Tesouro Selic com custódia (abaixo e acima da faixa de isenção vigente).
+- Poupança: aniversário, depósito no dia 31, resgate antes do aniversário, as duas regras.
+- Tesouro Selic: R$ 8.000 (isento), R$ 10.100 (custódia só sobre R$ 100), R$ 50.000;
+  custódia descontada só no resgate.
+- Memória de cálculo: os passos somam exatamente o resultado final.
 
-**Equivalência** (determinísticos)
-- LCI 80% CDI por 2 anos (> 720 dias, IR 15%) ≡ CDB `80 / 0,85 = 94,12%` do CDI.
-- LCI 80% CDI por 1 ano (361–720 dias, IR 17,5%) ≡ CDB `80 / 0,825 = 96,97%` do CDI.
+**Equivalência (determinísticos):** LCI 80% CDI, 2 anos (IR 15%) ≡ CDB `80/0,85 = 94,12%`;
+1 ano (IR 17,5%) ≡ `80/0,825 = 96,97%`.
 
-**Comparador**
-- Oferta sem liquidez fica "indisponível" antes do vencimento.
-- Reinvestimento reinicia o IR (caso em que isso inverte o vencedor).
-- Ponto de cruzamento detectado na data correta.
-- Soma por conglomerado dispara o alerta do FGC na primeira data em que excede.
+**Cenários e curva:** degrau da Selic na data da reunião do Copom; convergência de
+longo prazo monótona até a premissa; juros sobem/caem = mediana ± desvio-padrão.
 
-**Cache/cota (brapi)**
-- TTL: sexta 17h59 → 15 min; sexta 18h01 → até segunda 10h; véspera de feriado → até
-  o próximo pregão.
-- Histórico: com candles salvos até D-3, busca só D-2..D-1.
-- Orçamento esgotado → serve dado vencido com flag, sem chamada externa.
+**Comparador:** oferta sem liquidez "indisponível" antes do vencimento; reinvestimento
+reinicia o IR (caso que inverte o vencedor); padrão de reinvestimento por tipo (pós vs
+pré); ponto de cruzamento na data correta.
 
-## 10. Deploy
-- Cloudflare Pages conectado ao repositório GitHub; build `npm run build`, saída `dist/`.
-- Domínio personalizado `rende.maxsueleinstein.dev` (CNAME gerenciado pela Cloudflare).
-- Secret `BRAPI_TOKEN` e binding KV configurados no painel. O passo a passo será
-  entregue ao usuário na tarefa de deploy.
+**FGC:** soma ofertas + posições por conglomerado e dispara na primeira data em que
+excede; posição com `valorExtrato` usa o extrato.
 
-## 11. Evoluções futuras (fora do escopo)
-CRI/CRA/debêntures incentivadas; fundos DI com come-cotas; estimativa de marcação a
-mercado do Tesouro via curva de juros; PWA/offline; alertas de novas taxas.
+**Segurança/entradas:** link e JSON malformados ou com campos extras/HTML → rejeitados;
+link nunca contém posições; limites de tamanho respeitados.
+
+**brapi (M4):** TTL — sexta 17h59 → 30 min; sexta 18h01 → segunda 10h; véspera de
+feriado → próximo pregão. Histórico salvo até D-3 → busca só D-2..D-1. Orçamento
+esgotado → cache vencido com flag, sem chamada externa. Sem cookie → 401; cookie
+adulterado → 401; IP acima do limite → 429 tipado.
+
+## 12. Deploy e fluxo
+- Cloudflare Pages ligado ao GitHub; build `npm run build`, saída `dist/`; preview por PR.
+- GitHub Actions: `lint + typecheck + test` em todo PR; merge bloqueado se falhar.
+- Domínio `rende.maxsueleinstein.dev` (CNAME gerenciado pela Cloudflare), no M1.
+- M4: secrets (`BRAPI_TOKEN`, `TURNSTILE_SECRET_KEY`, `SESSION_HMAC_KEY`), binding KV,
+  widget Turnstile e regra de rate limiting. **O passo a passo do painel da Cloudflare
+  será entregue ao usuário nesse marco.**
+
+## 13. Evoluções futuras
+Carteira completa com acompanhamento; sincronização entre dispositivos (exigiria
+login); CRI/CRA/debêntures; fundos com come-cotas; títulos do Tesouro com cupom;
+marcação a mercado via curva de juros; PWA/offline.
