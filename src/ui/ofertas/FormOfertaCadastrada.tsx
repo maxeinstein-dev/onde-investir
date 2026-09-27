@@ -16,11 +16,15 @@ export interface PropsFormOfertaCadastrada {
   gerarId: () => string;
   onSalvar: (o: OfertaCadastrada) => void;
   onCancelar: () => void;
+  /** Prefixo dos ids: o catálogo e o seletor do comparador ficam montados ao mesmo tempo. */
+  id?: string;
+  /** Título do formulário de cadastro (na edição, sempre "Editar oferta"). */
+  titulo?: string;
+  /** Texto do botão de cadastrar. */
+  rotuloSalvar?: string;
 }
 
 const NOVA: Oferta = { produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1 } };
-/** Prefixo dos ids: o duelo fica montado ao mesmo tempo, na outra aba. */
-const ID = 'cadastro';
 
 /** Prazo mínimo legal de LCI/LCA para quem aplica hoje; null para os outros produtos (ou sem regra cadastrada). */
 function prazoMinimoDeHoje(o: Oferta): { meses: number; data: string } | null {
@@ -34,18 +38,20 @@ function prazoMinimoDeHoje(o: Oferta): { meses: number; data: string } | null {
   }
 }
 
-export function FormOfertaCadastrada({ inicial, conglomerados, gerarId, onSalvar, onCancelar }: PropsFormOfertaCadastrada) {
+export function FormOfertaCadastrada({
+  inicial, conglomerados, gerarId, onSalvar, onCancelar, id: ID = 'cadastro', titulo = 'Nova oferta', rotuloSalvar = 'Adicionar oferta',
+}: PropsFormOfertaCadastrada) {
   const [oferta, setOferta] = useState<Oferta>(inicial ? { produto: inicial.produto, indexacao: inicial.indexacao } : NOVA);
   const [emissor, setEmissor] = useState(inicial?.emissor ?? '');
   const [conglomerado, setConglomerado] = useState(inicial?.conglomerado ?? '');
   const [liquidez, setLiquidez] = useState<Liquidez>(inicial?.liquidez ?? 'DIARIA');
   const [vencimento, setVencimento] = useState(inicial?.vencimento ?? '');
   const [erro, setErro] = useState<string | null>(null);
-  const titulo = useRef<HTMLHeadingElement>(null);
+  const refTitulo = useRef<HTMLHeadingElement>(null);
 
   // Ao abrir uma oferta para edição, o foco vai para o título do formulário.
   useEffect(() => {
-    if (inicial) titulo.current?.focus();
+    if (inicial) refTitulo.current?.focus();
   }, []);
 
   const tesouro = ehTesouro(oferta.produto);
@@ -99,7 +105,7 @@ export function FormOfertaCadastrada({ inicial, conglomerados, gerarId, onSalvar
 
   return (
     <form class="formulario cadastro" onSubmit={salvar} noValidate aria-labelledby={`${ID}-titulo`}>
-      <h3 id={`${ID}-titulo`} ref={titulo} tabIndex={-1}>{inicial ? 'Editar oferta' : 'Nova oferta'}</h3>
+      <h3 id={`${ID}-titulo`} ref={refTitulo} tabIndex={-1}>{inicial ? 'Editar oferta' : titulo}</h3>
       <FormOferta id={ID} titulo="Produto e taxa" oferta={oferta} onChange={editar(setOferta)} />
       <fieldset class="cadastro__detalhes">
         <legend>Emissor e prazo</legend>
@@ -152,7 +158,7 @@ export function FormOfertaCadastrada({ inicial, conglomerados, gerarId, onSalvar
       </fieldset>
       {erro && <p role="alert" class="erro">{erro}</p>}
       <div class="cadastro__acoes">
-        <button type="submit" class="primario">{inicial ? 'Salvar alterações' : 'Adicionar oferta'}</button>
+        <button type="submit" class="primario">{inicial ? 'Salvar alterações' : rotuloSalvar}</button>
         {inicial && <button type="button" onClick={onCancelar}>Cancelar edição</button>}
       </div>
     </form>
