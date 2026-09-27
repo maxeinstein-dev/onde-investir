@@ -215,8 +215,10 @@ convergência também editáveis.
   do Focus anual do ano Y e `anual_base(Y)` = mediana anual de Y:
   - mês coberto pelo Focus mensal: `(1 + mensal_mediana) × ((1 + anual_k(Y)) / (1 + anual_base(Y)))^(1/12) − 1`;
     no cenário base, a própria mediana mensal;
-  - mês sem Focus mensal: `(1 + anual_k(Y))^(1/12) − 1`;
-  - ano sem Focus anual: o do ano mais próximo.
+  - mês sem Focus mensal (inclusive o mês da data de referência e lacunas no meio do mensal):
+    `(1 + anual_k(Y))^(1/12) − 1`;
+  - ano sem Focus anual: interpolação linear entre os anos vizinhos; antes do primeiro ou depois
+    do último ano do Focus anual, o do ano mais próximo.
   Assim o ano civil de "Juros sobem" rende ≈ anual_sobem − anual_base acima do base, e a
   abertura cresce com o prazo porque o desvio do Focus anual cresce.
 

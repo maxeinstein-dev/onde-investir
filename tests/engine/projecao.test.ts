@@ -104,6 +104,29 @@ describe('cenário projetado — IPCA', () => {
     expect(mes(sobemComDP, '2026-10-01', '2026-11-01')).toBeCloseTo(1.004 * Math.pow(1.052 / 1.049, 1 / 12), 12);
     expect(mes(sobem, '2027-03-01', '2027-04-01')).toBeCloseTo(Math.pow(1.047, 1 / 12), 12);
   });
+  it('mês da data de referência sem Focus mensal: anual do ano, não o mês seguinte', () => {
+    const focus = { ...FOCUS, ipcaMensal: FOCUS.ipcaMensal.filter((m) => m.anoMes !== '2026-09') };
+    const c = montarCenario('BASE', focus, ATUAIS, OFICIAIS, PREMISSAS_PADRAO);
+    expect(mes(c, '2026-09-01', '2026-10-01')).toBeCloseTo(Math.pow(1.049, 1 / 12), 12);
+    expect(mes(c, '2026-10-01', '2026-11-01')).toBeCloseTo(1.004, 12);
+  });
+  it('lacuna no meio do Focus mensal: anual do ano', () => {
+    const focus = { ...FOCUS, ipcaMensal: [{ anoMes: '2026-09', est: est(0.29) }, { anoMes: '2026-11', est: est(0.35) }] };
+    const c = montarCenario('BASE', focus, ATUAIS, OFICIAIS, PREMISSAS_PADRAO);
+    expect(mes(c, '2026-10-01', '2026-11-01')).toBeCloseTo(Math.pow(1.049, 1 / 12), 12);
+    expect(mes(c, '2026-11-01', '2026-12-01')).toBeCloseTo(1.0035, 12);
+    expect(mes(c, '2026-12-01', '2027-01-01')).toBeCloseTo(Math.pow(1.049, 1 / 12), 12);
+  });
+  it('ano faltando no Focus anual: interpolação linear entre os anos vizinhos', () => {
+    const focus = {
+      ...FOCUS,
+      ipcaAnual: [{ ano: 2026, est: est(4.9, 0.2, 4, 6) }, { ano: 2028, est: est(3.9, 0.4, 3, 6) }],
+    };
+    const c = montarCenario('BASE', focus, ATUAIS, OFICIAIS, PREMISSAS_PADRAO);
+    expect(mes(c, '2027-03-01', '2027-04-01')).toBeCloseTo(Math.pow(1.044, 1 / 12), 12);
+    const sobem = montarCenario('SOBEM', focus, ATUAIS, OFICIAIS, PREMISSAS_PADRAO);
+    expect(mes(sobem, '2027-03-01', '2027-04-01')).toBeCloseTo(Math.pow(1.047, 1 / 12), 12); // (5,1 + 4,3) / 2
+  });
   it('longo prazo: premissa de IPCA depois da convergência', () => {
     expect(mes(base(), '2033-01-01', '2033-02-01')).toBeCloseTo(Math.pow(1.03, 1 / 12), 12);
   });
