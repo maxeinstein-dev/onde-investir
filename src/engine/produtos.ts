@@ -1,10 +1,11 @@
 // src/engine/produtos.ts
 import { diasUteis } from './calendario';
-import { type DataISO, diasCorridos } from './datas';
+import { type DataISO, diasCorridos, somarMeses } from './datas';
 import { type Cenario, fatorIPCA, fatorPercentualCDI, fatorPrefixado, fatorSelic } from './indexadores';
 import { custodiaTesouro } from './regras/custodia';
 import { aliquotaIOF } from './regras/iof';
 import { aliquotaIR } from './regras/ir';
+import { taxaBasePoupancaAM } from './regras/poupanca';
 
 export type TipoProduto =
   | 'CDB' | 'RDB' | 'LC' | 'LCI' | 'LCA'
@@ -81,7 +82,35 @@ function montarPassos(r: Omit<ResultadoSimulacao, 'passos'>): Passo[] {
   ];
 }
 
+/** Depósitos nos dias 29, 30 e 31 contam como feitos no dia 1º do mês seguinte. */
+function inicioEfetivoPoupanca(data: DataISO): DataISO {
+  const dia = Number(data.slice(8, 10));
+  return dia >= 29 ? somarMeses(`${data.slice(0, 8)}01`, 1) : data;
+}
+
+function simularPoupanca(ap: Aplicacao, dataResgate: DataISO, cen: Cenario): ResultadoSimulacao {
+  const inicio = inicioEfetivoPoupanca(ap.dataAplicacao);
+  let valor = ap.valor;
+  let meses = 0;
+  for (let aniversarioAnterior = inicio; ; meses++) {
+    const proximo = somarMeses(inicio, meses + 1);
+    if (proximo > dataResgate) break;
+    const base = taxaBasePoupancaAM(cen.selicMetaAA(aniversarioAnterior), aniversarioAnterior);
+    valor *= (1 + base) * (1 + cen.trAM(aniversarioAnterior));
+    aniversarioAnterior = proximo;
+  }
+  const semDescontos = {
+    aplicacao: ap, dataResgate, diasCorridos: diasCorridos(ap.dataAplicacao, dataResgate),
+    diasUteis: diasUteis(ap.dataAplicacao, dataResgate), fator: valor / ap.valor,
+    valorAplicado: ap.valor, valorBruto: valor, rendimentoBruto: valor - ap.valor,
+    aliquotaIOF: 0, iof: 0, custodia: 0, isentoIR: true, aliquotaIR: 0, ir: 0, valorLiquido: valor,
+    mesesPoupanca: meses,
+  };
+  return { ...semDescontos, passos: montarPassos(semDescontos) };
+}
+
 export function simular(ap: Aplicacao, dataResgate: DataISO, cen: Cenario): ResultadoSimulacao {
+  if (ap.produto === 'POUPANCA') return simularPoupanca(ap, dataResgate, cen);
   const dc = diasCorridos(ap.dataAplicacao, dataResgate);
   const fator = fatorBruto(ap, dataResgate, cen);
   const valorBruto = ap.valor * fator;

@@ -1,5 +1,6 @@
 // tests/engine/produtos.test.ts
 import { describe, expect, it } from 'vitest';
+import { cenarioConstante } from '../../src/engine/indexadores';
 import { simular, type Aplicacao, type ResultadoSimulacao } from '../../src/engine/produtos';
 import { CEN, INI } from './cenarioPadrao';
 
@@ -70,5 +71,30 @@ describe('simular — Tesouro', () => {
   it('Tesouro Prefixado paga custódia sobre tudo', () => {
     const r = simular({ produto: 'TESOURO_PREFIXADO', indexacao: { tipo: 'PRE', taxaAA: 0.13 }, valor: 8000, dataAplicacao: INI }, '2028-09-28', CEN);
     expect(r.custodia).toBeGreaterThan(0);
+  });
+});
+
+describe('simular — poupança', () => {
+  const poup = (dataAplicacao: string): Aplicacao => ({ produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' }, valor: 10000, dataAplicacao });
+  it('só rende no aniversário: 5 meses na véspera, 6 no dia', () => {
+    const antes = simular(poup(INI), '2027-03-27', CEN);
+    expect(antes.mesesPoupanca).toBe(5);
+    expect(antes.valorLiquido).toBeCloseTo(10337.16894, 5);
+    const noDia = simular(poup(INI), '2027-03-28', CEN);
+    expect(noDia.mesesPoupanca).toBe(6);
+    expect(noDia.valorLiquido).toBeCloseTo(10405.95484, 5);
+  });
+  it('depósito no dia 31 faz aniversário no dia 1º do mês seguinte', () => {
+    expect(simular(poup('2026-10-31'), '2026-11-30', CEN).valorLiquido).toBe(10000);
+    expect(simular(poup('2026-10-31'), '2026-12-01', CEN).valorLiquido).toBeCloseTo(10066.5423, 5);
+  });
+  it('regra dos 70% da Selic quando Selic ≤ 8,5%', () => {
+    const cen8 = cenarioConstante({ cdiAA: 0.079, selicMetaAA: 0.08, ipcaAA: 0.04, trAM: 0 });
+    expect(simular(poup(INI), '2026-12-28', cen8).valorLiquido).toBeCloseTo(10137.152491, 5);
+  });
+  it('isenta de IR e de IOF', () => {
+    const r = simular(poup(INI), '2026-10-28', CEN);
+    expect(r.ir).toBe(0);
+    expect(r.iof).toBe(0);
   });
 });
