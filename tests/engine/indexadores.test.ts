@@ -1,6 +1,8 @@
 // tests/engine/indexadores.test.ts
 import { describe, expect, it } from 'vitest';
-import { fatorIPCA, fatorPercentualCDI, fatorPrefixado, fatorSelic, taxaDiaria } from '../../src/engine/indexadores';
+import { ehDiaUtil } from '../../src/engine/calendario';
+import { diaDaSemana } from '../../src/engine/datas';
+import { type Cenario, fatorIPCA, fatorPercentualCDI, fatorPrefixado, fatorSelic, taxaDiaria } from '../../src/engine/indexadores';
 import { CEN, INI } from './cenarioPadrao';
 
 describe('indexadores', () => {
@@ -29,5 +31,20 @@ describe('indexadores', () => {
   });
   it('Selic over constante = CDI no cenário padrão', () => {
     expect(fatorSelic(CEN, INI, '2027-09-28')).toBeCloseTo(Math.pow(1.1365, 250 / 252), 10);
+  });
+  it('cenário que varia no tempo: cada dia útil usa a taxa vigente naquele dia', () => {
+    const cen: Cenario = {
+      cdiAA: (d) => (d < '2026-10-15' ? 0.1 : 0.12),
+      selicOverAA: () => 0.1,
+      selicMetaAA: () => 0.1,
+      ipcaAA: () => 0.04,
+      trAM: () => 0,
+    };
+    expect(diaDaSemana('2026-10-14')).toBe(3); // quarta
+    expect(diaDaSemana('2026-10-15')).toBe(4); // quinta
+    expect(ehDiaUtil('2026-10-14')).toBe(true);
+    expect(ehDiaUtil('2026-10-15')).toBe(true);
+    expect(fatorPercentualCDI(cen, 1, '2026-10-14', '2026-10-15')).toBeCloseTo(Math.pow(1.1, 1 / 252), 14);
+    expect(fatorPercentualCDI(cen, 1, '2026-10-15', '2026-10-16')).toBeCloseTo(Math.pow(1.12, 1 / 252), 14);
   });
 });
