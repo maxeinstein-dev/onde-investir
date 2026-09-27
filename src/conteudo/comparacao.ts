@@ -4,7 +4,7 @@ import { type DataISO, dataBR } from '../engine/datas';
 import type { OfertaCadastrada, Projecao } from '../engine/ofertas';
 import type { CenarioProjetado } from '../engine/projecao';
 import { formatarMoeda, formatarNumero, formatarPercentual } from '../formato';
-import { descreverOferta } from './motivos';
+import { descreverOferta, explicarVencedor, fraseDoPlacar } from './motivos';
 
 /** Perto dos botões Comparar, enquanto o painel tem um rascunho inválido. */
 export const AVISO_CENARIO_INVALIDO = 'Corrija o cenário no painel antes de comparar.';
@@ -45,6 +45,49 @@ export function descreverProjecao(p: Projecao): string {
 /** Como o horizonte aparece nos textos: "5 anos", ou "15/01/2032 (sua data)". */
 export const nomeDoHorizonte = (h: Horizonte): string => (h.rotulo === 'Sua data' ? `${dataBR(h.data)} (sua data)` : h.rotulo);
 
+type Disponivel = Extract<Projecao, { estado: 'DISPONIVEL' }>;
+
+export interface Lideranca {
+  /** "Por que X lidera em 5 anos?", ou "Por que X e Y empatam em 5 anos?". */
+  titulo: string;
+  motivos: string[];
+}
+
+/**
+ * Por que quem lidera no horizonte lidera: o 1º contra o 2º colocado disponível. Sem reaplicação nos dois, os
+ * motivos de IR e de rendimento bruto (`explicarVencedor`); com reaplicação em algum, a conta tem duas etapas e
+ * esses motivos não valem: só o placar e a frase da reaplicação. null quando ninguém pode ser resgatado no prazo.
+ */
+export function explicarLideranca(ofertas: readonly OfertaCadastrada[], coluna: ColunaHorizonte): Lideranca | null {
+  if (coluna.lideres.length === 0) return null;
+  const prazo = nomeDoHorizonte(coluna);
+  const ranking = coluna.projecoes
+    .flatMap((p, i) => {
+      const o = ofertas[i];
+      return p.estado === 'DISPONIVEL' && o ? [{ p, o, nome: nomeOferta(o), lider: coluna.lideres.includes(i) }] : [];
+    })
+    // Os líderes primeiro (empate em centavos), depois pelo líquido.
+    .sort((a, b) => Number(b.lider) - Number(a.lider) || b.p.liquido - a.p.liquido);
+  const [primeiro, segundo] = ranking;
+  if (!primeiro) return null;
+
+  const empatados = ranking.filter((x) => x.lider);
+  if (empatados.length > 1) {
+    const nomes = listar(empatados.map((x) => x.nome));
+    return { titulo: `Por que ${nomes} empatam em ${prazo}?`, motivos: [`${nomes} terminam empatados, com ${formatarMoeda(primeiro.p.liquido)} líquidos.`] };
+  }
+  const titulo = `Por que ${primeiro.nome} lidera em ${prazo}?`;
+  if (!segundo) return { titulo, motivos: [`Só ${primeiro.nome} pode ser resgatada nesse prazo.`] };
+  return { titulo, motivos: explicarDuas(primeiro, segundo) };
+}
+
+function explicarDuas(v: { p: Disponivel; nome: string }, s: { p: Disponivel; nome: string }): string[] {
+  const [ev, es] = [v.p.etapas, s.p.etapas];
+  if (ev.length === 1 && es.length === 1 && ev[0] && es[0]) return explicarVencedor(ev[0], es[0], v.nome, s.nome);
+  const reaplicacoes = [v, s].flatMap((x) => (x.p.reinvestimento ? [`${x.nome} ${continuarFrase(descreverProjecao(x.p))}.`] : []));
+  return [fraseDoPlacar(v.nome, v.p.liquido, s.nome, s.p.liquido), ...reaplicacoes];
+}
+
 /**
  * Conclusão no último vencimento: quem termina na frente, por quanto e o efeito da reaplicação. Com a última
  * coluna da tabela (o horizonte mais distante), avisa quando a liderança muda depois do último vencimento,
@@ -68,7 +111,7 @@ function concluirNoUltimoVencimento(ofertas: readonly OfertaCadastrada[], l: { m
   const data = dataBR(ultimo.data);
   const disponiveis = ultimo.projecoes
     .flatMap((p, i) => (p.estado === 'DISPONIVEL' ? [{ p, o: ofertas[i] }] : []))
-    .filter((x): x is { p: Extract<Projecao, { estado: 'DISPONIVEL' }>; o: OfertaCadastrada } => x.o !== undefined)
+    .filter((x): x is { p: Disponivel; o: OfertaCadastrada } => x.o !== undefined)
     .sort((a, b) => b.p.liquido - a.p.liquido);
   const lider = disponiveis[0];
   if (!lider) return [];

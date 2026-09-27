@@ -17,6 +17,16 @@ export function horizontesPadrao(dataAplicacao: DataISO, dataUsuario: DataISO | 
   return lista.sort((a, b) => (a.data < b.data ? -1 : 1));
 }
 
+/**
+ * Vencedor pela comparação em centavos arredondados: dois líquidos que viram o mesmo valor em
+ * centavos empatam (o que a pessoa vê na tela é igual). A mesma regra de `lideres`.
+ */
+export function decidirVencedor(liquidoA: number, liquidoB: number): 'A' | 'B' | 'EMPATE' {
+  const centavosA = Math.round(liquidoA * 100);
+  const centavosB = Math.round(liquidoB * 100);
+  return centavosA === centavosB ? 'EMPATE' : centavosA > centavosB ? 'A' : 'B';
+}
+
 /** Índices das projeções disponíveis com o maior líquido, comparando em centavos. */
 export function lideres(projecoes: readonly Projecao[]): number[] {
   const centavos = projecoes.map((p) => (p.estado === 'DISPONIVEL' ? Math.round(p.liquido * 100) : null));

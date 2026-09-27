@@ -59,6 +59,10 @@ const colunas = () => within(tabela()).getAllByRole('columnheader').filter((c) =
 const valores = () => within(tabela()).queryByRole('rowgroup', { name: 'Valor líquido' });
 const celula = (horizonte: RegExp, oferta: number) =>
   within(within(tabela()).getByRole('rowheader', { name: horizonte }).closest('tr') as HTMLElement).getAllByRole('cell')[oferta] as HTMLElement;
+/** Há dois "no prazo de": o das equivalências e o do "Por que … lidera". */
+const prazoEquivalencias = () => within(document.querySelector('.comparacao__equivalencias') as HTMLElement).getByLabelText('no prazo de');
+const secaoLider = () => screen.queryByRole('heading', { name: /^Por que .* (lidera|empatam) em / })?.closest('section') ?? null;
+const prazoLider = () => within(secaoLider() as HTMLElement).getByLabelText('no prazo de');
 const secaoEquivalencias = () => screen.getByRole('heading', { name: /^Equivalências de/ }).closest('section') as HTMLElement;
 
 describe('Comparador', () => {
@@ -193,7 +197,7 @@ describe('Comparador', () => {
       montar({ selecao: ['x', 'z'] });
       compararDireto();
       expect(screen.getByLabelText('Calcular equivalências para')).toHaveValue('x');
-      expect(screen.getByLabelText('no prazo de')).toHaveValue('2031-09-28');
+      expect(prazoEquivalencias()).toHaveValue('2031-09-28');
       expect(screen.getByRole('heading', { name: 'Equivalências de CDB 103% do CDI (Banco X)' })).toBeInTheDocument();
       expect(secaoEquivalencias()).toHaveTextContent('As equivalências consideram CDB 103% do CDI aplicado de uma vez até 28/09/2031, sem reaplicar no vencimento.');
     });
@@ -204,7 +208,7 @@ describe('Comparador', () => {
       const oferta = screen.getByLabelText('Calcular equivalências para');
       expect(within(oferta).getAllByRole('option').map((o) => o.textContent)).toEqual(['A: CDB 103% do CDI (Banco X)', 'B: CDB 110% do CDI (Banco Z)']);
       fireEvent.change(oferta, { target: { value: 'z' } });
-      const prazo = screen.getByLabelText('no prazo de');
+      const prazo = prazoEquivalencias();
       expect(within(prazo).getAllByRole('option').map((o) => o.textContent)).toEqual(['6 meses', '1 ano', '2 anos', '3 anos', '5 anos']);
       fireEvent.change(prazo, { target: { value: '2028-09-28' } });
       expect(screen.getByRole('heading', { name: 'Equivalências de CDB 110% do CDI (Banco Z)' })).toBeInTheDocument();
@@ -218,7 +222,7 @@ describe('Comparador', () => {
     it('oferta indisponível na data escolhida: explica o motivo e não calcula', () => {
       montar({ selecao: ['t', 'z'] });
       compararDireto();
-      fireEvent.change(screen.getByLabelText('no prazo de'), { target: { value: '2028-09-28' } });
+      fireEvent.change(prazoEquivalencias(), { target: { value: '2028-09-28' } });
       const secao = secaoEquivalencias();
       expect(secao).toHaveTextContent('Não dá para calcular as equivalências nessa data.');
       expect(secao).toHaveTextContent('Vence em 01/01/2030. Se vender antes, recebe o preço de mercado do dia');
@@ -229,8 +233,95 @@ describe('Comparador', () => {
       const longe: OfertaCadastrada = { ...cdb, id: 'l', vencimento: '2035-09-28' };
       montar({ catalogo: [longe, diario], selecao: ['l', 'z'] });
       compararDireto();
-      expect(screen.getByLabelText('no prazo de')).toHaveValue('2031-09-28');
+      expect(prazoEquivalencias()).toHaveValue('2031-09-28');
       expect(secaoEquivalencias()).toHaveTextContent('Indisponível até 28/09/2035: só pode ser resgatado no vencimento.');
+    });
+  });
+
+  describe('por que o líder lidera', () => {
+    // Vencem em 2 anos: nesse prazo, sem reaplicação; em 3 e 5 anos, reaplicadas.
+    const cdb2: OfertaCadastrada = { ...cdb, id: 'c2', vencimento: '2028-09-28' };
+    const lci95: OfertaCadastrada = { ...lci, id: 'l95', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.95 } };
+    const cat = [...CATALOGO, cdb2, lci95];
+
+    it('fica abaixo da tabela e, por padrão, no horizonte mais distante com líder', () => {
+      montar({ catalogo: cat, selecao: ['c2', 'y'] });
+      compararDireto();
+      const secao = secaoLider() as HTMLElement;
+      expect(secao).not.toBeNull();
+      expect(within(secao).getByRole('heading', { level: 3 })).toHaveTextContent('Por que CDB 103% do CDI (Banco X) lidera em 5 anos?');
+      expect(prazoLider()).toHaveValue('2031-09-28');
+      // Abaixo da tabela, antes da linha do tempo.
+      expect(tabela().compareDocumentPosition(secao) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      const linha = screen.getByRole('heading', { name: 'Linha do tempo dos vencimentos' });
+      expect(secao.compareDocumentPosition(linha) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('com reaplicação: só o placar e a frase da reaplicação', () => {
+      montar({ catalogo: cat, selecao: ['c2', 'y'] });
+      compararDireto();
+      const itens = within(secaoLider() as HTMLElement).getAllByRole('listitem').map((li) => li.textContent);
+      expect(itens).toHaveLength(3);
+      expect(itens[0]).toMatch(/^CDB 103% do CDI \(Banco X\) termina com .* a mais que LCI 80% do CDI \(Banco Y\)\.$/);
+      expect(itens).toContain('CDB 103% do CDI (Banco X) venceu em 28/09/2028 e foi reaplicado em CDB 103% do CDI.');
+      expect(itens.join(' ')).not.toMatch(/Mesmo pagando IR/);
+    });
+
+    it('CDB 103% × LCI 80% em 2 anos: "Mesmo pagando IR" (trocando o prazo no select)', () => {
+      montar({ catalogo: cat, selecao: ['c2', 'y'] });
+      compararDireto();
+      expect(within(prazoLider()).getAllByRole('option').map((o) => o.textContent)).toEqual(['2 anos', '3 anos', '5 anos']);
+      fireEvent.change(prazoLider(), { target: { value: '2028-09-28' } });
+      const secao = secaoLider() as HTMLElement;
+      expect(within(secao).getByRole('heading', { level: 3 })).toHaveTextContent('Por que CDB 103% do CDI (Banco X) lidera em 2 anos?');
+      expect(secao).toHaveTextContent(/CDB 103% do CDI \(Banco X\) termina com R\$\s12\.551,90 líquidos: R\$\s289,86 \(2,36%\) a mais que LCI 80% do CDI \(Banco Y\)\./);
+      expect(secao).toHaveTextContent('LCI 80% do CDI (Banco Y) é isenta de IR.');
+      expect(secao).toHaveTextContent(/Mesmo pagando IR, CDB 103% do CDI \(Banco X\) vence/);
+      // Independente das equivalências.
+      expect(prazoEquivalencias()).toHaveValue('2031-09-28');
+    });
+
+    it('LCI 95% × CDB 103% em 2 anos: a isenta vence', () => {
+      montar({ catalogo: cat, selecao: ['l95', 'c2'] });
+      compararDireto();
+      fireEvent.change(prazoLider(), { target: { value: '2028-09-28' } });
+      const secao = secaoLider() as HTMLElement;
+      expect(within(secao).getByRole('heading', { level: 3 })).toHaveTextContent('Por que LCI 95% do CDI (Banco Y) lidera em 2 anos?');
+      expect(secao).toHaveTextContent('LCI 95% do CDI (Banco Y) rende menos antes do imposto, mas como não paga IR fica na frente.');
+    });
+
+    it('trocar o prazo das equivalências não mexe no "Por que … lidera"', () => {
+      montar({ catalogo: cat, selecao: ['c2', 'y'] });
+      compararDireto();
+      fireEvent.change(prazoEquivalencias(), { target: { value: '2028-09-28' } });
+      expect(prazoLider()).toHaveValue('2031-09-28');
+    });
+
+    it('empate no 1º lugar: a frase de empate', () => {
+      const gemeo: OfertaCadastrada = { ...cdb2, id: 'g', emissor: 'Banco W' };
+      montar({ catalogo: [...cat, gemeo], selecao: ['c2', 'g'] });
+      compararDireto();
+      const secao = secaoLider() as HTMLElement;
+      expect(within(secao).getByRole('heading', { level: 3 })).toHaveTextContent('Por que CDB 103% do CDI (Banco X) e CDB 103% do CDI (Banco W) empatam em 5 anos?');
+      expect(within(secao).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+        expect.stringMatching(/^CDB 103% do CDI \(Banco X\) e CDB 103% do CDI \(Banco W\) terminam empatados, com R\$\s[\d.,]+ líquidos\.$/),
+      ]);
+    });
+
+    it('só uma disponível no prazo', () => {
+      const longe: OfertaCadastrada = { ...cdb, id: 'l', vencimento: '2035-09-28' };
+      montar({ catalogo: [longe, diario], selecao: ['l', 'z'] });
+      compararDireto();
+      expect(secaoLider()).toHaveTextContent('Só CDB 110% do CDI (Banco Z) pode ser resgatada nesse prazo.');
+    });
+
+    it('nenhuma disponível em nenhum prazo: a seção não aparece', () => {
+      const longe: OfertaCadastrada = { ...cdb, id: 'l', vencimento: '2035-09-28' };
+      const longe2: OfertaCadastrada = { ...lci, id: 'l2', vencimento: '2035-09-28' };
+      montar({ catalogo: [longe, longe2], selecao: ['l', 'l2'] });
+      comparar();
+      expect(tituloResultado()).toBeInTheDocument();
+      expect(secaoLider()).toBeNull();
     });
   });
 

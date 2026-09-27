@@ -28,21 +28,13 @@ function Passos({ resultado }: { resultado: ResultadoSimulacao }) {
 
 export interface PropsPorQueEsseResultado {
   resultado: ResultadoSimulacao;
-  /** Quando a aplicação venceu e foi reaplicada: a frase do reinvestimento e os passos da segunda etapa. */
-  reaplicacao?: { frase: string; resultado: ResultadoSimulacao };
 }
 
-export function PorQueEsseResultado({ resultado, reaplicacao }: PropsPorQueEsseResultado) {
+export function PorQueEsseResultado({ resultado }: PropsPorQueEsseResultado) {
   return (
     <details class="porque" open>
       <summary>Por que esse resultado?</summary>
       <Passos resultado={resultado} />
-      {reaplicacao && (
-        <>
-          <p class="porque__reaplicacao">{reaplicacao.frase}</p>
-          <Passos resultado={reaplicacao.resultado} />
-        </>
-      )}
     </details>
   );
 }

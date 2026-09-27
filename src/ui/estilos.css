@@ -244,13 +244,6 @@ button:hover {
   margin-top: 0.35rem;
 }
 
-.cartoes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  align-items: start;
-}
-
 .cartao {
   padding: 1rem;
   border: 1px solid var(--borda);
@@ -258,52 +251,9 @@ button:hover {
   min-width: 0;
 }
 
-.cartao--vencedor {
-  border: 2px solid var(--sucesso);
-  background: var(--sucesso-fundo);
-}
-
-.selo {
-  display: inline-block;
-  margin-left: 0.35rem;
-  padding: 0.1rem 0.5rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #ffffff;
-  background: var(--sucesso);
-  border-radius: 999px;
-  vertical-align: middle;
-}
-
-.cartao__liquido {
-  margin: 0.25rem 0;
-  font-size: 1.75rem;
-  font-weight: 700;
-}
-
 .cartao__garantia {
   margin: 0 0 0.75rem;
   color: var(--texto-suave);
-}
-
-/* Sem valor na data do resgate: o estado ocupa o lugar do valor. */
-.cartao__estado {
-  margin: 0.5rem 0;
-  font-weight: 600;
-}
-
-.cartao__nota {
-  margin: 0 0 0.5rem;
-  font-size: 0.9rem;
-  color: var(--texto-suave);
-}
-
-/* Entre as duas etapas do "Por que esse resultado?", a frase da reaplicação. */
-.porque__reaplicacao {
-  margin: 0.75rem 0;
-  padding: 0.4rem 0.6rem;
-  background: var(--aviso-fundo);
-  border-radius: 4px;
 }
 
 /* Por que esse resultado? */
@@ -862,6 +812,16 @@ button:hover {
   margin-bottom: 0;
 }
 
+/* "Por que … lidera em …?", abaixo da tabela. */
+.lideranca {
+  margin: 1.5rem 0;
+}
+
+.lideranca h3 {
+  margin: 0 0 0.5rem;
+  overflow-wrap: anywhere;
+}
+
 /* Linha do tempo */
 .linha-do-tempo__marcos {
   margin: 0;
@@ -902,10 +862,6 @@ button:hover {
 @media (max-width: 639px) {
   .pagina {
     padding: 1rem 1rem 2rem;
-  }
-
-  .cartoes {
-    grid-template-columns: 1fr;
   }
 
   .primario {

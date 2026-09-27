@@ -20,6 +20,7 @@ import { PalpiteAntesDeVer } from '../PalpiteAntesDeVer';
 import { Termo } from '../Termo';
 import { AdicionarOferta, ID_BOTAO_ADICIONAR } from './AdicionarOferta';
 import { LinhaDoTempo } from './LinhaDoTempo';
+import { PorQueLidera } from './PorQueLidera';
 import { idColuna, TabelaComparacao } from './TabelaComparacao';
 
 type TipoRegra = RegraReinvestimento['tipo'];
@@ -144,6 +145,8 @@ export function Comparador({
   /** Equivalências: a oferta (id) e o horizonte (data) escolhidos; null = o padrão. */
   const [eqId, setEqId] = useState<string | null>(null);
   const [eqData, setEqData] = useState<DataISO | null>(null);
+  /** "Por que … lidera": o horizonte escolhido; null = o mais distante com líder. Independente das equivalências. */
+  const [liderData, setLiderData] = useState<DataISO | null>(null);
   /** Anúncio para leitor de tela (contêiner vivo permanente). */
   const [anuncio, setAnuncio] = useState('');
   /** Id do elemento que recebe o foco depois da próxima renderização. */
@@ -199,6 +202,7 @@ export function Comparador({
       setErroSalvo(null);
       setEqId(null);
       setEqData(null);
+      setLiderData(null);
       // Sem ninguém disponível no horizonte perguntado, não há o que adivinhar: o resultado vem direto.
       const perguntar = palpitesLigados && (c.colunas.at(-1)?.lideres.length ?? 0) > 0;
       setFase(perguntar ? { tipo: 'palpite', ...c } : { tipo: 'resultado', palpite: null, ...c });
@@ -316,6 +320,7 @@ export function Comparador({
             <Termo id="reinvestimento">Reinvestimento</Termo>: {descreverRegra(resultado.regra)} O IR recomeça na reaplicação.
           </p>
           {tabela}
+          <PorQueLidera ofertas={resultado.ofertas} colunas={resultado.colunas} data={liderData} onData={setLiderData} />
           <LinhaDoTempo ofertas={resultado.ofertas} linha={resultado.linha} ultimaColuna={resultado.colunas.at(-1)} />
           <EquivalenciasDaComparacao calculo={resultado} eqId={eqId} eqData={eqData}
             onOferta={(id) => { setEqId(id); setEqData(null); }} onData={setEqData} />

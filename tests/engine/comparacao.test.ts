@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { horizontesPadrao, lideres, linhaDoTempo, tabelaPorHorizonte } from '../../src/engine/comparacao';
+import { decidirVencedor, horizontesPadrao, lideres, linhaDoTempo, tabelaPorHorizonte } from '../../src/engine/comparacao';
 import type { OfertaCadastrada } from '../../src/engine/ofertas';
 import { OfertaInvalidaError } from '../../src/engine/erros';
 import { CEN, INI } from './cenarioPadrao';
@@ -30,6 +30,24 @@ describe('líderes', () => {
       { estado: 'INDISPONIVEL', motivo: 'x' },
     ])).toEqual([0, 1]);
     expect(lideres([{ estado: 'INDISPONIVEL', motivo: 'x' }])).toEqual([]);
+  });
+});
+
+// Portado de tests/engine/comparador.test.ts (o duelo saiu; a regra de empate ficou aqui, ao lado de `lideres`).
+describe('decidirVencedor: comparação em centavos arredondados', () => {
+  it('100,0051 × 100,0111 arredondam para os mesmos 100,01 → empate', () => {
+    expect(decidirVencedor(100.0051, 100.0111)).toBe('EMPATE');
+    expect(decidirVencedor(100.0111, 100.0051)).toBe('EMPATE');
+  });
+  it('centavos diferentes decidem o vencedor', () => {
+    expect(decidirVencedor(100.0149, 100.0151)).toBe('B');
+    expect(decidirVencedor(100.02, 100.01)).toBe('A');
+    expect(decidirVencedor(100, 100)).toBe('EMPATE');
+  });
+  it('concorda com `lideres`', () => {
+    const p = (liquido: number) => ({ estado: 'DISPONIVEL' as const, liquido, etapas: [] });
+    expect(lideres([p(100.0051), p(100.0111)])).toEqual([0, 1]);
+    expect(lideres([p(100.0149), p(100.0151)])).toEqual([1]);
   });
 });
 

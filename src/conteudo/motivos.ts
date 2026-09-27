@@ -1,5 +1,5 @@
-import { decidirVencedor, type Duelo } from '../engine/comparador';
-import type { Oferta, TipoProduto } from '../engine/produtos';
+import { decidirVencedor } from '../engine/comparacao';
+import type { Oferta, ResultadoSimulacao, TipoProduto } from '../engine/produtos';
 import { formatarMoeda, formatarPercentual } from '../formato';
 
 const NOMES: Record<TipoProduto, string> = {
@@ -25,7 +25,7 @@ export function descreverOferta(o: Oferta): string {
   }
 }
 
-/** A primeira frase do duelo: quem termina na frente e por quanto, ou o empate. */
+/** A primeira frase da explicação: quem termina na frente e por quanto, ou o empate. */
 export function fraseDoPlacar(nomeA: string, liquidoA: number, nomeB: string, liquidoB: number): string {
   const vencedor = decidirVencedor(liquidoA, liquidoB);
   if (vencedor === 'EMPATE') return `${nomeA} e ${nomeB} terminam empatados, com ${formatarMoeda(liquidoA)} líquidos.`;
@@ -34,12 +34,18 @@ export function fraseDoPlacar(nomeA: string, liquidoA: number, nomeB: string, li
   return `${nv} termina com ${formatarMoeda(lv)} líquidos: ${formatarMoeda(diferenca)} (${formatarPercentual(diferenca / lp)}) a mais que ${np}.`;
 }
 
-export function explicarVencedor(d: Duelo): string[] {
-  const nomeA = descreverOferta(d.a.aplicacao);
-  const nomeB = descreverOferta(d.b.aplicacao);
-  const placar = fraseDoPlacar(nomeA, d.a.valorLiquido, nomeB, d.b.valorLiquido);
-  if (d.vencedor === 'EMPATE') return [placar];
-  const [v, p, nv, np] = d.vencedor === 'A' ? [d.a, d.b, nomeA, nomeB] : [d.b, d.a, nomeB, nomeA];
+/**
+ * Por que uma simulação termina na frente da outra (mesma base: valor e datas iguais). Os nomes vêm de fora
+ * quando é preciso distinguir ofertas iguais (ex.: o emissor); sem eles, a descrição da oferta.
+ */
+export function explicarVencedor(
+  a: ResultadoSimulacao, b: ResultadoSimulacao,
+  nomeA = descreverOferta(a.aplicacao), nomeB = descreverOferta(b.aplicacao),
+): string[] {
+  const placar = fraseDoPlacar(nomeA, a.valorLiquido, nomeB, b.valorLiquido);
+  const vencedor = decidirVencedor(a.valorLiquido, b.valorLiquido);
+  if (vencedor === 'EMPATE') return [placar];
+  const [v, p, nv, np] = vencedor === 'A' ? [a, b, nomeA, nomeB] : [b, a, nomeB, nomeA];
   const linhas = [placar];
   if (v.isentoIR !== p.isentoIR) {
     const [ri, rt, ni, nt] = v.isentoIR ? [v, p, nv, np] : [p, v, np, nv];

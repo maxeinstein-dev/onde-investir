@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { concluirLinhaDoTempo, descreverProjecao, explicarCenario, nomeOferta } from '../../src/conteudo/comparacao';
+import { concluirLinhaDoTempo, descreverProjecao, explicarCenario, explicarLideranca, nomeOferta } from '../../src/conteudo/comparacao';
 import { GLOSSARIO } from '../../src/conteudo/glossario';
-import { horizontesPadrao, linhaDoTempo, tabelaPorHorizonte } from '../../src/engine/comparacao';
+import { horizontesPadrao, linhaDoTempo, tabelaPorHorizonte, type ColunaHorizonte } from '../../src/engine/comparacao';
 import type { OfertaCadastrada, Projecao } from '../../src/engine/ofertas';
 import { CEN, INI } from '../engine/cenarioPadrao';
 import { cenarioReal } from '../engine/cenarioReal';
@@ -191,5 +191,50 @@ describe('glossário do M2', () => {
     expect(GLOSSARIO.cenario.curto).toBe('O caminho suposto para Selic, CDI e IPCA até o resgate. O cenário base segue as medianas do **Focus**, "juros sobem" e "juros caem" se afastam delas, e o manual usa os valores constantes que você digita.');
     expect(GLOSSARIO.reinvestimento.curto).toBe('Quando uma aplicação vence antes da data comparada, o valor líquido é aplicado de novo, e a contagem do **IR** regressivo recomeça na faixa de 22,5%.');
     for (const id of ['focus', 'copom', 'cenario', 'reinvestimento'] as const) expect(GLOSSARIO[id].fonte).toMatch(/^https:\/\//);
+  });
+});
+
+describe('explicarLideranca: 1º contra 2º colocado disponível no horizonte', () => {
+  const cdb2028: OfertaCadastrada = { ...cdb2027, id: '3', vencimento: '2028-09-28' };
+  const coluna = (ofertas: OfertaCadastrada[], rotulo: string): ColunaHorizonte => {
+    const c = tabelaPorHorizonte(ofertas, 10000, INI, horizontesPadrao(INI, null), CEN, { tipo: 'PADRAO' }).find((x) => x.rotulo === rotulo);
+    if (!c) throw new Error(rotulo);
+    return c;
+  };
+
+  it('sem reaplicação: placar e motivos do IR, com nomeOferta', () => {
+    const l = explicarLideranca([lci2028, cdb2028], coluna([lci2028, cdb2028], '2 anos'));
+    expect(l?.titulo).toBe('Por que CDB 103% do CDI (Banco B) lidera em 2 anos?');
+    expect(l?.motivos[0]).toMatch(new RegExp(String.raw`^CDB 103% do CDI \(Banco B\) termina com ${R}12\.551,90 líquidos: ${R}289,86 \(2,36%\) a mais que LCI 80% do CDI \(Banco B\)\.$`));
+    expect(l?.motivos.join(' ')).toMatch(/Mesmo pagando IR, CDB 103% do CDI \(Banco B\) vence/);
+  });
+
+  it('com reaplicação: só o placar e a frase da reaplicação de cada uma', () => {
+    const l = explicarLideranca([cdb2027, lci2028], coluna([cdb2027, lci2028], '5 anos'));
+    expect(l?.motivos).toHaveLength(3);
+    expect(l?.motivos.join(' ')).not.toMatch(/IR/);
+    expect(l?.motivos).toContain('CDB 103% do CDI (Banco B) venceu em 28/09/2027 e foi reaplicado em CDB 103% do CDI.');
+    expect(l?.motivos).toContain('LCI 80% do CDI (Banco B) venceu em 28/09/2028 e foi reaplicado em LCI 80% do CDI.');
+  });
+
+  it('empate de três no 1º lugar: a frase de empate com todos', () => {
+    const iguais = ['a', 'b', 'c'].map((id) => ({ ...cdb2028, id, emissor: `Banco ${id.toUpperCase()}` }));
+    const l = explicarLideranca(iguais, coluna(iguais, '2 anos'));
+    expect(l?.titulo).toBe('Por que CDB 103% do CDI (Banco A), CDB 103% do CDI (Banco B) e CDB 103% do CDI (Banco C) empatam em 2 anos?');
+    expect(l?.motivos).toEqual([expect.stringMatching(new RegExp(String.raw`^CDB 103% do CDI \(Banco A\), CDB 103% do CDI \(Banco B\) e CDB 103% do CDI \(Banco C\) terminam empatados, com ${R}[\d.,]+ líquidos\.$`))]);
+  });
+
+  it('só uma disponível', () => {
+    const l = explicarLideranca([cdb2027, lci2028], coluna([cdb2027, lci2028], '1 ano'));
+    expect(l).toEqual({ titulo: 'Por que CDB 103% do CDI (Banco B) lidera em 1 ano?', motivos: ['Só CDB 103% do CDI (Banco B) pode ser resgatada nesse prazo.'] });
+  });
+
+  it('nenhuma disponível: null', () => {
+    expect(explicarLideranca([cdb2027, lci2028], coluna([cdb2027, lci2028], '6 meses'))).toBeNull();
+  });
+
+  it('líquido não finito não vira líder nem explicação', () => {
+    const c: ColunaHorizonte = { rotulo: '2 anos', data: '2028-09-28', lideres: [], projecoes: [{ estado: 'DISPONIVEL', liquido: Number.NaN, etapas: [] }, { estado: 'INDISPONIVEL', motivo: 'x' }] };
+    expect(explicarLideranca([cdb2027, lci2028], c)).toBeNull();
   });
 });
