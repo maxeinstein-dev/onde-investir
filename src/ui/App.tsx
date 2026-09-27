@@ -83,7 +83,8 @@ export function App() {
           <legend>Cenário (valores de {CENARIO_INICIAL.dataReferencia}, Banco Central; edite à vontade)</legend>
           {CAMPOS_CENARIO.map((c) => (
             <div class="campo">
-              <label for={`cen-${c.chave}`}><Termo id={c.termo}>{c.rotulo}</Termo> ({c.sufixo})</label>
+              <label for={`cen-${c.chave}`}>{c.rotulo} ({c.sufixo})</label>
+              <Termo id={c.termo}>O que é {c.rotulo}?</Termo>
               <input id={`cen-${c.chave}`} type="number" step="0.01" inputMode="decimal" value={cenario[c.chave]}
                 onInput={(e) => editar(setCenario)({ ...cenario, [c.chave]: Number(e.currentTarget.value) })} />
             </div>

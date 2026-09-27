@@ -20,7 +20,8 @@ export function Equivalencias({ origem, eq }: { origem: string; eq: ResultadoEqu
   const exata = bolso === null ? null : bolso.destino === 'TRIBUTADO' ? eq.tributadoPosCDI : eq.isentoPosCDI;
   return (
     <section class="equivalencias" aria-labelledby="eq-titulo">
-      <h2 id="eq-titulo"><Termo id="equivalencia">Equivalências</Termo> de {origem}</h2>
+      <h2 id="eq-titulo">Equivalências de {origem}</h2>
+      <p class="dica"><Termo id="equivalencia">O que é taxa equivalente?</Termo></p>
       <p>Para terminar com o mesmo <Termo id="valor-liquido">valor líquido</Termo> ({formatarMoeda(eq.liquidoAlvo)}), você precisaria de:</p>
       <ul>
         <Linha rotulo={<><Termo id="cdb">CDB</Termo> pós-fixado</>} eq={eq.tributadoPosCDI} formatar={doCDI} />

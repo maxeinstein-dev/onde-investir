@@ -390,6 +390,10 @@ button:hover {
   border-radius: 4px;
 }
 
+.termo__painel[hidden] {
+  display: none;
+}
+
 /* Equivalências */
 .equivalencias {
   margin: 1.5rem 0;

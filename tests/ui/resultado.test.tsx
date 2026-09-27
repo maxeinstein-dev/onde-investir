@@ -36,6 +36,13 @@ describe('Equivalencias', () => {
     expect(dica).toHaveTextContent(/LCI\/LCA/);
     expect(dica).toHaveTextContent(/87,55%/);
   });
+  it('o título não contém o Termo: ele fica ao lado, fora do h2', () => {
+    const eq = calcularEquivalencias({ ...cdb, valor: 10000, dataAplicacao: INI }, '2028-09-28', CEN);
+    render(<Equivalencias origem="CDB 103% do CDI" eq={eq} />);
+    const titulo = screen.getByRole('heading', { name: 'Equivalências de CDB 103% do CDI' });
+    expect(titulo.querySelector('button, [role="note"]')).toBeNull();
+    expect(screen.getByRole('button', { name: /taxa equivalente/i })).toBeInTheDocument();
+  });
   it('campo indisponível mostra "não se aplica" com o motivo', () => {
     const poupanca = { produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' } } as const;
     const eq = calcularEquivalencias({ ...poupanca, valor: 10000, dataAplicacao: INI }, '2026-10-20', CEN);

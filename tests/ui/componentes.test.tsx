@@ -10,11 +10,16 @@ describe('Termo', () => {
   it('abre e fecha a explicação', () => {
     render(<p>Rende <Termo id="cdi">CDI</Termo></p>);
     const botao = screen.getByRole('button', { name: 'CDI' });
+    const painel = document.getElementById(botao.getAttribute('aria-controls') ?? '');
+    expect(painel).not.toBeNull();
     expect(botao).toHaveAttribute('aria-expanded', 'false');
+    expect(painel).toHaveAttribute('hidden');
     fireEvent.click(botao);
     expect(botao).toHaveAttribute('aria-expanded', 'true');
+    expect(painel).not.toHaveAttribute('hidden');
     expect(screen.getByRole('note')).toHaveTextContent(/empréstimos de um dia/);
     fireEvent.click(botao);
+    expect(painel).toHaveAttribute('hidden');
     expect(screen.queryByRole('note')).toBeNull();
   });
 });

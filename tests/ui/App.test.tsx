@@ -30,6 +30,14 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Comparar' }));
     expect(screen.getByRole('heading', { name: 'Resultado' })).toBeInTheDocument();
   });
+  it('labels do cenário são texto simples, com o Termo ao lado', () => {
+    render(<App />);
+    const label = document.querySelector('label[for="cen-cdi"]');
+    expect(label).toHaveTextContent(/^CDI \(% a\.a\.\)$/);
+    expect(label?.querySelector('button, [role="note"]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /o que é cdi/i }));
+    expect(screen.getByLabelText('CDI (% a.a.)')).toHaveAttribute('id', 'cen-cdi');
+  });
   it('explica o erro de prazo mínimo da LCI', () => {
     render(<App />);
     fireEvent.input(screen.getByLabelText('Data do resgate'), { target: { value: somarDias(hoje(), 30) } });

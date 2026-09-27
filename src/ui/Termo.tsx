@@ -12,12 +12,10 @@ export function Termo({ id, children }: { id: IdTermo; children: ComponentChildr
       <button type="button" class="termo__botao" aria-expanded={aberto} aria-controls={idPainel} onClick={() => setAberto(!aberto)}>
         {children}
       </button>
-      {aberto && (
-        <span id={idPainel} role="note" class="termo__painel">
-          <strong>{termo.termo}:</strong> <MarkdownRestrito texto={termo.curto} inline />{' '}
-          <a href={termo.fonte} target="_blank" rel="noopener noreferrer">Fonte</a>
-        </span>
-      )}
+      <span id={idPainel} role="note" class="termo__painel" hidden={!aberto}>
+        <strong>{termo.termo}:</strong> <MarkdownRestrito texto={termo.curto} inline />{' '}
+        <a href={termo.fonte} target="_blank" rel="noopener noreferrer">Fonte</a>
+      </span>
     </span>
   );
 }
