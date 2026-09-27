@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { concluirLinhaDoTempo, descreverProjecao, explicarCenario, nomeOferta } from '../../src/conteudo/comparacao';
 import { GLOSSARIO } from '../../src/conteudo/glossario';
-import { linhaDoTempo } from '../../src/engine/comparacao';
+import { horizontesPadrao, linhaDoTempo, tabelaPorHorizonte } from '../../src/engine/comparacao';
 import type { OfertaCadastrada, Projecao } from '../../src/engine/ofertas';
 import { CEN, INI } from '../engine/cenarioPadrao';
 import { cenarioReal } from '../engine/cenarioReal';
@@ -95,6 +95,38 @@ describe('concluirLinhaDoTempo', () => {
     const linhas = concluirLinhaDoTempo(ofertas, linhaDoTempo(ofertas, 10000, INI, CEN, { tipo: 'PADRAO' }));
     expect(linhas).toHaveLength(1);
     expect(linhas[0]).toMatch(new RegExp(String.raw`^CDB 103% do CDI \(Banco B\) e CDB 103% do CDI \(Banco C\) terminam empatados em 28/09/2027, com ${R}11\.152,34 líquidos\.$`));
+  });
+  describe('a ordem muda depois do último vencimento', () => {
+    const lciPre: OfertaCadastrada = { ...base, id: '5', produto: 'LCI', indexacao: { tipo: 'PRE', taxaAA: 0.13 }, vencimento: '2028-09-28' };
+    const cdbDiario: OfertaCadastrada = { ...base, id: '6', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.08 }, liquidez: 'DIARIA' };
+    const ofertas = [lciPre, cdbDiario];
+    const regra = { tipo: 'PADRAO' } as const;
+    const colunas = tabelaPorHorizonte(ofertas, 10000, INI, horizontesPadrao(INI, null), CEN, regra);
+    const linha = linhaDoTempo(ofertas, 10000, INI, CEN, regra);
+
+    it('o engine: a LCI lidera no último vencimento e o CDB em 5 anos', () => {
+      expect(linha.marcos.at(-1)?.lideres).toEqual([0]);
+      expect(colunas.at(-1)?.rotulo).toBe('5 anos');
+      expect(colunas.at(-1)?.lideres).toEqual([1]);
+    });
+    it('a conclusão avisa quem lidera no horizonte mais distante, mantendo as outras frases', () => {
+      const linhas = concluirLinhaDoTempo(ofertas, linha, colunas.at(-1));
+      expect(linhas[0]).toMatch(/^No último vencimento, em 28\/09\/2028, LCI prefixado 13% a\.a\. \(Banco B\) termina na frente/);
+      expect(linhas.at(-1)).toBe('Depois disso a ordem muda: em 5 anos quem lidera é CDB 108% do CDI (Banco B).');
+    });
+    it('sem a coluna, ou com o mesmo líder, nada muda', () => {
+      expect(concluirLinhaDoTempo(ofertas, linha).join(' ')).not.toMatch(/ordem muda/);
+      const mesmas = [cdb2027, lci2028];
+      const cols = tabelaPorHorizonte(mesmas, 10000, INI, horizontesPadrao(INI, null), CEN, regra);
+      const l = linhaDoTempo(mesmas, 10000, INI, CEN, regra);
+      expect(cols.at(-1)?.lideres).toEqual(l.marcos.at(-1)?.lideres);
+      expect(concluirLinhaDoTempo(mesmas, l, cols.at(-1))).toEqual(concluirLinhaDoTempo(mesmas, l));
+    });
+    it('a "sua data" aparece com a data', () => {
+      const cols = tabelaPorHorizonte(ofertas, 10000, INI, horizontesPadrao(INI, '2032-01-15'), CEN, regra);
+      expect(concluirLinhaDoTempo(ofertas, linha, cols.at(-1)).at(-1))
+        .toBe('Depois disso a ordem muda: em 15/01/2032 (sua data) quem lidera é CDB 108% do CDI (Banco B).');
+    });
   });
   it('ninguém disponível no último marco: nada', () => {
     expect(concluirLinhaDoTempo([cdb2027], {

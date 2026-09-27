@@ -1,5 +1,5 @@
 import { concluirLinhaDoTempo, descreverProjecao, nomeOferta } from '../../conteudo/comparacao';
-import type { Marco } from '../../engine/comparacao';
+import type { ColunaHorizonte, Marco } from '../../engine/comparacao';
 import { dataBR } from '../../engine/datas';
 import type { OfertaCadastrada, Projecao } from '../../engine/ofertas';
 import { formatarMoeda } from '../../formato';
@@ -8,6 +8,8 @@ import { letraDaOferta } from '../letras';
 export interface PropsLinhaDoTempo {
   ofertas: readonly OfertaCadastrada[];
   linha: { marcos: readonly Marco[] };
+  /** A última coluna da tabela: se a liderança mudar depois do último vencimento, a conclusão diz. */
+  ultimaColuna?: ColunaHorizonte;
 }
 
 type Disponivel = Extract<Projecao, { estado: 'DISPONIVEL' }>;
@@ -43,8 +45,8 @@ function MarcoDaLinha({ ofertas, m }: { ofertas: readonly OfertaCadastrada[]; m:
 }
 
 /** Um marco por vencimento, com o ranking naquela data, e a conclusão no último. */
-export function LinhaDoTempo({ ofertas, linha }: PropsLinhaDoTempo) {
-  const conclusao = concluirLinhaDoTempo(ofertas, linha);
+export function LinhaDoTempo({ ofertas, linha, ultimaColuna }: PropsLinhaDoTempo) {
+  const conclusao = concluirLinhaDoTempo(ofertas, linha, ultimaColuna);
   return (
     <section class="linha-do-tempo" aria-labelledby="comparacao-linha-titulo">
       <h3 id="comparacao-linha-titulo">Linha do tempo dos vencimentos</h3>

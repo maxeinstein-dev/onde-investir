@@ -116,6 +116,18 @@ describe('Comparacao', () => {
     for (const frase of conclusao) expect(within(secao).getByText(frase.replace(/\s+/g, ' '))).toBeInTheDocument();
   });
 
+  it('quando a ordem muda depois do último vencimento, a conclusão concorda com a tabela', () => {
+    const lciPre: OfertaCadastrada = { ...lci, id: '5', indexacao: { tipo: 'PRE', taxaAA: 0.13 } };
+    const cdbDiario: OfertaCadastrada = {
+      id: '6', emissor: 'Banco X', conglomerado: 'G', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.08 }, liquidez: 'DIARIA',
+    };
+    montar([lciPre, cdbDiario]);
+    compararDireto();
+    expect(celula(/CDB/, 4)).toHaveClass('celula--lider');
+    const secao = screen.getByRole('region', { name: 'Linha do tempo dos vencimentos' });
+    expect(within(secao).getByText('Depois disso a ordem muda: em 5 anos quem lidera é CDB 108% do CDI (Banco X).')).toBeInTheDocument();
+  });
+
   it('trocar o reinvestimento para 100% do CDI esconde o resultado e muda o texto do reinvestimento', () => {
     montar();
     compararDireto();

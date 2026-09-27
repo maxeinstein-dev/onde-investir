@@ -1,5 +1,5 @@
 // Textos da comparação de ofertas e do cenário.
-import type { Marco } from '../engine/comparacao';
+import type { ColunaHorizonte, Horizonte, Marco } from '../engine/comparacao';
 import { type DataISO, dataBR } from '../engine/datas';
 import type { OfertaCadastrada, Projecao } from '../engine/ofertas';
 import type { CenarioProjetado } from '../engine/projecao';
@@ -39,8 +39,27 @@ export function descreverProjecao(p: Projecao): string {
   }
 }
 
-/** Conclusão no último vencimento: quem termina na frente, por quanto e o efeito da reaplicação. */
-export function concluirLinhaDoTempo(ofertas: readonly OfertaCadastrada[], l: { marcos: readonly Marco[] }): string[] {
+/** Como o horizonte aparece nos textos: "5 anos", ou "15/01/2032 (sua data)". */
+export const nomeDoHorizonte = (h: Horizonte): string => (h.rotulo === 'Sua data' ? `${dataBR(h.data)} (sua data)` : h.rotulo);
+
+/**
+ * Conclusão no último vencimento: quem termina na frente, por quanto e o efeito da reaplicação. Com a última
+ * coluna da tabela (o horizonte mais distante), avisa quando a liderança muda depois do último vencimento,
+ * para a conclusão não contradizer a tabela.
+ */
+export function concluirLinhaDoTempo(
+  ofertas: readonly OfertaCadastrada[], l: { marcos: readonly Marco[] }, ultimaColuna?: ColunaHorizonte,
+): string[] {
+  const linhas = concluirNoUltimoVencimento(ofertas, l);
+  const ultimo = l.marcos.at(-1);
+  if (linhas.length === 0 || !ultimo || !ultimaColuna || ultimaColuna.data <= ultimo.data || ultimaColuna.lideres.length === 0) return linhas;
+  const mesmos = ultimaColuna.lideres.length === ultimo.lideres.length && ultimaColuna.lideres.every((i) => ultimo.lideres.includes(i));
+  if (mesmos) return linhas;
+  const nomes = ultimaColuna.lideres.flatMap((i) => (ofertas[i] ? [nomeOferta(ofertas[i])] : []));
+  return [...linhas, `Depois disso a ordem muda: em ${nomeDoHorizonte(ultimaColuna)} quem lidera é ${listar(nomes)}.`];
+}
+
+function concluirNoUltimoVencimento(ofertas: readonly OfertaCadastrada[], l: { marcos: readonly Marco[] }): string[] {
   const ultimo = l.marcos.at(-1);
   if (!ultimo || ultimo.lideres.length === 0) return [];
   const data = dataBR(ultimo.data);

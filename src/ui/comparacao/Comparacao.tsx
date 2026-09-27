@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { armazenamentoLocal } from '../../armazenamento/navegador';
 import { lerPalpitesLigados, salvarPalpitesLigados } from '../../armazenamento/preferencias';
-import { nomeOferta } from '../../conteudo/comparacao';
+import { nomeDoHorizonte, nomeOferta } from '../../conteudo/comparacao';
 import { horizontesPadrao, linhaDoTempo, tabelaPorHorizonte, type ColunaHorizonte, type Marco } from '../../engine/comparacao';
 import { dataBR, ehDataValida, type DataISO } from '../../engine/datas';
 import type { Cenario } from '../../engine/indexadores';
@@ -49,9 +49,6 @@ function descreverRegra(r: RegraReinvestimento): string {
     case 'TAXA_FIXA': return `${inicio} em CDB prefixado a ${formatarPercentual(r.taxaAA)} a.a.`;
   }
 }
-
-/** Como o maior horizonte aparece na pergunta do palpite. */
-const nomeDoHorizonte = (c: ColunaHorizonte): string => (c.rotulo === 'Sua data' ? `${dataBR(c.data)} (sua data)` : c.rotulo);
 
 export interface PropsComparacao {
   ofertas: readonly OfertaCadastrada[];
@@ -197,7 +194,7 @@ export function Comparacao({ ofertas, cenario, descricaoCenario }: PropsComparac
           </p>
           <TabelaHorizontes ofertas={ofertas} colunas={fase.colunas}
             descricao={`${formatarMoeda(fase.valor)} aplicados em ${dataBR(fase.dataAplicacao)}`} />
-          <LinhaDoTempo ofertas={ofertas} linha={fase.linha} />
+          <LinhaDoTempo ofertas={ofertas} linha={fase.linha} ultimaColuna={fase.colunas.at(-1)} />
         </section>
       )}
     </section>
