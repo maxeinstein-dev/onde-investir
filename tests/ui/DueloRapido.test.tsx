@@ -221,6 +221,44 @@ describe('DueloRapido', () => {
     });
   });
 
+  describe('data com ano de 5 dígitos', () => {
+    const semResultado = () => {
+      expect(screen.queryByRole('heading', { name: /qual você acha que rende mais/i })).toBeNull();
+      expect(screen.queryByRole('heading', { name: 'Resultado' })).toBeNull();
+    };
+    it('na aplicação: desliga os prazos e gera alerta humano', () => {
+      render(<Duelo />);
+      fireEvent.input(screen.getByLabelText('Data da aplicação'), { target: { value: '20277-01-01' } });
+      for (const b of within(screen.getByRole('group', { name: 'Prazos rápidos' })).getAllByRole('button')) expect(b).toBeDisabled();
+      fireEvent.click(screen.getByRole('button', { name: 'Comparar' }));
+      expect(screen.getByRole('alert')).toHaveTextContent('A data da aplicação é inválida.');
+      semResultado();
+    });
+    it('no resgate: alerta humano', () => {
+      render(<Duelo />);
+      fireEvent.input(screen.getByLabelText('Data do resgate'), { target: { value: '20277-01-01' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Comparar' }));
+      expect(screen.getByRole('alert')).toHaveTextContent('A data do resgate é inválida.');
+      semResultado();
+    });
+    it('no vencimento da opção: alerta humano', () => {
+      render(<Duelo />);
+      fireEvent.input(within(screen.getByRole('group', { name: 'Opção A' })).getByLabelText('Vencimento'), { target: { value: '20277-01-01' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Comparar' }));
+      expect(screen.getByRole('alert')).toHaveTextContent('O vencimento da Opção A é inválido.');
+      semResultado();
+    });
+    it('todos os campos de data limitam o ano a 4 dígitos', () => {
+      const { container } = render(<Duelo />);
+      const datas = [...container.querySelectorAll('input[type="date"]')];
+      expect(datas).toHaveLength(4);
+      for (const d of datas) {
+        expect(d).toHaveAttribute('max', '9999-12-31');
+        expect(d).toHaveAttribute('min', '1990-01-01');
+      }
+    });
+  });
+
   describe('foco entre as fases', () => {
     it('Comparar leva ao título do palpite; o palpite leva ao título do resultado', () => {
       render(<Duelo />);

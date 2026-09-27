@@ -160,6 +160,39 @@ describe('Minhas ofertas', () => {
     expect(screen.queryByText(/é anterior ao prazo mínimo legal/)).toBeNull();
   });
 
+  describe('data com ano de 5 dígitos', () => {
+    it('o cadastro mostra "Data inválida", não quebra e não salva', () => {
+      const aoMudar = vi.fn();
+      render(<ComEstado aoMudar={aoMudar} />);
+      preencher('Emissor', 'Banco X');
+      preencher('Conglomerado', 'Grupo X');
+      escolher('Liquidez', 'NO_VENCIMENTO');
+      preencher('Vencimento', '20277-01-01');
+      expect(screen.getByLabelText('Vencimento')).toHaveValue('20277-01-01');
+      expect(screen.getByText('Data inválida')).toBeInTheDocument();
+      salvarNova();
+      expect(screen.getByRole('alert')).toHaveTextContent('Data de vencimento inválida.');
+      expect(aoMudar).not.toHaveBeenCalled();
+    });
+    it('LCI com a data inválida não quebra o aviso do prazo mínimo', () => {
+      render(<ComEstado />);
+      escolher('Produto', 'LCI');
+      escolher('Liquidez', 'NO_VENCIMENTO');
+      preencher('Vencimento', '20261-01-01');
+      expect(screen.getByText('Data inválida')).toBeInTheDocument();
+      expect(screen.queryByText(/é anterior ao prazo mínimo legal/)).toBeNull();
+    });
+    it('a lista mostra "Data inválida" em vez de quebrar', () => {
+      render(<ComEstado inicial={[{ ...cdb, vencimento: '20277-01-01' }]} />);
+      expect(within(cartao(/A: CDB/)).getByText('No vencimento · Data inválida')).toBeInTheDocument();
+    });
+    it('o campo de vencimento limita o ano a 4 dígitos', () => {
+      render(<ComEstado />);
+      expect(screen.getByLabelText('Vencimento')).toHaveAttribute('max', '9999-12-31');
+      expect(screen.getByLabelText('Vencimento')).toHaveAttribute('min', '1990-01-01');
+    });
+  });
+
   it('sugere os conglomerados já usados', () => {
     render(<ComEstado inicial={[cdb, lci, { ...cdb, id: 'outro' }]} />);
     const campo = screen.getByLabelText('Conglomerado');

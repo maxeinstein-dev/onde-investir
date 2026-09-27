@@ -32,6 +32,12 @@ describe('validarOfertaCadastrada', () => {
   it('oferta válida passa', () => {
     expect(() => validarOfertaCadastrada(cdbVence2027)).not.toThrow();
   });
+  it('vencimento com ano de 5 dígitos (aceito pelo type=date do Chrome) é inválido', () => {
+    expect(() => validarOfertaCadastrada({ ...cdbVence2027, vencimento: '20277-01-01' }))
+      .toThrow(new OfertaInvalidaError('Data de vencimento inválida'));
+    expect(() => validarOfertaCadastrada({ ...cdbDiario, vencimento: '2027-02-30' }))
+      .toThrow(new OfertaInvalidaError('Data de vencimento inválida'));
+  });
 });
 
 describe('projetar', () => {

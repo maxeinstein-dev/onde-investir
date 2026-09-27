@@ -151,6 +151,27 @@ describe('Comparacao', () => {
     expect(screen.queryByRole('table')).toBeNull();
   });
 
+  it.each([
+    ['Data da aplicação', 'A data da aplicação é inválida.'],
+    ['Sua data (opcional)', 'A sua data é inválida.'],
+  ])('%s com ano de 5 dígitos gera alerta humano', (rotulo, mensagem) => {
+    montar();
+    fireEvent.input(screen.getByLabelText(rotulo), { target: { value: '20277-01-01' } });
+    comparar();
+    expect(screen.getByRole('alert')).toHaveTextContent(mensagem);
+    expect(screen.queryByRole('heading', { name: /Qual lidera/ })).toBeNull();
+  });
+
+  it('os campos de data limitam o ano a 4 dígitos', () => {
+    const { container } = montar();
+    const datas = [...container.querySelectorAll('input[type="date"]')];
+    expect(datas).toHaveLength(2);
+    for (const d of datas) {
+      expect(d).toHaveAttribute('max', '9999-12-31');
+      expect(d).toHaveAttribute('min', '1990-01-01');
+    }
+  });
+
   it('a oferta editada esconde o resultado', () => {
     const { rerender } = montar();
     compararDireto();

@@ -4,7 +4,7 @@ import { lerPalpitesLigados, salvarPalpitesLigados } from '../armazenamento/pref
 import { descreverProjecao } from '../conteudo/comparacao';
 import { descreverOferta } from '../conteudo/motivos';
 import { ehDiaUtil } from '../engine/calendario';
-import { somarMeses, type DataISO } from '../engine/datas';
+import { ehDataValida, somarMeses, type DataISO } from '../engine/datas';
 import { calcularEquivalencias, type ResultadoEquivalencia } from '../engine/equivalencia';
 import type { Cenario } from '../engine/indexadores';
 import { projetar, validarOfertaCadastrada, type Liquidez, type OfertaCadastrada } from '../engine/ofertas';
@@ -12,7 +12,7 @@ import { ehTesouro, type Oferta } from '../engine/produtos';
 import { CampoNumerico } from './CampoNumerico';
 import { Equivalencias, EquivalenciasIndisponiveis } from './Equivalencias';
 import { FormOferta, taxaPreenchida } from './FormOferta';
-import { hoje } from './hoje';
+import { DATA_MAXIMA, DATA_MINIMA, hoje } from './hoje';
 import { PalpiteAntesDeVer } from './PalpiteAntesDeVer';
 import { ResultadoDuelo, type LadoDuelo } from './ResultadoDuelo';
 
@@ -54,11 +54,16 @@ interface Entrada {
 function validarEntrada({ valor, dataAplicacao, dataResgate, a, b }: Entrada): string | null {
   if (!Number.isFinite(valor)) return 'Preencha o valor da aplicação.';
   if (dataAplicacao.trim() === '') return 'Informe a data da aplicação.';
+  if (!ehDataValida(dataAplicacao)) return 'A data da aplicação é inválida.';
   if (dataResgate.trim() === '') return 'Informe a data do resgate.';
+  if (!ehDataValida(dataResgate)) return 'A data do resgate é inválida.';
   if (!taxaPreenchida(a.oferta.indexacao)) return 'Preencha a taxa da Opção A.';
   if (!taxaPreenchida(b.oferta.indexacao)) return 'Preencha a taxa da Opção B.';
-  if (exigeVencimento(a) && a.vencimento.trim() === '') return 'Informe o vencimento da Opção A.';
-  if (exigeVencimento(b) && b.vencimento.trim() === '') return 'Informe o vencimento da Opção B.';
+  for (const [op, nome] of [[a, 'Opção A'], [b, 'Opção B']] as const) {
+    const vazio = op.vencimento.trim() === '';
+    if (exigeVencimento(op) && vazio) return `Informe o vencimento da ${nome}.`;
+    if (temVencimento(op.oferta) && !vazio && !ehDataValida(op.vencimento)) return `O vencimento da ${nome} é inválido.`;
+  }
   return null;
 }
 
@@ -97,7 +102,7 @@ function CamposPrazo({ id, opcao, onChange }: { id: string; opcao: Opcao; onChan
         </>
       )}
       <label for={`${id}-vencimento`}>Vencimento</label>
-      <input id={`${id}-vencimento`} type="date" value={opcao.vencimento} required={obrigatorio}
+      <input id={`${id}-vencimento`} type="date" min={DATA_MINIMA} max={DATA_MAXIMA} value={opcao.vencimento} required={obrigatorio}
         aria-describedby={`${id}-vencimento-dica`} onInput={(e) => onChange({ ...opcao, vencimento: e.currentTarget.value })} />
       <p id={`${id}-vencimento-dica`} class="dica">{dica}</p>
     </>
@@ -207,13 +212,13 @@ export function DueloRapido({ cenario, descricaoCenario }: PropsDueloRapido) {
           </div>
           <div class="campo">
             <label for="duelo-data-aplicacao">Data da aplicação</label>
-            <input id="duelo-data-aplicacao" type="date" value={dataAplicacao} onInput={(e) => editar(setDataAplicacao)(e.currentTarget.value)}
+            <input id="duelo-data-aplicacao" type="date" min={DATA_MINIMA} max={DATA_MAXIMA} value={dataAplicacao} onInput={(e) => editar(setDataAplicacao)(e.currentTarget.value)}
               aria-describedby={naoEhDiaUtil(dataAplicacao) ? 'duelo-data-aplicacao-dica' : undefined} />
             <AvisoDiaUtil id="duelo-data-aplicacao-dica" data={dataAplicacao} oQue="a aplicação" />
           </div>
           <div class="campo">
             <label for="duelo-data-resgate">Data do resgate</label>
-            <input id="duelo-data-resgate" type="date" value={dataResgate} onInput={(e) => editar(setDataResgate)(e.currentTarget.value)}
+            <input id="duelo-data-resgate" type="date" min={DATA_MINIMA} max={DATA_MAXIMA} value={dataResgate} onInput={(e) => editar(setDataResgate)(e.currentTarget.value)}
               aria-describedby={naoEhDiaUtil(dataResgate) ? 'duelo-data-resgate-liquidez duelo-data-resgate-dica' : 'duelo-data-resgate-liquidez'} />
             <p id="duelo-data-resgate-liquidez" class="dica">
               Com liquidez diária, o resgate pode ser em qualquer data. Sem liquidez, só no vencimento.
@@ -222,7 +227,7 @@ export function DueloRapido({ cenario, descricaoCenario }: PropsDueloRapido) {
           </div>
           <div class="prazos" role="group" aria-label="Prazos rápidos">
             {PRAZOS.map((p) => (
-              <button type="button" disabled={dataAplicacao.trim() === ''}
+              <button type="button" disabled={!ehDataValida(dataAplicacao)}
                 onClick={() => editar(setDataResgate)(somarMeses(dataAplicacao, p.meses))}>{p.rotulo}</button>
             ))}
           </div>

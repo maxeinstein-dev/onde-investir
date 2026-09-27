@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { descreverOferta } from '../../conteudo/motivos';
-import { dataBR } from '../../engine/datas';
+import { dataBR, ehDataValida } from '../../engine/datas';
 import type { OfertaCadastrada } from '../../engine/ofertas';
 import { garantiaDe } from '../../engine/produtos';
 import { letraDaOferta } from '../letras';
@@ -14,6 +14,10 @@ export interface PropsListaOfertas {
 
 /** "Liquidez diária", "Liquidez diária · vence em dd/mm/aaaa" ou "No vencimento: dd/mm/aaaa". */
 export function descreverPrazo(o: OfertaCadastrada): string {
+  // Vencimento que o engine não aceita (ex.: ano com 5 dígitos): o cartão avisa em vez de quebrar em dataBR.
+  if (o.vencimento !== undefined && !ehDataValida(o.vencimento)) {
+    return `${o.liquidez === 'NO_VENCIMENTO' ? 'No vencimento' : 'Liquidez diária'} · Data inválida`;
+  }
   if (o.liquidez === 'NO_VENCIMENTO') return o.vencimento ? `No vencimento: ${dataBR(o.vencimento)}` : 'No vencimento';
   return o.vencimento ? `Liquidez diária · vence em ${dataBR(o.vencimento)}` : 'Liquidez diária';
 }

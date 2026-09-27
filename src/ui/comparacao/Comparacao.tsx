@@ -3,12 +3,12 @@ import { armazenamentoLocal } from '../../armazenamento/navegador';
 import { lerPalpitesLigados, salvarPalpitesLigados } from '../../armazenamento/preferencias';
 import { nomeOferta } from '../../conteudo/comparacao';
 import { horizontesPadrao, linhaDoTempo, tabelaPorHorizonte, type ColunaHorizonte, type Marco } from '../../engine/comparacao';
-import { dataBR, type DataISO } from '../../engine/datas';
+import { dataBR, ehDataValida, type DataISO } from '../../engine/datas';
 import type { Cenario } from '../../engine/indexadores';
 import { validarRegraReinvestimento, type OfertaCadastrada, type RegraReinvestimento } from '../../engine/ofertas';
 import { formatarMoeda, formatarPercentual } from '../../formato';
 import { CampoNumerico } from '../CampoNumerico';
-import { hoje } from '../hoje';
+import { DATA_MAXIMA, DATA_MINIMA, hoje } from '../hoje';
 import { letraDaOferta } from '../letras';
 import { PalpiteAntesDeVer } from '../PalpiteAntesDeVer';
 import { Termo } from '../Termo';
@@ -94,6 +94,8 @@ export function Comparacao({ ofertas, cenario, descricaoCenario }: PropsComparac
   function validar(): string | null {
     if (!Number.isFinite(valor) || valor <= 0) return 'Preencha o valor da aplicação.';
     if (dataAplicacao.trim() === '') return 'Informe a data da aplicação.';
+    if (!ehDataValida(dataAplicacao)) return 'A data da aplicação é inválida.';
+    if (suaData.trim() !== '' && !ehDataValida(suaData)) return 'A sua data é inválida.';
     if (suaData.trim() !== '' && suaData <= dataAplicacao) return 'A sua data precisa ser depois da data da aplicação.';
     if (tipoRegra === 'TAXA_FIXA' && !Number.isFinite(taxaFixa)) return 'Preencha a taxa do reinvestimento.';
     return null;
@@ -146,12 +148,12 @@ export function Comparacao({ ofertas, cenario, descricaoCenario }: PropsComparac
           </div>
           <div class="campo">
             <label for="comparacao-data-aplicacao">Data da aplicação</label>
-            <input id="comparacao-data-aplicacao" type="date" value={dataAplicacao}
+            <input id="comparacao-data-aplicacao" type="date" min={DATA_MINIMA} max={DATA_MAXIMA} value={dataAplicacao}
               onInput={(e) => editar(setDataAplicacao)(e.currentTarget.value)} />
           </div>
           <div class="campo">
             <label for="comparacao-sua-data">Sua data (opcional)</label>
-            <input id="comparacao-sua-data" type="date" value={suaData} aria-describedby="comparacao-sua-data-dica"
+            <input id="comparacao-sua-data" type="date" min={DATA_MINIMA} max={DATA_MAXIMA} value={suaData} aria-describedby="comparacao-sua-data-dica"
               onInput={(e) => editar(setSuaData)(e.currentTarget.value)} />
             <p id="comparacao-sua-data-dica" class="dica">Entra como mais uma coluna, além de 6 meses, 1, 2, 3 e 5 anos.</p>
           </div>

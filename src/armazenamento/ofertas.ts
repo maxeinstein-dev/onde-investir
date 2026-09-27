@@ -1,7 +1,7 @@
 // Ofertas cadastradas: localStorage e exportar/importar JSON, sempre validados por esquema (spec §5.8 e §7.2).
 import { z } from 'zod';
 import type { Armazenamento } from '../dados/cache';
-import { paraDia } from '../engine/datas';
+import { ehDataValida } from '../engine/datas';
 import { OfertaInvalidaError } from '../engine/erros';
 import { validarOfertaCadastrada, type OfertaCadastrada } from '../engine/ofertas';
 import { PERCENTUAL_CDI_MAXIMO } from '../engine/produtos';
@@ -11,16 +11,7 @@ export const LIMITE_OFERTAS = 30;
 export const LIMITE_CARACTERES_IMPORTACAO = 100_000;
 const LIMITE_TEXTO = 80;
 
-const dataValida = (d: string): boolean => {
-  try {
-    paraDia(d);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const DataIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(dataValida);
+const DataIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(ehDataValida);
 const taxaAnual = z.number().gt(-1);
 
 const EsquemaIndexacao = z.discriminatedUnion('tipo', [

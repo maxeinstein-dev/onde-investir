@@ -1,5 +1,5 @@
 // src/engine/ofertas.ts
-import { type DataISO, dataBR } from './datas';
+import { type DataISO, dataBR, ehDataValida } from './datas';
 import { OfertaInvalidaError, RegraNaoEncontradaError } from './erros';
 import type { Cenario } from './indexadores';
 import { INDEXACOES_PERMITIDAS, simular, type Oferta, type ResultadoSimulacao } from './produtos';
@@ -31,6 +31,7 @@ export function validarOfertaCadastrada(o: OfertaCadastrada): void {
   for (const [campo, valor] of [['emissor', o.emissor], ['conglomerado', o.conglomerado]] as const) {
     if (valor.trim() === '' || valor.length > LIMITE_TEXTO) throw new OfertaInvalidaError(`Preencha o ${campo} (até ${LIMITE_TEXTO} caracteres)`);
   }
+  if (o.vencimento !== undefined && !ehDataValida(o.vencimento)) throw new OfertaInvalidaError('Data de vencimento inválida');
   if (!INDEXACOES_PERMITIDAS[o.produto]?.includes(o.indexacao.tipo)) throw new OfertaInvalidaError('Indexação não aceita para esse produto');
   if (o.produto === 'POUPANCA' && (o.vencimento !== undefined || o.liquidez !== 'DIARIA')) {
     throw new OfertaInvalidaError('Poupança não tem vencimento e tem liquidez diária');

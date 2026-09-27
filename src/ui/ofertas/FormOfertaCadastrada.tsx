@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { dataBR } from '../../engine/datas';
+import { dataBR, ehDataValida } from '../../engine/datas';
 import { OfertaInvalidaError, RegraNaoEncontradaError } from '../../engine/erros';
 import { conferirPrazoMinimo, validarOfertaCadastrada, type Liquidez, type OfertaCadastrada } from '../../engine/ofertas';
 import { ehTesouro, type Oferta } from '../../engine/produtos';
 import { dataMinimaResgate, prazoMinimoMeses } from '../../engine/regras/prazoMinimo';
 import { FormOferta, taxaPreenchida } from '../FormOferta';
-import { hoje } from '../hoje';
+import { DATA_MAXIMA, DATA_MINIMA, hoje } from '../hoje';
 import { Termo } from '../Termo';
 
 export interface PropsFormOfertaCadastrada {
@@ -62,7 +62,9 @@ export function FormOfertaCadastrada({ inicial, conglomerados, gerarId, onSalvar
   }
 
   const prazoMinimo = prazoMinimoDeHoje(oferta);
-  const avisoPrazo = conferirPrazoMinimo(montar(), hoje());
+  // Data digitada que o engine não aceita (ex.: ano com 5 dígitos): nada de dataBR nem de prazo mínimo com ela.
+  const vencimentoInvalido = !poupanca && vencimento.trim() !== '' && !ehDataValida(vencimento);
+  const avisoPrazo = vencimentoInvalido ? null : conferirPrazoMinimo(montar(), hoje());
 
   function editar<T>(set: (v: T) => void) {
     return (v: T) => { set(v); setErro(null); };
@@ -131,11 +133,13 @@ export function FormOfertaCadastrada({ inicial, conglomerados, gerarId, onSalvar
         {!poupanca && (
           <div class="campo">
             <label for={`${ID}-vencimento`}>Vencimento</label>
-            <input id={`${ID}-vencimento`} type="date" value={vencimento} aria-describedby={`${ID}-vencimento-dica`}
+            <input id={`${ID}-vencimento`} type="date" min={DATA_MINIMA} max={DATA_MAXIMA} value={vencimento}
+              aria-describedby={vencimentoInvalido ? `${ID}-vencimento-dica ${ID}-vencimento-invalido` : `${ID}-vencimento-dica`}
               onInput={(e) => editar(setVencimento)(e.currentTarget.value)} />
             <p id={`${ID}-vencimento-dica`} class="dica">
               {tesouro ? 'Títulos do Tesouro têm liquidez diária e vencimento.' : 'Opcional quando a liquidez é diária.'}
             </p>
+            {vencimentoInvalido && <p id={`${ID}-vencimento-invalido`} class="erro">Data inválida</p>}
           </div>
         )}
         {prazoMinimo && (
