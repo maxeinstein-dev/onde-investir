@@ -119,3 +119,56 @@ describe('JSON fora do esquema', () => {
     expect(() => interpretarFocusSelic({ value: [] })).toThrow('Resposta inesperada de Focus Selic');
   });
 });
+
+describe('datas e números estritos', () => {
+  type Linha = Record<string, unknown>;
+  const comLinha = (json: { value: Linha[] }, muda: (l: Linha) => void) => {
+    const copia = structuredClone(json);
+    const linha = copia.value[0];
+    if (!linha) throw new Error('fixture vazia');
+    muda(linha);
+    return copia;
+  };
+
+  it('SGS: data impossível → RespostaInvalidaError', () => {
+    for (const data of ['99/99/2026', '31/02/2026', '00/01/2026']) {
+      expect(() => interpretarSgs([{ data, valor: '1.0' }])).toThrow(RespostaInvalidaError);
+    }
+  });
+  it('SGS: valor só decimal', () => {
+    for (const valor of ['1e3', '0x10', 'Infinity', '1.', '.5', '+1', '1,5', ' 1']) {
+      expect(() => interpretarSgs([{ data: '01/01/2026', valor }]), valor).toThrow(RespostaInvalidaError);
+    }
+    expect(interpretarSgs([{ data: '01/01/2026', valor: '-0.32' }])).toEqual([{ data: '2026-01-01', valor: -0.32 }]);
+    expect(interpretarSgs([{ data: '01/01/2026', valor: '15' }])).toEqual([{ data: '2026-01-01', valor: 15 }]);
+  });
+  it('Focus: Data impossível → RespostaInvalidaError', () => {
+    expect(() => interpretarFocusSelic(comLinha(focusSelic, (l) => { l.Data = '2026-99-99'; }))).toThrow(RespostaInvalidaError);
+    expect(() => interpretarFocusIpcaMensal(comLinha(focusIpcaMensal, (l) => { l.Data = '2026-02-30'; }))).toThrow(RespostaInvalidaError);
+    expect(() => interpretarFocusAnuais(comLinha(focusAnuais, (l) => { l.Data = '2026-13-01'; }))).toThrow(RespostaInvalidaError);
+  });
+  it('Focus mensal: DataReferencia com mês entre 01 e 12', () => {
+    for (const ref of ['13/2026', '00/2026', '99/2026']) {
+      expect(() => interpretarFocusIpcaMensal(comLinha(focusIpcaMensal, (l) => { l.DataReferencia = ref; })), ref).toThrow(RespostaInvalidaError);
+    }
+    expect(() => interpretarFocusIpcaMensal(comLinha(focusIpcaMensal, (l) => { l.DataReferencia = '12/2026'; }))).not.toThrow();
+  });
+  it('Focus: Minimo ≤ Mediana ≤ Maximo e DesvioPadrao ≥ 0', () => {
+    const casos: ((l: Linha) => void)[] = [
+      (l) => { l.Minimo = Number(l.Mediana) + 1; },
+      (l) => { l.Maximo = Number(l.Mediana) - 1; },
+      (l) => { l.DesvioPadrao = -0.1; },
+    ];
+    for (const muda of casos) {
+      expect(() => interpretarFocusSelic(comLinha(focusSelic, muda))).toThrow(RespostaInvalidaError);
+      expect(() => interpretarFocusIpcaMensal(comLinha(focusIpcaMensal, muda))).toThrow(RespostaInvalidaError);
+      expect(() => interpretarFocusAnuais(comLinha(focusAnuais, muda))).toThrow(RespostaInvalidaError);
+    }
+    const iguais = comLinha(focusSelic, (l) => { l.Minimo = l.Mediana; l.Maximo = l.Mediana; l.DesvioPadrao = 0; });
+    expect(() => interpretarFocusSelic(iguais)).not.toThrow();
+  });
+  it('calendário: dataEvento impossível → RespostaInvalidaError', () => {
+    expect(() => interpretarCalendarioCopom({ conteudo: [{ dataEvento: '2026-02-30T03:00:00' }] })).toThrow(RespostaInvalidaError);
+    expect(interpretarCalendarioCopom({ conteudo: [{ dataEvento: '2026-01-28T03:00:00' }] })).toEqual(['2026-01-28']);
+  });
+});

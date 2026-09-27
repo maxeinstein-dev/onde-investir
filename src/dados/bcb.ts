@@ -1,6 +1,6 @@
 // src/dados/bcb.ts
 import { z } from 'zod';
-import type { DataISO } from '../engine/datas';
+import { type DataISO, paraDia } from '../engine/datas';
 import type { DadosFocus, EstatisticaFocus } from '../engine/projecao';
 
 export class RespostaInvalidaError extends Error {
@@ -25,9 +25,26 @@ export const urlFocusAnuais = () =>
 export const urlCalendarioCopom = (inicio: DataISO, fim: DataISO) =>
   `https://www.bcb.gov.br/api/servico/sitebcb/calendario/anual?${q({ inicioAgenda: `'${inicio}'`, fimAgenda: `'${fim}'`, lista: 'Reuniões do Copom' })}`;
 
-const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+/** Data de calendário que existe (o `paraDia` do engine rejeita 99/99, 31/02 etc.). */
+const ehDataValida = (data: DataISO): boolean => {
+  try {
+    paraDia(data);
+    return true;
+  } catch {
+    return false;
+  }
+};
+const DataIso = z.string().refine(ehDataValida);
+const deBR = (data: string): DataISO => `${data.slice(6, 10)}-${data.slice(3, 5)}-${data.slice(0, 2)}`;
+const DataBR = z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/).refine((d) => ehDataValida(deBR(d)));
+const MesAno = z.string().regex(/^(0[1-9]|1[0-2])\/\d{4}$/);
+const DECIMAL = /^-?\d+(\.\d+)?$/;
+
 const estatisticas = { Mediana: z.number(), DesvioPadrao: z.number().nullable(), Minimo: z.number(), Maximo: z.number() };
-const paraEst = (l: { Mediana: number; DesvioPadrao: number | null; Minimo: number; Maximo: number }): EstatisticaFocus =>
+type Estatisticas = { Mediana: number; DesvioPadrao: number | null; Minimo: number; Maximo: number };
+const estatisticasCoerentes = (l: Estatisticas): boolean =>
+  l.Minimo <= l.Mediana && l.Mediana <= l.Maximo && (l.DesvioPadrao === null || l.DesvioPadrao >= 0);
+const paraEst = (l: Estatisticas): EstatisticaFocus =>
   ({ mediana: l.Mediana, desvioPadrao: l.DesvioPadrao ?? 0, minimo: l.Minimo, maximo: l.Maximo });
 
 function validar<T>(fonte: string, esquema: z.ZodType<T>, json: unknown): T {
@@ -41,34 +58,30 @@ function daColetaMaisRecente<T extends { Data: string }>(linhas: readonly T[]): 
   return { data, linhas: linhas.filter((l) => l.Data === data) };
 }
 
-const Sgs = z.array(z.object({ data: z.string().regex(/^\d{2}\/\d{2}\/\d{4}$/), valor: z.string() }));
+const Sgs = z.array(z.object({ data: DataBR, valor: z.string().regex(DECIMAL) }));
 export function interpretarSgs(json: unknown): { data: DataISO; valor: number }[] {
-  return validar('SGS', Sgs, json).map((p) => {
-    const valor = Number(p.valor);
-    if (p.valor.trim() === '' || !Number.isFinite(valor)) throw new RespostaInvalidaError('SGS');
-    return { data: `${p.data.slice(6, 10)}-${p.data.slice(3, 5)}-${p.data.slice(0, 2)}`, valor };
-  });
+  return validar('SGS', Sgs, json).map((p) => ({ data: deBR(p.data), valor: Number(p.valor) }));
 }
 
 const FocusSelic = z.object({ value: z.array(z.object({
-  Indicador: z.literal('Selic'), Data: z.string().regex(DATA_ISO), Reuniao: z.string().regex(/^R[1-8]\/\d{4}$/), ...estatisticas,
-})).min(1) });
+  Indicador: z.literal('Selic'), Data: DataIso, Reuniao: z.string().regex(/^R[1-8]\/\d{4}$/), ...estatisticas,
+}).refine(estatisticasCoerentes)).min(1) });
 export function interpretarFocusSelic(json: unknown): Pick<DadosFocus, 'dataColeta' | 'selicPorReuniao'> {
   const { data, linhas } = daColetaMaisRecente(validar('Focus Selic', FocusSelic, json).value);
   return { dataColeta: data, selicPorReuniao: linhas.map((l) => ({ reuniao: l.Reuniao, est: paraEst(l) })) };
 }
 
 const FocusMensal = z.object({ value: z.array(z.object({
-  Indicador: z.literal('IPCA'), Data: z.string().regex(DATA_ISO), DataReferencia: z.string().regex(/^\d{2}\/\d{4}$/), ...estatisticas,
-})).min(1) });
+  Indicador: z.literal('IPCA'), Data: DataIso, DataReferencia: MesAno, ...estatisticas,
+}).refine(estatisticasCoerentes)).min(1) });
 export function interpretarFocusIpcaMensal(json: unknown): Pick<DadosFocus, 'dataColeta' | 'ipcaMensal'> {
   const { data, linhas } = daColetaMaisRecente(validar('Focus IPCA mensal', FocusMensal, json).value);
   return { dataColeta: data, ipcaMensal: linhas.map((l) => ({ anoMes: `${l.DataReferencia.slice(3)}-${l.DataReferencia.slice(0, 2)}`, est: paraEst(l) })) };
 }
 
 const FocusAnual = z.object({ value: z.array(z.object({
-  Indicador: z.enum(['Selic', 'IPCA']), Data: z.string().regex(DATA_ISO), DataReferencia: z.string().regex(/^\d{4}$/), ...estatisticas,
-})).min(1) });
+  Indicador: z.enum(['Selic', 'IPCA']), Data: DataIso, DataReferencia: z.string().regex(/^\d{4}$/), ...estatisticas,
+}).refine(estatisticasCoerentes)).min(1) });
 export function interpretarFocusAnuais(json: unknown): Pick<DadosFocus, 'selicAnual' | 'ipcaAnual'> {
   const linhas = validar('Focus anual', FocusAnual, json).value;
   const de = (indicador: 'Selic' | 'IPCA') =>
@@ -79,7 +92,7 @@ export function interpretarFocusAnuais(json: unknown): Pick<DadosFocus, 'selicAn
   return { selicAnual, ipcaAnual };
 }
 
-const Calendario = z.object({ conteudo: z.array(z.object({ dataEvento: z.string().regex(/^\d{4}-\d{2}-\d{2}T/) })).min(1) });
+const Calendario = z.object({ conteudo: z.array(z.object({ dataEvento: z.string().regex(/^\d{4}-\d{2}-\d{2}T/).refine((d) => ehDataValida(d.slice(0, 10))) })).min(1) });
 /** `dataEvento` vem em UTC às 03:00, que é meia-noite em BRT: a data é a parte AAAA-MM-DD. */
 export function interpretarCalendarioCopom(json: unknown): DataISO[] {
   return validar('calendário do Copom', Calendario, json).conteudo.map((e) => e.dataEvento.slice(0, 10));
