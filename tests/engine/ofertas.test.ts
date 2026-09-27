@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { projetar, validarOfertaCadastrada, type OfertaCadastrada } from '../../src/engine/ofertas';
+import { conferirPrazoMinimo, projetar, validarOfertaCadastrada, type OfertaCadastrada } from '../../src/engine/ofertas';
 import { simular } from '../../src/engine/produtos';
 import { OfertaInvalidaError } from '../../src/engine/erros';
 import { CEN, INI } from './cenarioPadrao';
@@ -89,5 +89,28 @@ describe('projetar', () => {
   });
   it('oferta que vence antes da aplicação → indisponível com motivo, sem lançar', () => {
     expect(projetar({ ...cdbVence2027, vencimento: '2026-01-01' }, V, INI, '2027-01-01', CEN).estado).toBe('INDISPONIVEL');
+  });
+});
+
+describe('LCI/LCA com vencimento antes do prazo mínimo legal', () => {
+  const lciCurta: OfertaCadastrada = { ...lciVence2027, vencimento: '2027-01-28' }; // mínimo: 28/03/2027 (6 meses)
+  const lcaIpcaCurta: OfertaCadastrada = {
+    ...base, id: 'e', produto: 'LCA', indexacao: { tipo: 'IPCA_MAIS', taxaRealAA: 0.06 }, vencimento: '2027-06-28', liquidez: 'NO_VENCIMENTO',
+  }; // mínimo: 28/09/2027 (12 meses com IPCA)
+  it('indisponível em qualquer horizonte, sem disponivelEm', () => {
+    const motivo = 'O vencimento (28/01/2027) é anterior ao prazo mínimo legal (28/03/2027)';
+    for (const alvo of ['2026-12-28', '2027-01-28', '2027-03-29', '2028-09-28']) {
+      expect(projetar(lciCurta, V, INI, alvo, CEN)).toEqual({ estado: 'INDISPONIVEL', motivo });
+    }
+    expect(projetar(lcaIpcaCurta, V, INI, '2028-09-28', CEN)).toEqual({
+      estado: 'INDISPONIVEL', motivo: 'O vencimento (28/06/2027) é anterior ao prazo mínimo legal (28/09/2027)',
+    });
+  });
+  it('conferirPrazoMinimo: aviso para o cadastro, null quando está tudo certo', () => {
+    expect(conferirPrazoMinimo(lciCurta, INI)).toBe('O vencimento (28/01/2027) é anterior ao prazo mínimo legal (28/03/2027)');
+    expect(conferirPrazoMinimo({ ...lciCurta, vencimento: '2027-03-28' }, INI)).toBeNull(); // no limite
+    expect(conferirPrazoMinimo(lciVence2027, INI)).toBeNull();
+    expect(conferirPrazoMinimo({ ...lciVence2027, vencimento: undefined, liquidez: 'DIARIA' }, INI)).toBeNull();
+    expect(conferirPrazoMinimo(cdbVence2027, INI)).toBeNull();
   });
 });

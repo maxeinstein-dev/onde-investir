@@ -1,5 +1,5 @@
 // src/engine/ofertas.ts
-import type { DataISO } from './datas';
+import { type DataISO, dataBR } from './datas';
 import { OfertaInvalidaError, RegraNaoEncontradaError } from './erros';
 import type { Cenario } from './indexadores';
 import { INDEXACOES_PERMITIDAS, simular, type Oferta, type ResultadoSimulacao } from './produtos';
@@ -60,6 +60,22 @@ function indisponivelPorRegra(o: OfertaCadastrada, dataAplicacao: DataISO, erro:
   return { estado: 'INDISPONIVEL', motivo: erro.message };
 }
 
+/**
+ * Aviso para o cadastro: LCI/LCA cujo vencimento cai antes do prazo mínimo legal de resgate, contado da
+ * data de aplicação. null quando não se aplica (outro produto, sem vencimento, regra não cadastrada) ou está certo.
+ */
+export function conferirPrazoMinimo(o: OfertaCadastrada, dataAplicacao: DataISO): string | null {
+  if ((o.produto !== 'LCI' && o.produto !== 'LCA') || o.vencimento === undefined) return null;
+  let minima: DataISO;
+  try {
+    minima = dataMinimaResgate(o.produto, o.indexacao.tipo === 'IPCA_MAIS', dataAplicacao);
+  } catch (e) {
+    if (e instanceof RegraNaoEncontradaError) return null;
+    throw e;
+  }
+  return o.vencimento < minima ? `O vencimento (${dataBR(o.vencimento)}) é anterior ao prazo mínimo legal (${dataBR(minima)})` : null;
+}
+
 /** Valor líquido da oferta na data-alvo, com reinvestimento depois do vencimento. */
 export function projetar(
   o: OfertaCadastrada, valor: number, dataAplicacao: DataISO, dataAlvo: DataISO, cen: Cenario,
@@ -67,6 +83,8 @@ export function projetar(
 ): Projecao {
   const aplicacao = { produto: o.produto, indexacao: o.indexacao, valor, dataAplicacao };
   const venc = o.vencimento;
+  const prazo = conferirPrazoMinimo(o, dataAplicacao);
+  if (prazo !== null) return { estado: 'INDISPONIVEL', motivo: prazo };
   try {
     if (venc !== undefined && dataAlvo > venc) {
       const etapa1 = simular(aplicacao, venc, cen);
