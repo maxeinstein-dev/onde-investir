@@ -29,5 +29,6 @@ describe('calendário', () => {
     expect(diasUteis('2026-09-28', '2026-10-28')).toBe(21);
     expect(diasUteis('2026-02-13', '2026-02-20')).toBe(3); // semana do Carnaval
     expect(diasUteis('2026-09-28', '2026-09-28')).toBe(0);
+    expect(() => diasUteis('2026-09-28', '2026-09-27')).toThrow(RangeError);
   });
 });

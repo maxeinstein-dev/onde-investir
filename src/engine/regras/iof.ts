@@ -15,7 +15,7 @@ export const VERSOES_IOF: readonly VersaoRegra<readonly number[]>[] = [
 export const FONTE_IOF = VERSOES_IOF[0]?.fonte ?? '';
 
 export function aliquotaIOF(diasCorridos: number, dataResgate: DataISO): number {
-  if (diasCorridos < 1) throw new OfertaInvalidaError('O resgate precisa ser pelo menos 1 dia depois da aplicação');
+  if (!Number.isInteger(diasCorridos) || diasCorridos < 1) throw new OfertaInvalidaError('O resgate precisa ser pelo menos 1 dia depois da aplicação');
   const tabela = resolverRegra('IOF regressivo', VERSOES_IOF, dataResgate);
   if (diasCorridos >= 30) return 0;
   return (tabela[diasCorridos - 1] ?? 0) / 100;

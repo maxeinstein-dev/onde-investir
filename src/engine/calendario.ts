@@ -45,8 +45,10 @@ export function ehDiaUtil(data: DataISO): boolean {
 
 /** Dias úteis em [inicio, fim): o dia inicial conta, o final não (convenção de acúmulo do CDI). */
 export function diasUteis(inicio: DataISO, fim: DataISO): number {
+  const inicioDia = paraDia(inicio);
   const fimDia = paraDia(fim);
+  if (fimDia < inicioDia) throw new RangeError(`O fim (${fim}) não pode ser anterior ao início (${inicio}) na contagem de dias úteis`);
   let total = 0;
-  for (let d = paraDia(inicio); d < fimDia; d++) if (ehDiaUtil(deDia(d))) total++;
+  for (let d = inicioDia; d < fimDia; d++) if (ehDiaUtil(deDia(d))) total++;
   return total;
 }

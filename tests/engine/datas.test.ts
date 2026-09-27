@@ -38,6 +38,12 @@ describe('datas', () => {
     expect(somarMesesPrazoLegal('2027-03-31', 6)).toBe('2027-10-01');
     expect(somarMesesPrazoLegal('2026-12-31', 2)).toBe('2027-03-01');
   });
+  it('rejeita quantidades não inteiras de dias e meses', () => {
+    expect(() => somarDias('2026-09-28', 1.5)).toThrow(RangeError);
+    expect(() => somarMeses('2026-09-28', 1.5)).toThrow(RangeError);
+    expect(() => somarMesesPrazoLegal('2026-09-28', 1.5)).toThrow(RangeError);
+    expect(() => somarMeses('2026-09-28', Number.NaN)).toThrow(RangeError);
+  });
   it('formata DD/MM/AAAA para mensagens', () => {
     expect(dataBR('2027-03-28')).toBe('28/03/2027');
   });
