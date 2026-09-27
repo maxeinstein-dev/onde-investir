@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { armazenamentoLocal } from '../../armazenamento/navegador';
 import { lerPalpitesLigados, salvarPalpitesLigados } from '../../armazenamento/preferencias';
-import { nomeDoHorizonte, nomeOferta } from '../../conteudo/comparacao';
+import { AVISO_CENARIO_INVALIDO, nomeDoHorizonte, nomeOferta } from '../../conteudo/comparacao';
 import { horizontesPadrao, linhaDoTempo, tabelaPorHorizonte, type ColunaHorizonte, type Marco } from '../../engine/comparacao';
 import { dataBR, ehDataValida, type DataISO } from '../../engine/datas';
 import type { Cenario } from '../../engine/indexadores';
@@ -56,9 +56,11 @@ export interface PropsComparacao {
   cenario: Cenario;
   /** Uma frase sobre o cenário usado. */
   descricaoCenario: string;
+  /** Rascunho inválido no painel (premissas ou valores manuais): enquanto houver, não dá para comparar. */
+  cenarioInvalido?: string | null;
 }
 
-export function Comparacao({ ofertas, cenario, descricaoCenario }: PropsComparacao) {
+export function Comparacao({ ofertas, cenario, descricaoCenario, cenarioInvalido = null }: PropsComparacao) {
   const [valor, setValor] = useState(10000);
   const [dataAplicacao, setDataAplicacao] = useState<DataISO>(hoje());
   const [suaData, setSuaData] = useState<DataISO>('');
@@ -86,6 +88,7 @@ export function Comparacao({ ofertas, cenario, descricaoCenario }: PropsComparac
   }
 
   const poucas = ofertas.length < 2;
+  const bloqueado = cenarioInvalido != null;
 
   /** Mensagem humana para o primeiro campo inválido; null se dá para comparar. */
   function validar(): string | null {
@@ -100,7 +103,7 @@ export function Comparacao({ ofertas, cenario, descricaoCenario }: PropsComparac
 
   function comparar(e: Event) {
     e.preventDefault();
-    if (poucas) return;
+    if (poucas || bloqueado) return;
     const invalido = validar();
     if (invalido !== null) {
       setErro(invalido);
@@ -169,7 +172,11 @@ export function Comparacao({ ofertas, cenario, descricaoCenario }: PropsComparac
           )}
         </fieldset>
         {poucas && <p class="dica">Cadastre pelo menos duas ofertas para comparar.</p>}
-        <button type="submit" class="primario" disabled={poucas}>Comparar</button>
+        <button type="submit" class="primario" disabled={poucas || bloqueado}
+          aria-describedby={bloqueado ? "comparacao-cenario-invalido" : undefined}>
+          Comparar
+        </button>
+        {bloqueado && <p id="comparacao-cenario-invalido" class="erro">{AVISO_CENARIO_INVALIDO}</p>}
         {!palpitesLigados && (
           <button type="button" class="link" onClick={() => { salvarPalpitesLigados(armazenamentoLocal(), true); setPalpitesLigados(true); }}>
             Religar os palpites

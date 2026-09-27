@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
+import { render as renderizarDireto } from 'preact';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DueloRapido } from '../../src/ui/DueloRapido';
 import { cenarioConstante } from '../../src/engine/indexadores';
@@ -53,6 +54,22 @@ describe('DueloRapido', () => {
     const outro = cenarioConstante({ cdiAA: 0.1, selicMetaAA: 0.101, ipcaAA: 0.04, trAM: 0 });
     rerender(<DueloRapido cenario={outro} descricaoCenario="Outro." />);
     expect(screen.queryByRole('heading', { name: 'Resultado' })).toBeNull();
+  });
+  it('trocar o cenário esconde o resultado na própria renderização, sem esperar um efeito', () => {
+    const { container } = render(<DueloRapido cenario={CEN} descricaoCenario="Cenário manual de teste." />);
+    fireEvent.click(screen.getByRole('button', { name: 'Comparar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'A: CDB 103% do CDI' }));
+    expect(screen.getByRole('heading', { name: 'Resultado' })).toBeInTheDocument();
+    const outro = cenarioConstante({ cdiAA: 0.1, selicMetaAA: 0.101, ipcaAA: 0.04, trAM: 0 });
+    // Sem act: os efeitos ficam para depois da pintura. O resultado velho não pode aparecer com o cenário novo.
+    renderizarDireto(<DueloRapido cenario={outro} descricaoCenario="Outro." />, container);
+    expect(screen.queryByRole('heading', { name: 'Resultado' })).toBeNull();
+  });
+  it('com o cenário do painel inválido, Comparar fica desabilitado e avisa', () => {
+    render(<DueloRapido cenario={CEN} descricaoCenario="x" cenarioInvalido="Preencha o CDI do cenário." />);
+    const botao = screen.getByRole('button', { name: 'Comparar' });
+    expect(botao).toBeDisabled();
+    expect(botao).toHaveAccessibleDescription('Corrija o cenário no painel antes de comparar.');
   });
   it('o cenário recebido entra no cálculo', () => {
     const baixo = cenarioConstante({ cdiAA: 0.05, selicMetaAA: 0.051, ipcaAA: 0.04, trAM: 0 });

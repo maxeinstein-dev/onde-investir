@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { armazenamentoLocal } from '../armazenamento/navegador';
 import { lerPalpitesLigados, salvarPalpitesLigados } from '../armazenamento/preferencias';
-import { descreverProjecao } from '../conteudo/comparacao';
+import { AVISO_CENARIO_INVALIDO, descreverProjecao } from '../conteudo/comparacao';
 import { descreverOferta } from '../conteudo/motivos';
 import { ehDiaUtil } from '../engine/calendario';
 import { ehDataValida, somarMeses, type DataISO } from '../engine/datas';
@@ -17,7 +17,11 @@ import { PalpiteAntesDeVer } from './PalpiteAntesDeVer';
 import { ResultadoDuelo, type LadoDuelo } from './ResultadoDuelo';
 
 /** equivalencia null: a opção A não pode ser resgatada na data, e as equivalências não são calculadas. */
-type Calculo = { a: LadoDuelo; b: LadoDuelo; equivalencia: ResultadoEquivalencia | null };
+type Calculo = {
+  a: LadoDuelo; b: LadoDuelo; equivalencia: ResultadoEquivalencia | null;
+  /** O cenário e as entradas usados: se mudarem, o resultado deixa de valer. */
+  cenario: Cenario; entrada: Entrada;
+};
 type Fase =
   | { tipo: 'editando' }
   | ({ tipo: 'palpite' } & Calculo)
@@ -67,6 +71,12 @@ function validarEntrada({ valor, dataAplicacao, dataResgate, a, b }: Entrada): s
   return null;
 }
 
+/** As entradas são as mesmas do cálculo guardado? (As opções mudam de objeto a cada edição.) */
+const mesmaEntrada = (x: Entrada, y: Entrada): boolean =>
+  Object.is(x.valor, y.valor) && x.dataAplicacao === y.dataAplicacao && x.dataResgate === y.dataResgate && x.a === y.a && x.b === y.b;
+
+const EDITANDO: Fase = { tipo: 'editando' };
+
 /** Data preenchida e válida que não é dia útil. Data vazia ou inválida não gera aviso. */
 function naoEhDiaUtil(data: DataISO): boolean {
   try {
@@ -114,10 +124,12 @@ export interface PropsDueloRapido {
   cenario: Cenario;
   /** Uma frase sobre o cenário usado, mostrada acima do formulário. */
   descricaoCenario: string;
+  /** Rascunho inválido no painel (premissas ou valores manuais): enquanto houver, não dá para comparar. */
+  cenarioInvalido?: string | null;
 }
 
 /** A tela do M1: duas ofertas, um prazo, o palpite e as equivalências, no cenário ativo. */
-export function DueloRapido({ cenario, descricaoCenario }: PropsDueloRapido) {
+export function DueloRapido({ cenario, descricaoCenario, cenarioInvalido = null }: PropsDueloRapido) {
   const [valor, setValor] = useState(10000);
   const [dataAplicacao, setDataAplicacao] = useState<DataISO>(hoje());
   const [dataResgate, setDataResgate] = useState<DataISO>(somarMeses(hoje(), 24));
@@ -127,35 +139,38 @@ export function DueloRapido({ cenario, descricaoCenario }: PropsDueloRapido) {
   const [b, setB] = useState<Opcao>({
     oferta: { produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.8 } }, liquidez: 'DIARIA', vencimento: '',
   });
-  const [fase, setFase] = useState<Fase>({ tipo: 'editando' });
-  const [erro, setErro] = useState<string | null>(null);
+  const [faseSalva, setFase] = useState<Fase>(EDITANDO);
+  /** O erro vale para o cenário em que apareceu. */
+  const [erroSalvo, setErroSalvo] = useState<{ texto: string; cenario: Cenario } | null>(null);
   const [palpitesLigados, setPalpitesLigados] = useState(() => lerPalpitesLigados(armazenamentoLocal()));
   const tituloPalpite = useRef<HTMLHeadingElement>(null);
   const tituloResultado = useRef<HTMLHeadingElement>(null);
-  const cenarioAnterior = useRef(cenario);
 
-  // Trocar o cenário no painel invalida o resultado, como qualquer edição.
-  useEffect(() => {
-    if (cenarioAnterior.current === cenario) return;
-    cenarioAnterior.current = cenario;
-    setFase({ tipo: 'editando' });
-    setErro(null);
-  }, [cenario]);
+  const entrada: Entrada = { valor, dataAplicacao, dataResgate, a, b };
+  // Trocar o cenário no painel ou editar uma entrada invalida o resultado. Derivado na renderização, e não num
+  // efeito: um efeito atrasado mostraria o resultado velho com o cenário novo, ou apagaria uma comparação nova.
+  const fase: Fase = faseSalva.tipo !== 'editando' && (faseSalva.cenario !== cenario || !mesmaEntrada(faseSalva.entrada, entrada))
+    ? EDITANDO
+    : faseSalva;
+  const erro = erroSalvo !== null && erroSalvo.cenario === cenario ? erroSalvo.texto : null;
+  const setErro = (texto: string | null) => setErroSalvo(texto === null ? null : { texto, cenario });
+  const bloqueado = cenarioInvalido != null;
 
   // Leva o foco para o título de cada fase nova (palpite ou resultado).
   useEffect(() => {
     if (fase.tipo === 'palpite') tituloPalpite.current?.focus();
     else if (fase.tipo === 'resultado') tituloResultado.current?.focus();
-  }, [fase]);
+  }, [faseSalva]);
 
   /** Qualquer edição invalida o resultado anterior. */
   function editar<T>(set: (v: T) => void) {
-    return (v: T) => { set(v); setFase({ tipo: 'editando' }); setErro(null); };
+    return (v: T) => { set(v); setFase(EDITANDO); setErro(null); };
   }
 
   function comparar(e: Event) {
     e.preventDefault();
-    const invalido = validarEntrada({ valor, dataAplicacao, dataResgate, a, b });
+    if (bloqueado) return;
+    const invalido = validarEntrada(entrada);
     if (invalido !== null) {
       setErro(invalido);
       setFase({ tipo: 'editando' });
@@ -177,7 +192,7 @@ export function DueloRapido({ cenario, descricaoCenario }: PropsDueloRapido) {
       const equivalencia = ladoA.projecao.estado === 'DISPONIVEL'
         ? calcularEquivalencias({ ...a.oferta, valor, dataAplicacao }, dataResgate, cenario)
         : null;
-      const calculo: Calculo = { a: ladoA, b: ladoB, equivalencia };
+      const calculo: Calculo = { a: ladoA, b: ladoB, equivalencia, cenario, entrada };
       // O palpite só faz sentido quando as duas podem ser resgatadas.
       const ambas = ladoA.projecao.estado === 'DISPONIVEL' && ladoB.projecao.estado === 'DISPONIVEL';
       setErro(null);
@@ -242,7 +257,10 @@ export function DueloRapido({ cenario, descricaoCenario }: PropsDueloRapido) {
           </FormOferta>
         </div>
 
-        <button type="submit" class="primario">Comparar</button>
+        <button type="submit" class="primario" disabled={bloqueado} aria-describedby={bloqueado ? "duelo-cenario-invalido" : undefined}>
+          Comparar
+        </button>
+        {bloqueado && <p id="duelo-cenario-invalido" class="erro">{AVISO_CENARIO_INVALIDO}</p>}
         {!palpitesLigados && (
           <button type="button" class="link" onClick={() => { salvarPalpitesLigados(armazenamentoLocal(), true); setPalpitesLigados(true); }}>
             Religar os palpites

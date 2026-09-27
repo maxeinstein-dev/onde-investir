@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { PreferenciasCenario } from '../armazenamento/preferencias';
 import type { IdTermo } from '../conteudo/glossario';
 import type { CenarioAtivo, EscolhaCenario, ValoresManuais } from '../dados/cenarios';
@@ -19,6 +19,8 @@ export interface PropsPainelIndicadores {
   explicacao: readonly string[];
   /** Nova escolha, premissas ou valores manuais. O App persiste. */
   onChange: (p: PreferenciasCenario) => void;
+  /** O primeiro erro de um rascunho do painel (premissas ou valores manuais), ou null quando não há. */
+  onCenarioInvalido?: (erro: string | null) => void;
 }
 
 const OPCOES: { valor: EscolhaCenario; rotulo: string }[] = [
@@ -127,9 +129,12 @@ const daTela = (p: PremissasNaTela): Premissas => ({
   k: p.k, ipcaLongoPrazoAA: p.ipca / 100, juroRealLongoPrazoAA: p.juroReal / 100, anosConvergencia: p.anos, spreadCDI: p.spread / 100,
 });
 
-function AjustarPremissas({ premissas, onChange }: { premissas: Premissas; onChange: (p: Premissas) => void }) {
+function AjustarPremissas({ premissas, onChange, onErro }: {
+  premissas: Premissas; onChange: (p: Premissas) => void; onErro: (erro: string | null) => void;
+}) {
   const [rascunho, setRascunho] = useState(() => naTela(premissas));
-  const [erro, setErro] = useState<string | null>(null);
+  const [erro, setErroLocal] = useState<string | null>(null);
+  const setErro = (e: string | null) => { setErroLocal(e); onErro(e); };
 
   function mudar(chave: keyof PremissasNaTela, valor: number) {
     const novo = { ...rascunho, [chave]: valor };
@@ -185,9 +190,16 @@ function validarManual(m: ValoresManuais): string | null {
   return null;
 }
 
-function CenarioManual({ manual, onChange }: { manual: ValoresManuais; onChange: (m: ValoresManuais) => void }) {
+function CenarioManual({ manual, onChange, onErro }: {
+  manual: ValoresManuais; onChange: (m: ValoresManuais) => void; onErro: (erro: string | null) => void;
+}) {
   const [rascunho, setRascunho] = useState(manual);
-  const [erro, setErro] = useState<string | null>(null);
+  const [erro, setErroLocal] = useState<string | null>(null);
+  const setErro = (e: string | null) => { setErroLocal(e); onErro(e); };
+  // Ao sair do Manual, o rascunho some junto com o campo, e o erro dele deixa de valer.
+  const onErroAtual = useRef(onErro);
+  onErroAtual.current = onErro;
+  useEffect(() => () => onErroAtual.current(null), []);
 
   function mudar(chave: keyof ValoresManuais, valor: number) {
     const novo = { ...rascunho, [chave]: valor };
@@ -217,7 +229,14 @@ function CenarioManual({ manual, onChange }: { manual: ValoresManuais; onChange:
 
 // ---------- Painel ----------
 
-export function PainelIndicadores({ indicadores, preferencias, ativo, explicacao, onChange }: PropsPainelIndicadores) {
+export function PainelIndicadores({ indicadores, preferencias, ativo, explicacao, onChange, onCenarioInvalido }: PropsPainelIndicadores) {
+  // Os dois rascunhos que podem estar inválidos; o App recebe o primeiro erro.
+  const erros = useRef<{ manual: string | null; premissas: string | null }>({ manual: null, premissas: null });
+  function relatar(parte: 'manual' | 'premissas', erro: string | null) {
+    if (erros.current[parte] === erro) return;
+    erros.current = { ...erros.current, [parte]: erro };
+    onCenarioInvalido?.(erros.current.manual ?? erros.current.premissas);
+  }
   const semProjecao = motivoSemProjecao(indicadores);
   // Sem dados para projetar, o cenário em uso é o manual, mesmo que a escolha salva seja outra.
   const selecionada: EscolhaCenario = ativo.projetado ? preferencias.escolha : 'MANUAL';
@@ -247,9 +266,11 @@ export function PainelIndicadores({ indicadores, preferencias, ativo, explicacao
       </div>
 
       {selecionada === 'MANUAL' && (
-        <CenarioManual manual={preferencias.manual} onChange={(manual) => onChange({ ...preferencias, manual })} />
+        <CenarioManual manual={preferencias.manual} onChange={(manual) => onChange({ ...preferencias, manual })}
+          onErro={(e) => relatar('manual', e)} />
       )}
-      <AjustarPremissas premissas={preferencias.premissas} onChange={(premissas) => onChange({ ...preferencias, premissas })} />
+      <AjustarPremissas premissas={preferencias.premissas} onChange={(premissas) => onChange({ ...preferencias, premissas })}
+        onErro={(e) => relatar('premissas', e)} />
     </section>
   );
 }

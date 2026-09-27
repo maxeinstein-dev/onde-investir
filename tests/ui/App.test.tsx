@@ -139,6 +139,73 @@ describe('App', () => {
     expect(screen.getByText('Você acertou.')).toBeInTheDocument();
     expect(within(painelOfertas).getByRole('table')).toBeInTheDocument();
   });
+  describe('o objeto do cenário só muda quando muda o que ele usa', () => {
+    const verResultadoDoDuelo = () => {
+      fireEvent.click(aba('Duelo rápido'));
+      fireEvent.click(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Comparar' }));
+      // Pular desliga os palpites: da segunda vez, o resultado vem direto.
+      const pular = screen.queryByRole('button', { name: /pular/i });
+      if (pular) fireEvent.click(pular);
+      expect(screen.getByRole('heading', { name: 'Resultado' })).toBeInTheDocument();
+    };
+    it('no Manual (por falta de dados), mudar as premissas não invalida o resultado do duelo', async () => {
+      vi.stubGlobal('fetch', fetchForaDoAr);
+      render(<App />);
+      await within(painel()).findByText('Sem dados do SGS: usando o cenário manual.');
+      verResultadoDoDuelo();
+      fireEvent.input(within(painel()).getByLabelText('Desvios-padrão (k)'), { target: { value: '2' } });
+      expect(screen.getByRole('heading', { name: 'Resultado' })).toBeInTheDocument();
+      // Os valores manuais, sim, mudam o cenário.
+      fireEvent.input(within(painel()).getByLabelText('CDI (% a.a.)'), { target: { value: '12' } });
+      expect(screen.queryByRole('heading', { name: 'Resultado' })).toBeNull();
+    });
+    it('no Manual escolhido, mudar as premissas não invalida; num projetado, invalida', async () => {
+      vi.stubGlobal('fetch', fetchFixtures);
+      render(<App />);
+      await within(painel()).findByText(/medianas do Focus/);
+      fireEvent.click(within(painel()).getByRole('radio', { name: /Manual/ }));
+      verResultadoDoDuelo();
+      fireEvent.input(within(painel()).getByLabelText('Desvios-padrão (k)'), { target: { value: '2' } });
+      expect(screen.getByRole('heading', { name: 'Resultado' })).toBeInTheDocument();
+      fireEvent.click(within(painel()).getByRole('radio', { name: /Juros sobem/ }));
+      verResultadoDoDuelo();
+      fireEvent.input(within(painel()).getByLabelText('Desvios-padrão (k)'), { target: { value: '1.5' } });
+      expect(screen.queryByRole('heading', { name: 'Resultado' })).toBeNull();
+    });
+  });
+  it('com um rascunho inválido no painel, os dois "Comparar" ficam desabilitados, com o aviso', async () => {
+    vi.stubGlobal('fetch', fetchForaDoAr);
+    const base = { conglomerado: 'G', liquidez: 'DIARIA' };
+    localStorage.setItem(CHAVE_OFERTAS, JSON.stringify([
+      { ...base, id: 'a', emissor: 'Banco X', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 } },
+      { ...base, id: 'b', emissor: 'Banco Y', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.1 } },
+    ]));
+    render(<App />);
+    await within(painel()).findByText('Sem dados do SGS: usando o cenário manual.');
+    const aviso = 'Corrija o cenário no painel antes de comparar.';
+    const conferir = (bloqueado: boolean) => {
+      for (const nome of ['Comparar ofertas', 'Duelo rápido']) {
+        fireEvent.click(aba(nome));
+        const p = screen.getByRole('tabpanel');
+        const botao = within(p).getByRole('button', { name: 'Comparar' });
+        if (bloqueado) {
+          expect(botao).toBeDisabled();
+          expect(within(p).getByText(aviso)).toBeInTheDocument();
+        } else {
+          expect(botao).toBeEnabled();
+          expect(within(p).queryByText(aviso)).toBeNull();
+        }
+      }
+    };
+    fireEvent.input(within(painel()).getByLabelText('CDI (% a.a.)'), { target: { value: '' } });
+    conferir(true);
+    fireEvent.input(within(painel()).getByLabelText('CDI (% a.a.)'), { target: { value: '13' } });
+    conferir(false);
+    fireEvent.input(within(painel()).getByLabelText('Desvios-padrão (k)'), { target: { value: '-1' } });
+    conferir(true);
+    fireEvent.click(within(painel()).getByRole('button', { name: 'Restaurar padrão' }));
+    conferir(false);
+  });
   it('o duelo e a comparação ficam montados juntos sem ids repetidos, mesmo com os dois palpites abertos', () => {
     vi.stubGlobal('fetch', fetchForaDoAr);
     const base = { conglomerado: 'G', liquidez: 'DIARIA' };

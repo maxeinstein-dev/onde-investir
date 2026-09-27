@@ -33,6 +33,14 @@ function comManual(manual: ValoresManuais, motivo?: string): CenarioAtivo {
 
 const noManual = (manual: ValoresManuais, motivo: string): CenarioAtivo => comManual(manual, `${motivo}: usando o cenário manual.`);
 
+/**
+ * O cenário ativo sai só dos valores manuais? (Manual escolhido, ainda carregando ou faltam dados para projetar.)
+ * Nesse caso a escolha e as premissas não entram no cálculo, e quem memoriza o cenário não depende delas.
+ */
+export function usaSoManual(escolha: EscolhaCenario, ind: IndicadoresCarregados | null): boolean {
+  return ind === null || escolha === 'MANUAL' || !ind.atuais || !ind.focus || !ind.reunioes;
+}
+
 /** Cenário projetado a partir dos indicadores; se faltar dado ou as premissas forem inválidas, o manual, com o motivo. Nunca lança. */
 export function cenarioAtivo(
   escolha: EscolhaCenario, ind: IndicadoresCarregados, premissas: Premissas, manual: ValoresManuais,

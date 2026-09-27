@@ -39,6 +39,13 @@ describe('Comparacao', () => {
     expect(screen.getByRole('button', { name: 'Comparar' })).toBeDisabled();
   });
 
+  it('com o cenário do painel inválido, Comparar fica desabilitado e avisa', () => {
+    render(<Comparacao ofertas={OFERTAS} cenario={CEN} descricaoCenario="x" cenarioInvalido="Preencha o CDI do cenário." />);
+    const botao = screen.getByRole('button', { name: 'Comparar' });
+    expect(botao).toBeDisabled();
+    expect(botao).toHaveAccessibleDescription('Corrija o cenário no painel antes de comparar.');
+  });
+
   it('o palpite pergunta pelo maior horizonte e esconde o resultado', () => {
     montar();
     comparar();

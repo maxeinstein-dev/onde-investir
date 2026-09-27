@@ -3,7 +3,7 @@ import { armazenamentoLocal } from '../armazenamento/navegador';
 import { lerOfertas, salvarOfertas } from '../armazenamento/ofertas';
 import { lerPreferencias, salvarPreferencias, type PreferenciasCenario } from '../armazenamento/preferencias';
 import { explicarCenario } from '../conteudo/comparacao';
-import { cenarioAtivo, type CenarioAtivo } from '../dados/cenarios';
+import { cenarioAtivo, usaSoManual, type CenarioAtivo } from '../dados/cenarios';
 import type { IndicadoresCarregados } from '../dados/indicadores';
 import type { OfertaCadastrada } from '../engine/ofertas';
 import { Abas } from './Abas';
@@ -33,8 +33,16 @@ export function App({ carregar }: PropsApp = {}) {
   const [preferencias, setPreferencias] = useState(() => lerPreferencias(armazenamento));
   const [ofertas, setOfertas] = useState(() => lerOfertas(armazenamento));
 
-  // Memorizado: o objeto do cenário só muda quando muda a entrada, e trocar o cenário invalida resultados.
-  const ativo = useMemo(() => calcularAtivo(indicadores, preferencias), [indicadores, preferencias]);
+  /** O primeiro erro de um rascunho do painel; enquanto houver, os botões Comparar ficam desabilitados. */
+  const [cenarioInvalido, setCenarioInvalido] = useState<string | null>(null);
+
+  // Memorizado pelas entradas que o cenário usa de fato, porque trocar o objeto do cenário invalida os resultados.
+  // Só manual (escolhido, carregando ou sem dados): os valores manuais. Projetado: também escolha e premissas.
+  const soManual = usaSoManual(preferencias.escolha, indicadores);
+  const ativo = useMemo(
+    () => calcularAtivo(indicadores, preferencias),
+    [indicadores, soManual ? null : preferencias.escolha, soManual ? null : preferencias.premissas, preferencias.manual],
+  );
   const explicacao = useMemo(() => explicarCenario(ativo.projetado, ativo.motivoManual, {
     dataColetaFocus: indicadores?.focus?.dataColeta,
     focusDefasado: indicadores?.focusDefasado,
@@ -61,18 +69,21 @@ export function App({ carregar }: PropsApp = {}) {
       </header>
 
       <PainelIndicadores indicadores={indicadores} preferencias={preferencias} ativo={ativo} explicacao={explicacao}
-        onChange={mudarPreferencias} />
+        onChange={mudarPreferencias} onCenarioInvalido={setCenarioInvalido} />
 
       <Abas rotulo="O que você quer fazer" abas={[
         {
           id: 'ofertas', rotulo: 'Comparar ofertas', conteudo: (
             <>
               <MinhasOfertas ofertas={ofertas} onChange={mudarOfertas} />
-              <Comparacao ofertas={ofertas} cenario={ativo.cenario} descricaoCenario={descricaoCenario} />
+              <Comparacao ofertas={ofertas} cenario={ativo.cenario} descricaoCenario={descricaoCenario} cenarioInvalido={cenarioInvalido} />
             </>
           ),
         },
-        { id: 'duelo', rotulo: 'Duelo rápido', conteudo: <DueloRapido cenario={ativo.cenario} descricaoCenario={descricaoCenario} /> },
+        {
+          id: 'duelo', rotulo: 'Duelo rápido',
+          conteudo: <DueloRapido cenario={ativo.cenario} descricaoCenario={descricaoCenario} cenarioInvalido={cenarioInvalido} />,
+        },
       ]} />
     </main>
   );

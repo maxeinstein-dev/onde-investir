@@ -6,6 +6,9 @@ import type { CenarioProjetado } from '../engine/projecao';
 import { formatarMoeda, formatarNumero, formatarPercentual } from '../formato';
 import { descreverOferta } from './motivos';
 
+/** Perto dos botões Comparar, enquanto o painel tem um rascunho inválido. */
+export const AVISO_CENARIO_INVALIDO = 'Corrija o cenário no painel antes de comparar.';
+
 /** Como a oferta aparece nos textos: a descrição e o emissor, que distingue ofertas iguais. */
 export const nomeOferta = (o: OfertaCadastrada): string => `${descreverOferta(o)} (${o.emissor})`;
 
