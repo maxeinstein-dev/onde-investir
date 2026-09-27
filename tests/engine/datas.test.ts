@@ -1,6 +1,6 @@
 // tests/engine/datas.test.ts
 import { describe, expect, it } from 'vitest';
-import { deDia, diaDaSemana, diasCorridos, paraDia, somarDias, somarMeses } from '../../src/engine/datas';
+import { dataBR, deDia, diaDaSemana, diasCorridos, paraDia, somarDias, somarMeses } from '../../src/engine/datas';
 import { DataInvalidaError } from '../../src/engine/erros';
 
 describe('datas', () => {
@@ -28,5 +28,8 @@ describe('datas', () => {
     expect(somarMeses('2028-01-31', 1)).toBe('2028-02-29');
     expect(somarMeses('2026-11-15', -12)).toBe('2025-11-15');
     expect(somarMeses('2026-12-10', 1)).toBe('2027-01-10');
+  });
+  it('formata DD/MM/AAAA para mensagens', () => {
+    expect(dataBR('2027-03-28')).toBe('28/03/2027');
   });
 });

@@ -56,3 +56,9 @@ export function somarMeses(data: DataISO, meses: number): DataISO {
   const ultimoDia = new Date(Date.UTC(novoAno, novoMes, 0)).getUTCDate();
   return montar(novoAno, novoMes, Math.min(dia, ultimoDia));
 }
+
+/** DD/MM/AAAA, para mensagens de erro do engine. */
+export function dataBR(data: DataISO): string {
+  partes(data);
+  return `${data.slice(8, 10)}/${data.slice(5, 7)}/${data.slice(0, 4)}`;
+}

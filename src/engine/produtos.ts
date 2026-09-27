@@ -1,11 +1,13 @@
 // src/engine/produtos.ts
 import { diasUteis } from './calendario';
-import { type DataISO, diasCorridos, somarMeses } from './datas';
+import { type DataISO, dataBR, diasCorridos, somarMeses } from './datas';
+import { OfertaInvalidaError } from './erros';
 import { type Cenario, fatorIPCA, fatorPercentualCDI, fatorPrefixado, fatorSelic } from './indexadores';
 import { custodiaTesouro } from './regras/custodia';
 import { aliquotaIOF } from './regras/iof';
 import { aliquotaIR } from './regras/ir';
 import { taxaBasePoupancaAM } from './regras/poupanca';
+import { dataMinimaResgate } from './regras/prazoMinimo';
 
 export type TipoProduto =
   | 'CDB' | 'RDB' | 'LC' | 'LCI' | 'LCA'
@@ -57,6 +59,36 @@ export const ehIsentoIR = (produto: TipoProduto): boolean => ISENTOS_IR.has(prod
 export const ehTesouro = (produto: TipoProduto): boolean => produto.startsWith('TESOURO_');
 export const garantiaDe = (produto: TipoProduto): 'FGC' | 'TESOURO_NACIONAL' =>
   ehTesouro(produto) ? 'TESOURO_NACIONAL' : 'FGC';
+
+export const INDEXACOES_PERMITIDAS: Record<TipoProduto, readonly [TipoIndexacao, ...TipoIndexacao[]]> = {
+  CDB: ['POS_CDI', 'PRE', 'IPCA_MAIS'],
+  RDB: ['POS_CDI', 'PRE', 'IPCA_MAIS'],
+  LC: ['POS_CDI', 'PRE', 'IPCA_MAIS'],
+  LCI: ['POS_CDI', 'PRE', 'IPCA_MAIS'],
+  LCA: ['POS_CDI', 'PRE', 'IPCA_MAIS'],
+  TESOURO_SELIC: ['SELIC'],
+  TESOURO_PREFIXADO: ['PRE'],
+  TESOURO_IPCA: ['IPCA_MAIS'],
+  POUPANCA: ['POUPANCA'],
+};
+
+export function validarAplicacao(ap: Aplicacao, dataResgate: DataISO): void {
+  if (!Number.isFinite(ap.valor) || ap.valor <= 0) throw new OfertaInvalidaError('O valor aplicado precisa ser maior que zero');
+  if (!INDEXACOES_PERMITIDAS[ap.produto].includes(ap.indexacao.tipo)) {
+    throw new OfertaInvalidaError(`${ap.produto} não aceita a indexação ${ap.indexacao.tipo}`);
+  }
+  if (diasCorridos(ap.dataAplicacao, dataResgate) < 1) throw new OfertaInvalidaError('O resgate precisa ser depois da aplicação');
+  const ix = ap.indexacao;
+  if (ix.tipo === 'POS_CDI' && !(ix.percentualCDI > 0)) throw new OfertaInvalidaError('O percentual do CDI precisa ser maior que zero');
+  if (ix.tipo === 'PRE' && !Number.isFinite(ix.taxaAA)) throw new OfertaInvalidaError('Taxa prefixada inválida');
+  if (ix.tipo === 'IPCA_MAIS' && !Number.isFinite(ix.taxaRealAA)) throw new OfertaInvalidaError('Taxa real inválida');
+  if (ap.produto === 'LCI' || ap.produto === 'LCA') {
+    const minima = dataMinimaResgate(ap.produto, ix.tipo === 'IPCA_MAIS', ap.dataAplicacao);
+    if (dataResgate < minima) {
+      throw new OfertaInvalidaError(`${ap.produto} tem prazo mínimo legal: o resgate só é possível a partir de ${dataBR(minima)}`);
+    }
+  }
+}
 
 function fatorBruto(ap: Aplicacao, dataResgate: DataISO, cen: Cenario): number {
   const ix = ap.indexacao;
@@ -110,6 +142,7 @@ function simularPoupanca(ap: Aplicacao, dataResgate: DataISO, cen: Cenario): Res
 }
 
 export function simular(ap: Aplicacao, dataResgate: DataISO, cen: Cenario): ResultadoSimulacao {
+  validarAplicacao(ap, dataResgate);
   if (ap.produto === 'POUPANCA') return simularPoupanca(ap, dataResgate, cen);
   const dc = diasCorridos(ap.dataAplicacao, dataResgate);
   const fator = fatorBruto(ap, dataResgate, cen);
