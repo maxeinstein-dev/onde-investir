@@ -1,5 +1,5 @@
 // src/dados/indicadores.ts
-import { z } from 'zod';
+import { z } from '../zod';
 import { anunciosDoCalendario, numerarReunioes, type ReuniaoCopom } from '../engine/copom';
 import type { DataISO } from '../engine/datas';
 import type { DadosFocus } from '../engine/projecao';

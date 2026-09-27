@@ -1,5 +1,5 @@
 // src/dados/cache.ts
-import { z } from 'zod';
+import { z } from '../zod';
 
 export interface Armazenamento { getItem(chave: string): string | null; setItem(chave: string, valor: string): void }
 

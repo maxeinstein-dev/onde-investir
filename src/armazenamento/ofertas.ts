@@ -1,5 +1,5 @@
 // Ofertas cadastradas: localStorage e exportar/importar JSON, sempre validados por esquema (spec §5.8 e §7.2).
-import { z } from 'zod';
+import { z } from '../zod';
 import type { Armazenamento } from '../dados/cache';
 import { ehDataValida } from '../engine/datas';
 import { OfertaInvalidaError } from '../engine/erros';

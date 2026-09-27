@@ -1,5 +1,5 @@
 // Preferências do usuário no localStorage: palpites (chave do M1) e cenário (escolha, premissas, valores manuais).
-import { z } from 'zod';
+import { z } from '../zod';
 import type { Armazenamento } from '../dados/cache';
 import { CENARIO_INICIAL } from '../dados/cenarioInicial';
 import { type EscolhaCenario, type ValoresManuais, valoresManuaisValidos } from '../dados/cenarios';

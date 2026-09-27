@@ -1,5 +1,5 @@
 // src/dados/bcb.ts
-import { z } from 'zod';
+import { z } from '../zod';
 import { type DataISO, paraDia } from '../engine/datas';
 import type { DadosFocus, EstatisticaFocus } from '../engine/projecao';
 
