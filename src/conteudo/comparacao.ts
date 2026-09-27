@@ -1,4 +1,4 @@
-// Textos da comparação de ofertas e do cenário. Rascunho: a revisão editorial é a Tarefa C8.
+// Textos da comparação de ofertas e do cenário.
 import type { Marco } from '../engine/comparacao';
 import { type DataISO, dataBR } from '../engine/datas';
 import type { OfertaCadastrada, Projecao } from '../engine/ofertas';
@@ -28,14 +28,14 @@ export function descreverProjecao(p: Projecao): string {
       const r = p.reinvestimento;
       if (!r) return '';
       const inicio = `Venceu em ${dataBR(r.data)} e foi reaplicado em ${descreverOferta(r.oferta)}`;
-      return r.fallback ? `${inicio}, porque o mesmo produto não aceitava esse prazo.` : `${inicio}.`;
+      return r.fallback ? `${inicio}, porque o mesmo produto não aceitava um prazo tão curto.` : `${inicio}.`;
     }
     case 'INDISPONIVEL':
       return p.disponivelEm === undefined
         ? `Indisponível: ${continuarFrase(p.motivo)}.`
         : `Indisponível até ${dataBR(p.disponivelEm)}: ${continuarFrase(p.motivo)}.`;
     case 'MARCACAO_A_MERCADO':
-      return `Vence em ${dataBR(p.vencimento)}. Vender antes sai pelo preço de mercado do dia, que pode ser maior ou menor.`;
+      return `Vence em ${dataBR(p.vencimento)}. Se vender antes, recebe o preço de mercado do dia, que pode ficar acima ou abaixo do previsto.`;
   }
 }
 
@@ -58,15 +58,17 @@ export function concluirLinhaDoTempo(ofertas: readonly OfertaCadastrada[], l: { 
   }
 
   const segundo = disponiveis[1];
+  const inicio = `No último vencimento, em ${data}, ${nomeOferta(lider.o)} termina na frente com ${liquido} líquidos`;
+  const fim = 'Para outras datas, veja a tabela acima.';
   const linhas = [
     segundo
-      ? `${nomeOferta(lider.o)} termina na frente em ${data}, com ${liquido} líquidos, ${formatarMoeda(lider.p.liquido - segundo.p.liquido)} a mais que ${nomeOferta(segundo.o)}.`
-      : `${nomeOferta(lider.o)} termina na frente em ${data}, com ${liquido} líquidos.`,
+      ? `${inicio}, ${formatarMoeda(lider.p.liquido - segundo.p.liquido)} a mais que ${nomeOferta(segundo.o)}. ${fim}`
+      : `${inicio}. ${fim}`,
   ];
   const reaplicacao = lider.p.reinvestimento ? lider.p.etapas.at(-1) : undefined;
   if (segundo && reaplicacao) {
-    linhas.push(`Mesmo vencendo antes, ${nomeOferta(lider.o)} reaplicado termina em ${liquido}.`);
-    if (!reaplicacao.isentoIR) linhas.push(`O IR recomeçou na reaplicação, com alíquota de ${formatarPercentual(reaplicacao.aliquotaIR)}.`);
+    linhas.push(`${nomeOferta(lider.o)} vence antes, é reaplicado e mesmo assim termina na frente.`);
+    if (!reaplicacao.isentoIR) linhas.push(`Na reaplicação o IR recomeçou do zero, com alíquota de ${formatarPercentual(reaplicacao.aliquotaIR)} nesse prazo.`);
   }
   return linhas;
 }
@@ -98,14 +100,14 @@ export function explicarCenario(c: CenarioProjetado | null, motivoManual?: strin
   }
   const linhas = [
     frasePrincipal(c, ctx),
-    `A partir de ${c.inicioPremissa.slice(0, 4)} a projeção é premissa, não expectativa de mercado.`,
+    `A partir de ${c.inicioPremissa.slice(0, 4)} os números são premissas do app, e o mercado não projeta tão longe.`,
   ];
   const est = c.reunioesEstimadas;
-  if (est.length === 1) linhas.push(`A data de ${est[0]} foi estimada: o BC ainda não publicou o calendário.`);
-  else if (est.length > 1) linhas.push(`As datas de ${listar(est)} foram estimadas: o BC ainda não publicou o calendário.`);
+  if (est.length === 1) linhas.push(`A data de ${est[0]} foi estimada, porque o BC ainda não publicou o calendário desse ano.`);
+  else if (est.length > 1) linhas.push(`As datas de ${listar(est)} foram estimadas, porque o BC ainda não publicou o calendário desse ano.`);
   const sem = c.reunioesSemData;
-  if (sem.length === 1) linhas.push(`A reunião ${sem[0]} ficou de fora da projeção: não foi possível estimar a data.`);
-  else if (sem.length > 1) linhas.push(`As reuniões ${listar(sem)} ficaram de fora da projeção: não foi possível estimar as datas.`);
-  if (ctx.focusDefasado) linhas.push('O Focus veio de coletas diferentes; os números podem estar defasados.');
+  if (sem.length === 1) linhas.push(`A reunião ${sem[0]} ficou de fora da projeção, porque não deu para estimar a data.`);
+  else if (sem.length > 1) linhas.push(`As reuniões ${listar(sem)} ficaram de fora da projeção, porque não deu para estimar as datas.`);
+  if (ctx.focusDefasado) linhas.push('As consultas do Focus vieram de semanas diferentes, então parte dos números pode estar desatualizada.');
   return linhas;
 }
