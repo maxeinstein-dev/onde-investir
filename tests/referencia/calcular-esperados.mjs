@@ -35,6 +35,26 @@ console.log('DU ano 2025', du('2025-01-01', '2026-01-01'), 'DU ano 2026', du('20
 console.log('DU 2026-09-28 -> 2026-10-28', du('2026-09-28', '2026-10-28'));
 console.log('DU carnaval semana 2026-02-13 -> 2026-02-20', du('2026-02-13', '2026-02-20'));
 
+// IPCA por segmento de mês civil: mês inteiro × (1 + i)^(1/12); mês parcial × (1 + i)^((DU_decorridos/DU_mês)/12).
+// Caminho diferente do engine (que multiplica dia útil a dia útil por (1 + i)^(1/(12 × DU_mês))).
+function ipcaMensal(a, b, i = 0.0422) {
+  let f = 1;
+  let [y, m] = a.split('-').map(Number);
+  for (;;) {
+    const iniMes = `${y}-${String(m).padStart(2, '0')}-01`;
+    const [y2, m2] = m === 12 ? [y + 1, 1] : [y, m + 1];
+    const fimMes = `${y2}-${String(m2).padStart(2, '0')}-01`;
+    if (iniMes >= b) break;
+    const segIni = a > iniMes ? a : iniMes;
+    const segFim = b < fimMes ? b : fimMes;
+    if (segIni === iniMes && segFim === fimMes) f *= Math.pow(1 + i, 1 / 12);
+    else f *= Math.pow(1 + i, du(segIni, segFim) / du(iniMes, fimMes) / 12);
+    [y, m] = [y2, m2];
+  }
+  return f;
+}
+console.log('IPCA ano 2026', ipcaMensal('2026-01-01', '2027-01-01'), 'IPCA out/2026', ipcaMensal('2026-10-01', '2026-11-01'), 'IPCA dez/2026', ipcaMensal('2026-12-01', '2027-01-01'), '(1,0422)^(1/12)', Math.pow(1.0422, 1 / 12), 'DU out/2026', du('2026-10-01', '2026-11-01'), 'DU dez/2026', du('2026-12-01', '2027-01-01'));
+
 const CDI = 0.1365;
 function pos(pct, ini, fim, isento, V = 10000) {
   const n = du(ini, fim); let f = 1;
@@ -52,7 +72,7 @@ for (const fim of ['2027-03-29', '2027-09-28', '2028-09-28', '2029-09-28']) {
 // Prefixado 13% a.a. 2 anos
 { const n = du(ini, '2028-09-28'); const f = Math.pow(1.13, n / 252); const r = 10000 * (f - 1); console.log('PRE13 2a', n, (10000 * f).toFixed(6), 'liq', (10000 * f - r * 0.15).toFixed(6)); }
 // IPCA+ 7% com IPCA 4.22% 3 anos
-{ const n = du(ini, '2029-09-28'); const f = Math.pow(1.0422, n / 252) * Math.pow(1.07, n / 252); const r = 10000 * (f - 1); console.log('IPCA+7 3a', n, (10000 * f).toFixed(6), 'liq', (10000 * f - r * 0.15).toFixed(6)); }
+{ const n = du(ini, '2029-09-28'); const f = ipcaMensal(ini, '2029-09-28') * Math.pow(1.07, n / 252); const r = 10000 * (f - 1); console.log('IPCA+7 3a', n, (10000 * f).toFixed(6), 'liq', (10000 * f - r * 0.15).toFixed(6)); }
 // IOF: resgate em 15 dias corridos de CDB 100% CDI
 { const fim = iso(addDays(D(ini), 15)); const n = du(ini, fim); const f = Math.pow(Math.pow(1 + CDI, 1 / 252), n); const r = 10000 * (f - 1); const iof = r * 0.5; const irv = (r - iof) * 0.225; console.log('IOF15', fim, n, 'rend', r.toFixed(6), 'iof', iof.toFixed(6), 'ir', irv.toFixed(6), 'liq', (10000 + r - iof - irv).toFixed(6)); }
 // Tesouro Selic: selic over = 13.65 (=CDI no cenário), 1 ano, V=10100 e 50000, custódia 0.2% a.a. sobre (média - isenção) * dias/365
@@ -80,8 +100,9 @@ for (const fim of ['2027-09-28', '2028-09-28']) {
   const alvo = pos(0.80, ini, fim, true).liquido; const dias = dc(ini, fim); const n = du(ini, fim); const a = ir(dias);
   const pct = bis((p) => pos(p, ini, fim, false).liquido, alvo, 0, 10);
   const pre = bis((t) => { const f = Math.pow(1 + t, n / 252); return 10000 * f - 10000 * (f - 1) * a; }, alvo, 0, 2);
-  const real = bis((t) => { const f = Math.pow(1.0422, n / 252) * Math.pow(1 + t, n / 252); return 10000 * f - 10000 * (f - 1) * a; }, alvo, -0.5, 2);
-  console.log('EQ LCI80', fim, 'alvo', alvo, 'cdbPct', (pct * 100).toFixed(4), 'bolso', (80 / (1 - a)).toFixed(4), 'pre', (pre * 100).toFixed(4), 'ipca+', (real * 100).toFixed(4));
+  const fIpca = ipcaMensal(ini, fim);
+  const real = bis((t) => { const f = fIpca * Math.pow(1 + t, n / 252); return 10000 * f - 10000 * (f - 1) * a; }, alvo, -0.5, 2);
+  console.log('EQ LCI80', fim, 'alvo', alvo, 'fIpca', fIpca.toFixed(10), 'cdbPct', (pct * 100).toFixed(4), 'bolso', (80 / (1 - a)).toFixed(4), 'pre', (pre * 100).toFixed(4), 'ipca+', (real * 100).toFixed(6));
 }
 // Equivalência inversa: CDB 103% 2 anos -> LCI isenta % CDI
 { const fim = '2028-09-28'; const alvo = pos(1.03, ini, fim, false).liquido; const pct = bis((p) => pos(p, ini, fim, true).liquido, alvo, 0, 10); console.log('EQ CDB103 2a -> isento', (pct * 100).toFixed(4), 'bolso', (103 * 0.85).toFixed(4)); }

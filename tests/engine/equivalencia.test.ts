@@ -11,7 +11,7 @@ describe('equivalência', () => {
     expect(eq.tributadoPosCDI).toBeCloseTo(0.925707, 5);
     expect(eq.regraDeBolso).toBeCloseTo(0.8 / 0.85, 10);
     expect(eq.tributadoPre).toBeCloseTo(0.12575, 5);
-    expect(eq.tributadoIpcaMais).toBeCloseTo(0.080167, 5);
+    expect(eq.tributadoIpcaMais).toBeCloseTo(0.079909, 5);
     expect(eq.isentoPosCDI).toBeCloseTo(0.8, 6);
     expect(eq.aliquotaIR).toBe(0.15);
   });
@@ -20,7 +20,7 @@ describe('equivalência', () => {
     expect(eq.tributadoPosCDI).toBeCloseTo(0.959773, 5);
     expect(eq.regraDeBolso).toBeCloseTo(0.8 / 0.825, 10);
     expect(eq.tributadoPre).toBeCloseTo(0.130667, 5);
-    expect(eq.tributadoIpcaMais).toBeCloseTo(0.084885, 5);
+    expect(eq.tributadoIpcaMais).toBeCloseTo(0.084526, 5);
   });
   it('CDB 103% por 2 anos equivale a LCI 89,17% (bolso 87,55%)', () => {
     const cdb: Aplicacao = { ...lci80, produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 } };

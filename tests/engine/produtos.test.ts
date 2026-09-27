@@ -34,7 +34,7 @@ describe('simular — renda fixa bancária (valores da referência)', () => {
   });
   it('CDB IPCA + 7% a.a., 3 anos', () => {
     const r = simular({ ...cdb103, indexacao: { tipo: 'IPCA_MAIS', taxaRealAA: 0.07 } }, '2029-09-28', CEN);
-    expect(r.valorLiquido).toBeCloseTo(13262.08414, 3);
+    expect(r.valorLiquido).toBeCloseTo(13275.393373, 3);
   });
   it('IOF antes do IR: CDB 100% resgatado em 15 dias', () => {
     const r = simular({ ...cdb103, indexacao: { tipo: 'POS_CDI', percentualCDI: 1 } }, '2026-10-13', CEN);

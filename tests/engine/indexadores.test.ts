@@ -17,7 +17,15 @@ describe('indexadores', () => {
     expect(10000 * fatorPrefixado(0.13, INI, '2028-09-28')).toBeCloseTo(12756.620315, 4);
   });
   it('IPCA 4,22% + 7% a.a. em 3 anos — referência', () => {
-    expect(10000 * fatorIPCA(CEN, INI, '2029-09-28') * fatorPrefixado(0.07, INI, '2029-09-28')).toBeCloseTo(13837.746047, 3);
+    expect(10000 * fatorIPCA(CEN, INI, '2029-09-28') * fatorPrefixado(0.07, INI, '2029-09-28')).toBeCloseTo(13853.403968, 3);
+  });
+  it('IPCA: um ano civil inteiro rende exatamente 1 + IPCA (2026 tem 249 dias úteis, mas a regra é mensal)', () => {
+    expect(fatorIPCA(CEN, '2026-01-01', '2027-01-01')).toBeCloseTo(1.0422, 12);
+  });
+  it('IPCA: um mês civil inteiro rende exatamente (1 + IPCA)^(1/12)', () => {
+    expect(fatorIPCA(CEN, '2026-10-01', '2026-11-01')).toBeCloseTo(Math.pow(1.0422, 1 / 12), 12);
+    // Dezembro/2026 tem 22 dias úteis: a regra mensal não depende da contagem de dias do mês.
+    expect(fatorIPCA(CEN, '2026-12-01', '2027-01-01')).toBeCloseTo(Math.pow(1.0422, 1 / 12), 12);
   });
   it('Selic over constante = CDI no cenário padrão', () => {
     expect(fatorSelic(CEN, INI, '2027-09-28')).toBeCloseTo(Math.pow(1.1365, 250 / 252), 10);

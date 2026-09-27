@@ -56,6 +56,26 @@ export function fatorPrefixado(taxaAA: number, inicio: DataISO, fim: DataISO): n
   return Math.pow(1 + taxaAA, diasUteis(inicio, fim) / 252);
 }
 
+const cacheDiasUteisDoMes = new Map<string, number>();
+
+/** Dias úteis do mês civil (chave AAAA-MM), com cache. */
+function diasUteisDoMes(anoMes: string): number {
+  const existente = cacheDiasUteisDoMes.get(anoMes);
+  if (existente !== undefined) return existente;
+  const ano = Number(anoMes.slice(0, 4));
+  const mes = Number(anoMes.slice(5, 7));
+  const proximo = mes === 12 ? `${ano + 1}-01-01` : `${ano}-${String(mes + 1).padStart(2, '0')}-01`;
+  const total = diasUteis(`${anoMes}-01`, proximo);
+  cacheDiasUteisDoMes.set(anoMes, total);
+  return total;
+}
+
+/**
+ * Fator do IPCA: inflação mensal projetada, pró-rata em dias úteis dentro de cada mês civil.
+ * Cada dia útil d contribui com (1 + ipcaAA(d))^(1 / (12 × DU do mês de d)); assim um mês civil
+ * inteiro rende (1 + ipca)^(1/12) e um ano civil inteiro rende 1 + ipca, qualquer que seja a
+ * quantidade de dias úteis.
+ */
 export function fatorIPCA(cen: Cenario, inicio: DataISO, fim: DataISO): number {
-  return acumularPorDiaUtil(inicio, fim, (d) => Math.pow(1 + cen.ipcaAA(d), 1 / 252));
+  return acumularPorDiaUtil(inicio, fim, (d) => Math.pow(1 + cen.ipcaAA(d), 1 / (12 * diasUteisDoMes(d.slice(0, 7)))));
 }

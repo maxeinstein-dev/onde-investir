@@ -946,7 +946,7 @@ describe('indexadores', () => {
     expect(10000 * fatorPrefixado(0.13, INI, '2028-09-28')).toBeCloseTo(12756.620315, 4);
   });
   it('IPCA 4,22% + 7% a.a. em 3 anos — referência', () => {
-    expect(10000 * fatorIPCA(CEN, INI, '2029-09-28') * fatorPrefixado(0.07, INI, '2029-09-28')).toBeCloseTo(13837.746047, 3);
+    expect(10000 * fatorIPCA(CEN, INI, '2029-09-28') * fatorPrefixado(0.07, INI, '2029-09-28')).toBeCloseTo(13853.403968, 3);
   });
   it('Selic over constante = CDI no cenário padrão', () => {
     expect(fatorSelic(CEN, INI, '2027-09-28')).toBeCloseTo(Math.pow(1.1365, 250 / 252), 10);
@@ -1015,8 +1015,27 @@ export function fatorPrefixado(taxaAA: number, inicio: DataISO, fim: DataISO): n
   return Math.pow(1 + taxaAA, diasUteis(inicio, fim) / 252);
 }
 
+const cacheDiasUteisDoMes = new Map<string, number>();
+
+/** Dias úteis do mês civil (chave AAAA-MM), com cache. */
+function diasUteisDoMes(anoMes: string): number {
+  const existente = cacheDiasUteisDoMes.get(anoMes);
+  if (existente !== undefined) return existente;
+  const ano = Number(anoMes.slice(0, 4));
+  const mes = Number(anoMes.slice(5, 7));
+  const proximo = mes === 12 ? `${ano + 1}-01-01` : `${ano}-${String(mes + 1).padStart(2, '0')}-01`;
+  const total = diasUteis(`${anoMes}-01`, proximo);
+  cacheDiasUteisDoMes.set(anoMes, total);
+  return total;
+}
+
+/**
+ * Fator do IPCA: inflação mensal projetada, pró-rata em dias úteis dentro de cada mês civil.
+ * Cada dia útil d contribui com (1 + ipcaAA(d))^(1 / (12 × DU do mês de d)); assim um mês civil
+ * inteiro rende (1 + ipca)^(1/12) e um ano civil inteiro rende 1 + ipca.
+ */
 export function fatorIPCA(cen: Cenario, inicio: DataISO, fim: DataISO): number {
-  return acumularPorDiaUtil(inicio, fim, (d) => Math.pow(1 + cen.ipcaAA(d), 1 / 252));
+  return acumularPorDiaUtil(inicio, fim, (d) => Math.pow(1 + cen.ipcaAA(d), 1 / (12 * diasUteisDoMes(d.slice(0, 7)))));
 }
 ```
 
@@ -1067,7 +1086,7 @@ describe('simular — renda fixa bancária (valores da referência)', () => {
   });
   it('CDB IPCA + 7% a.a., 3 anos', () => {
     const r = simular({ ...cdb103, indexacao: { tipo: 'IPCA_MAIS', taxaRealAA: 0.07 } }, '2029-09-28', CEN);
-    expect(r.valorLiquido).toBeCloseTo(13262.08414, 3);
+    expect(r.valorLiquido).toBeCloseTo(13275.393373, 3);
   });
   it('IOF antes do IR: CDB 100% resgatado em 15 dias', () => {
     const r = simular({ ...cdb103, indexacao: { tipo: 'POS_CDI', percentualCDI: 1 } }, '2026-10-13', CEN);
@@ -1504,7 +1523,7 @@ describe('equivalência', () => {
     expect(eq.tributadoPosCDI).toBeCloseTo(0.925707, 5);
     expect(eq.regraDeBolso).toBeCloseTo(0.8 / 0.85, 10);
     expect(eq.tributadoPre).toBeCloseTo(0.12575, 5);
-    expect(eq.tributadoIpcaMais).toBeCloseTo(0.080167, 5);
+    expect(eq.tributadoIpcaMais).toBeCloseTo(0.079909, 5);
     expect(eq.isentoPosCDI).toBeCloseTo(0.8, 6);
     expect(eq.aliquotaIR).toBe(0.15);
   });
@@ -1513,7 +1532,7 @@ describe('equivalência', () => {
     expect(eq.tributadoPosCDI).toBeCloseTo(0.959773, 5);
     expect(eq.regraDeBolso).toBeCloseTo(0.8 / 0.825, 10);
     expect(eq.tributadoPre).toBeCloseTo(0.130667, 5);
-    expect(eq.tributadoIpcaMais).toBeCloseTo(0.084885, 5);
+    expect(eq.tributadoIpcaMais).toBeCloseTo(0.084526, 5);
   });
   it('CDB 103% por 2 anos equivale a LCI 89,17% (bolso 87,55%)', () => {
     const cdb: Aplicacao = { ...lci80, produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 } };
@@ -1855,7 +1874,7 @@ function explicarRendimento(r: ResultadoSimulacao): Pick<ExplicacaoPasso, 'curto
     case 'IPCA_MAIS':
       return {
         curto: `A inflação do período (IPCA) mais ${formatarPercentual(ix.taxaRealAA)} ao ano de juro real.`,
-        matematica: `fator = ∏ (1 + IPCA)^(1/252) × (1 + ${formatarPercentual(ix.taxaRealAA)})^(${r.diasUteis}/252) = ${fator}`,
+        matematica: `fator = ∏ (1 + IPCA)^(1/(12 × DU do mês)) × (1 + ${formatarPercentual(ix.taxaRealAA)})^(${r.diasUteis}/252) = ${fator}`,
         termo: 'ipca-mais',
       };
     case 'SELIC':

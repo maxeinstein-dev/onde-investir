@@ -127,7 +127,10 @@ prazos LCI/LCA atrelados a IPCA (36/12 meses) e hipóteses de resgate antecipado
 Detalhes:
 - **% do CDI:** fator diário `(1 + CDI_aa)^(1/252) − 1` × percentual, acumulado por
   dia útil (padrão B3).
-- **IPCA+:** IPCA mensal projetado do cenário, pró-rata em dias úteis.
+- **IPCA+:** IPCA mensal projetado do cenário, pró-rata em dias úteis. Cada dia útil do
+  mês civil rende `(1 + IPCA_aa)^(1 / (12 × DU_do_mês))`: um mês inteiro rende
+  `(1 + IPCA_aa)^(1/12)` e um ano civil inteiro rende `1 + IPCA_aa`. O juro real segue
+  `(1 + taxa real)^(DU/252)`.
 - **Poupança:** depósitos nos dias 29, 30 e 31 fazem aniversário no dia 1º. Resgate
   antes do aniversário perde o mês incompleto.
 - **Tesouro:** custódia conforme 3.1. Resgate antes do vencimento (exceto Selic) =
