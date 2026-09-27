@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { horizontesPadrao, lideres, linhaDoTempo, tabelaPorHorizonte } from '../../src/engine/comparacao';
 import type { OfertaCadastrada } from '../../src/engine/ofertas';
 import { CEN, INI } from './cenarioPadrao';
+import { cenarioReal } from './cenarioReal';
 
 const base = { emissor: 'B', conglomerado: 'B', liquidez: 'NO_VENCIMENTO' as const };
 const cdb2027: OfertaCadastrada = { ...base, id: '1', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 }, vencimento: '2027-09-28' };
@@ -39,8 +40,7 @@ describe('tabelaPorHorizonte', () => {
     expect(umAno?.projecoes.map((p) => p.estado)).toEqual(['DISPONIVEL', 'INDISPONIVEL']);
     expect(umAno?.lideres).toEqual([0]);
   });
-  // Limite folgado para a CI; se passar de ~300 ms localmente, otimizar o acúmulo diário
-  // (pré-calcular os dias úteis) antes do Lote C.
+  // Limite folgado para a CI; os limites reais estão nos testes com o cenário projetado, abaixo.
   it('desempenho: 10 ofertas × 6 horizontes < 1500 ms', () => {
     const ofertas = Array.from({ length: 10 }, (_, i) => ({ ...cdb2027, id: String(i), vencimento: `${2027 + (i % 5)}-09-28` }));
     const t0 = performance.now();
@@ -59,5 +59,40 @@ describe('linhaDoTempo', () => {
   });
   it('sem vencimentos → sem marcos', () => {
     expect(linhaDoTempo([{ ...cdb2027, vencimento: undefined, liquidez: 'DIARIA' }], 10000, INI, CEN, { tipo: 'PADRAO' }).marcos).toEqual([]);
+  });
+});
+
+describe('desempenho com o cenário PROJETADO real (fixtures do BCB)', () => {
+  const cen = cenarioReal('BASE');
+  const b = { emissor: 'B', conglomerado: 'B' };
+  const mix: OfertaCadastrada[] = [
+    { ...b, id: '1', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.05 }, vencimento: '2027-09-28', liquidez: 'NO_VENCIMENTO' },
+    { ...b, id: '2', produto: 'CDB', indexacao: { tipo: 'PRE', taxaAA: 0.14 }, vencimento: '2029-09-28', liquidez: 'NO_VENCIMENTO' },
+    { ...b, id: '3', produto: 'CDB', indexacao: { tipo: 'IPCA_MAIS', taxaRealAA: 0.075 }, vencimento: '2031-09-29', liquidez: 'NO_VENCIMENTO' },
+    { ...b, id: '4', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.9 }, vencimento: '2028-09-28', liquidez: 'NO_VENCIMENTO' },
+    { ...b, id: '5', produto: 'LCA', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.92 }, vencimento: '2028-03-28', liquidez: 'NO_VENCIMENTO' },
+    { ...b, id: '6', produto: 'TESOURO_SELIC', indexacao: { tipo: 'SELIC' }, vencimento: '2031-03-01', liquidez: 'DIARIA' },
+    { ...b, id: '7', produto: 'TESOURO_PREFIXADO', indexacao: { tipo: 'PRE', taxaAA: 0.135 }, vencimento: '2032-01-01', liquidez: 'DIARIA' },
+    { ...b, id: '8', produto: 'TESOURO_IPCA', indexacao: { tipo: 'IPCA_MAIS', taxaRealAA: 0.075 }, vencimento: '2035-05-15', liquidez: 'DIARIA' },
+    { ...b, id: '9', produto: 'TESOURO_IPCA', indexacao: { tipo: 'IPCA_MAIS', taxaRealAA: 0.074 }, vencimento: '2033-05-15', liquidez: 'DIARIA' },
+    { ...b, id: '10', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.1 }, vencimento: '2030-09-30', liquidez: 'NO_VENCIMENTO' },
+  ];
+  const ipcaLongos = Array.from({ length: 10 }, (_, i): OfertaCadastrada => ({
+    ...b, id: String(i), produto: 'TESOURO_IPCA', indexacao: { tipo: 'IPCA_MAIS', taxaRealAA: 0.07 }, vencimento: `${2030 + 2 * i}-05-15`, liquidez: 'DIARIA',
+  }));
+  const tempo = (f: () => unknown) => {
+    const t0 = performance.now();
+    f();
+    return performance.now() - t0;
+  };
+  it('linhaDoTempo com um mix de 10 produtos (vencimentos 2027–2035) < 300 ms', () => {
+    expect(tempo(() => linhaDoTempo(mix, 10000, INI, cen, { tipo: 'PADRAO' }))).toBeLessThan(300);
+  });
+  it('linhaDoTempo com 10 Tesouro IPCA+ (2030–2048) < 800 ms', () => {
+    expect(tempo(() => linhaDoTempo(ipcaLongos, 10000, INI, cen, { tipo: 'PADRAO' }))).toBeLessThan(800);
+  });
+  it('tabela do plano (10 ofertas × 6 horizontes) < 300 ms', () => {
+    const ofertas = Array.from({ length: 10 }, (_, i) => ({ ...cdb2027, id: String(i), vencimento: `${2027 + (i % 5)}-09-28` }));
+    expect(tempo(() => tabelaPorHorizonte(ofertas, 10000, INI, horizontesPadrao(INI, '2030-01-15'), cen, { tipo: 'PADRAO' }))).toBeLessThan(300);
   });
 });
