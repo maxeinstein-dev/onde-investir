@@ -90,6 +90,7 @@ describe('interpretarFocusAnuais', () => {
     expect(r.selicAnual.find((a) => a.ano === 2030)?.est.mediana).toBe(10);
     expect(r.ipcaAnual.find((a) => a.ano === 2026)?.est).toEqual({ mediana: 4.9205, desvioPadrao: 0.2347, minimo: 4.047, maximo: 5.8963 });
     expect(r.ipcaAnual.find((a) => a.ano === 2027)?.est.mediana).toBe(4.3);
+    expect(r.dataColeta).toBe('2026-09-18');
   });
   it('sem linhas de um dos indicadores → RespostaInvalidaError', () => {
     const soIpca = { value: focusAnuais.value.filter((l) => l.Indicador === 'IPCA') };

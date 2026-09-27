@@ -17,11 +17,13 @@ const ultimo = <T>(xs: readonly T[]): T => xs.at(-1) as T;
 
 const selic = interpretarFocusSelic(focusSelic);
 const mensal = interpretarFocusIpcaMensal(focusIpcaMensal);
+const anuais = interpretarFocusAnuais(focusAnuais);
 export const FOCUS_REAL: DadosFocus = {
-  dataColeta: selic.dataColeta > mensal.dataColeta ? selic.dataColeta : mensal.dataColeta,
+  dataColeta: [selic.dataColeta, mensal.dataColeta, anuais.dataColeta].reduce((min, d) => (d < min ? d : min)),
   selicPorReuniao: selic.selicPorReuniao,
   ipcaMensal: mensal.ipcaMensal,
-  ...interpretarFocusAnuais(focusAnuais),
+  selicAnual: anuais.selicAnual,
+  ipcaAnual: anuais.ipcaAnual,
 };
 export const ATUAIS_REAL: Atuais = {
   dataReferencia: ultimo(interpretarSgs(sgs4389)).data,

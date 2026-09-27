@@ -82,14 +82,19 @@ export function interpretarFocusIpcaMensal(json: unknown): Pick<DadosFocus, 'dat
 const FocusAnual = z.object({ value: z.array(z.object({
   Indicador: z.enum(['Selic', 'IPCA']), Data: DataIso, DataReferencia: z.string().regex(/^\d{4}$/), ...estatisticas,
 }).refine(estatisticasCoerentes)).min(1) });
-export function interpretarFocusAnuais(json: unknown): Pick<DadosFocus, 'selicAnual' | 'ipcaAnual'> {
+/** `dataColeta` é a menor entre a coleta mais recente da Selic e a do IPCA. */
+export function interpretarFocusAnuais(json: unknown): Pick<DadosFocus, 'dataColeta' | 'selicAnual' | 'ipcaAnual'> {
   const linhas = validar('Focus anual', FocusAnual, json).value;
-  const de = (indicador: 'Selic' | 'IPCA') =>
-    daColetaMaisRecente(linhas.filter((l) => l.Indicador === indicador)).linhas.map((l) => ({ ano: Number(l.DataReferencia), est: paraEst(l) }));
-  const selicAnual = de('Selic');
-  const ipcaAnual = de('IPCA');
-  if (selicAnual.length === 0 || ipcaAnual.length === 0) throw new RespostaInvalidaError('Focus anual');
-  return { selicAnual, ipcaAnual };
+  const de = (indicador: 'Selic' | 'IPCA') => daColetaMaisRecente(linhas.filter((l) => l.Indicador === indicador));
+  const selic = de('Selic');
+  const ipca = de('IPCA');
+  if (selic.linhas.length === 0 || ipca.linhas.length === 0) throw new RespostaInvalidaError('Focus anual');
+  const paraAno = (l: (typeof linhas)[number]) => ({ ano: Number(l.DataReferencia), est: paraEst(l) });
+  return {
+    dataColeta: selic.data < ipca.data ? selic.data : ipca.data,
+    selicAnual: selic.linhas.map(paraAno),
+    ipcaAnual: ipca.linhas.map(paraAno),
+  };
 }
 
 const Calendario = z.object({ conteudo: z.array(z.object({ dataEvento: z.string().regex(/^\d{4}-\d{2}-\d{2}T/).refine((d) => ehDataValida(d.slice(0, 10))) })).min(1) });

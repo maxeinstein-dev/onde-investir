@@ -68,6 +68,7 @@ describe('carregarIndicadores', () => {
     expect(r.atuais?.ipca12mAA).toBeCloseTo(0.042234527370682784, 12);
 
     expect(r.focus?.dataColeta).toBe('2026-09-18');
+    expect(r.focusDefasado).toBe(false);
     expect(r.focus?.selicPorReuniao).toHaveLength(16);
     expect(r.focus?.ipcaMensal).toHaveLength(25);
     expect(r.focus?.selicAnual).toHaveLength(5);
@@ -108,6 +109,7 @@ describe('carregarIndicadores', () => {
       atuais: null, focus: null, reunioes: null,
       status: { sgs: 'FALHOU', focus: 'FALHOU', copom: 'FALHOU' },
       obtidoEm: {},
+      focusDefasado: false,
     });
   });
 
@@ -150,5 +152,21 @@ describe('carregarIndicadores', () => {
     const curta = new Map([[urlSgsUltimos(433, 12), { ok: true, status: 200, json: sgs433.slice(1) }]]);
     const r = await carregarIndicadores({ buscar: falso(curta).buscar, armazenamento: memoria(), agoraMs: AGORA });
     expect(r.status.sgs).toBe('FALHOU');
+  });
+
+  it.each([
+    ['mensal', urlFocusIpcaMensal(), { value: focusIpcaMensal.value.filter((l) => l.Data !== '2026-09-18') }],
+    ['anual (só o IPCA)', urlFocusAnuais(), { value: focusAnuais.value.filter((l) => !(l.Indicador === 'IPCA' && l.Data === '2026-09-18')) }],
+  ] as const)('coletas divergentes (%s de 17/09): dataColeta é a menor e focusDefasado true, também do cache', async (_nome, url, json) => {
+    const troca = new Map([[url, { ok: true, status: 200, json }]]);
+    const armazenamento = memoria();
+    const r = await carregarIndicadores({ buscar: falso(troca).buscar, armazenamento, agoraMs: AGORA });
+    expect(r.status.focus).toBe('REDE');
+    expect(r.focus?.dataColeta).toBe('2026-09-17');
+    expect(r.focusDefasado).toBe(true);
+    const doCache = await carregarIndicadores({ buscar: foraDoAr, armazenamento, agoraMs: ANTES_DA_VALIDADE });
+    expect(doCache.status.focus).toBe('CACHE');
+    expect(doCache.focus).toEqual(r.focus);
+    expect(doCache.focusDefasado).toBe(true);
   });
 });

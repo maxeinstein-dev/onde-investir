@@ -20,6 +20,8 @@ export interface IndicadoresCarregados {
   reunioes: ReuniaoCopom[] | null;
   status: { sgs: StatusFonte; focus: StatusFonte; copom: StatusFonte };
   obtidoEm: { sgs?: number; focus?: number; copom?: number };
+  /** As três consultas do Focus (Selic, IPCA mensal e anual) vieram de coletas diferentes; `focus.dataColeta` é a menor. */
+  focusDefasado: boolean;
 }
 
 const TIMEOUT_PADRAO_MS = 10_000;
@@ -37,6 +39,9 @@ const EsquemaFocus = z.object({
   selicAnual: z.array(z.object({ ano: z.number().int(), est: Est })).min(1),
   ipcaAnual: z.array(z.object({ ano: z.number().int(), est: Est })).min(1),
 });
+/** O que vai para o cache do Focus: os dados e se as coletas divergiram. Cache no formato anterior não passa e é rebuscado. */
+const EsquemaFocusCarregado = z.object({ focus: EsquemaFocus, defasado: z.boolean() });
+interface FocusCarregado { focus: DadosFocus; defasado: boolean }
 const EsquemaReunioes = z.array(z.object({ id: z.string().regex(/^R[1-8]\/\d{4}$/), anuncio: DataIso, estimada: z.boolean() })).min(1);
 
 /** Uma requisição com timeout: aborta o sinal e rejeita mesmo que `buscar` ignore o sinal. */
@@ -79,19 +84,21 @@ async function redeSgs(obter: (url: string) => Promise<unknown>): Promise<Atuais
   };
 }
 
-async function redeFocus(obter: (url: string) => Promise<unknown>): Promise<DadosFocus> {
+async function redeFocus(obter: (url: string) => Promise<unknown>): Promise<FocusCarregado> {
   const [selic, mensal, anuais] = await Promise.all([
     obter(urlFocusSelic()).then(interpretarFocusSelic),
     obter(urlFocusIpcaMensal()).then(interpretarFocusIpcaMensal),
     obter(urlFocusAnuais()).then(interpretarFocusAnuais),
   ]);
-  return {
-    dataColeta: selic.dataColeta > mensal.dataColeta ? selic.dataColeta : mensal.dataColeta,
+  const coletas = [selic.dataColeta, mensal.dataColeta, anuais.dataColeta];
+  const focus: DadosFocus = {
+    dataColeta: coletas.reduce((min, d) => (d < min ? d : min)),
     selicPorReuniao: selic.selicPorReuniao,
     ipcaMensal: mensal.ipcaMensal,
     selicAnual: anuais.selicAnual,
     ipcaAnual: anuais.ipcaAnual,
   };
+  return { focus, defasado: new Set(coletas).size > 1 };
 }
 
 async function redeCopom(obter: (url: string) => Promise<unknown>, agoraMs: number): Promise<ReuniaoCopom[]> {
@@ -127,7 +134,7 @@ export async function carregarIndicadores(deps: {
   const obter = (url: string) => obterJson(buscar, url, timeoutMs);
   const [sgs, focus, copom] = await Promise.allSettled([
     carregarGrupo({ chave: 'sgs', esquema: EsquemaAtuais, validoAte: validadeDiaria(agoraMs), rede: () => redeSgs(obter) }, armazenamento, agoraMs),
-    carregarGrupo({ chave: 'focus', esquema: EsquemaFocus, validoAte: validadeFocus(agoraMs), rede: () => redeFocus(obter) }, armazenamento, agoraMs),
+    carregarGrupo({ chave: 'focus', esquema: EsquemaFocusCarregado, validoAte: validadeFocus(agoraMs), rede: () => redeFocus(obter) }, armazenamento, agoraMs),
     carregarGrupo({ chave: 'copom', esquema: EsquemaReunioes, validoAte: validadeHoras(agoraMs, 24 * 7), rede: () => redeCopom(obter, agoraMs) }, armazenamento, agoraMs),
   ]);
   const s = resultado(sgs);
@@ -139,9 +146,10 @@ export async function carregarIndicadores(deps: {
   if (c.obtidoEm !== undefined) obtidoEm.copom = c.obtidoEm;
   return {
     atuais: s.dados,
-    focus: f.dados,
+    focus: f.dados?.focus ?? null,
     reunioes: c.dados,
     status: { sgs: s.status, focus: f.status, copom: c.status },
     obtidoEm,
+    focusDefasado: f.dados?.defasado ?? false,
   };
 }
