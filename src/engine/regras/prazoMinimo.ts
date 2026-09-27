@@ -5,6 +5,9 @@ import { resolverRegra, type VersaoRegra } from './tipos';
 export type ProdutoImobiliarioAgro = 'LCI' | 'LCA';
 type Prazos = Record<ProdutoImobiliarioAgro, { comIPCA: number; demais: number }>;
 
+// comIPCA: os 36 meses da LCI valem para atualização MENSAL por índice de preços; com atualização
+// anual o prazo é de 6 meses. O app assume atualização mensal (a opção conservadora, prazo maior).
+// Os 12 meses da LCA com índice de preços ainda não foram confirmados em texto oficial.
 // Versões anteriores (Res. CMN 5.118/2024 e alteração de fev/2025) entram no M3, com posições.
 export const VERSOES_PRAZO_MINIMO: readonly VersaoRegra<Prazos>[] = [
   {

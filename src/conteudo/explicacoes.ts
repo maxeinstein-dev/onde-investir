@@ -91,7 +91,7 @@ export function explicarSimulacao(r: ResultadoSimulacao): ExplicacaoPasso[] {
     passos.push({
       id: 'custodia', titulo: 'Custódia B3', sinal: '−', valor: r.custodia,
       curto: r.custodia > 0
-        ? 'A B3 cobra 0,20% ao ano pela guarda dos títulos, descontados no resgate.'
+        ? 'A B3 cobra 0,20% ao ano pela guarda dos títulos, descontados quando há resgate, vencimento ou pagamento de juros.'
         : 'Sem custódia: no Tesouro Selic, os primeiros R$ 10 mil são isentos.',
       matematica: 'custódia ≈ 0,20% × (dias corridos ÷ 365) × (média entre aplicado e bruto − isenção). A B3 calcula dia a dia; aqui usamos a média.',
       fonte: FONTE_CUSTODIA, termo: 'custodia',

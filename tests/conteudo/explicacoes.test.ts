@@ -28,6 +28,7 @@ describe('explicarSimulacao', () => {
   it('Tesouro: inclui custódia', () => {
     const passos = explicarSimulacao(simular({ ...cdb, produto: 'TESOURO_SELIC', indexacao: { tipo: 'SELIC' }, valor: 50000 }, '2027-09-28', CEN));
     expect(passos.map((p) => p.id)).toContain('custodia');
+    expect(passos.find((p) => p.id === 'custodia')?.curto).toMatch(/descontados quando há resgate, vencimento ou pagamento de juros/);
   });
   it('Poupança: explica o aniversário', () => {
     const passos = explicarSimulacao(simular({ ...cdb, produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' } }, '2027-03-27', CEN));
