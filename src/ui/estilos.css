@@ -593,6 +593,178 @@ button:hover {
   flex-basis: 100%;
 }
 
+/* Texto só para leitores de tela. */
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Comparação */
+.comparacao {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--borda);
+}
+
+.comparacao h2:focus-visible,
+.palpite h2:focus-visible,
+.resultado h2:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+/* A tabela rola na horizontal dentro do contêiner, sem rolar a página. */
+.tabela-rolavel {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 1rem 0;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+.tabela-rolavel:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.tabela-horizontes {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabela-horizontes caption {
+  padding: 0.6rem 0.75rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.tabela-horizontes th,
+.tabela-horizontes td {
+  padding: 0.6rem 0.75rem;
+  border-top: 1px solid var(--borda);
+  text-align: left;
+  vertical-align: top;
+}
+
+.tabela-horizontes thead th {
+  background: var(--fundo-suave);
+  white-space: nowrap;
+}
+
+.tabela-horizontes tbody th {
+  min-width: 11rem;
+  font-weight: 600;
+}
+
+.tabela__data {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--texto-suave);
+}
+
+.celula {
+  min-width: 10rem;
+}
+
+.celula__valor {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.celula--lider {
+  background: var(--sucesso-fundo);
+  box-shadow: inset 3px 0 0 var(--sucesso);
+}
+
+.celula__selo {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--sucesso);
+  border-radius: 999px;
+}
+
+.celula__nota,
+.celula--estado {
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+}
+
+.celula__nota {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.celula__porque {
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.celula__porque > summary {
+  color: var(--primaria);
+  cursor: pointer;
+}
+
+.celula__porque .porque {
+  min-width: 16rem;
+}
+
+.celula__reinvestimento {
+  margin: 0.75rem 0;
+  padding: 0.4rem 0.6rem;
+  background: var(--aviso-fundo);
+  border-radius: 4px;
+}
+
+/* Linha do tempo */
+.linha-do-tempo__marcos {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.marco + .marco {
+  margin-top: 1rem;
+}
+
+.marco h4 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.marco p {
+  margin: 0.25rem 0;
+}
+
+.marco__ranking {
+  margin: 0.25rem 0;
+  padding-left: 1.5rem;
+}
+
+.marco__lider {
+  font-weight: 700;
+}
+
+.linha-do-tempo__conclusao {
+  margin: 1rem 0 0;
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+  background: var(--fundo-suave);
+  border-radius: var(--raio);
+}
+
 /* Celular: uma coluna só. */
 @media (max-width: 639px) {
   .pagina {

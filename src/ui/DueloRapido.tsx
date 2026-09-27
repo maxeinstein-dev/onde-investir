@@ -167,8 +167,8 @@ export function DueloRapido({ cenario, descricaoCenario }: PropsDueloRapido) {
       {erro && <p role="alert" class="erro">{erro}</p>}
 
       {fase.tipo === 'palpite' && (
-        <PalpiteAntesDeVer refTitulo={tituloPalpite} nomeA={descreverOferta(a)} nomeB={descreverOferta(b)}
-          onEscolher={(palpite) => setFase({ ...fase, tipo: 'resultado', palpite })} onPular={pularPalpites} />
+        <PalpiteAntesDeVer id="duelo-palpite" refTitulo={tituloPalpite} opcoes={[descreverOferta(a), descreverOferta(b)]}
+          onEscolher={(i) => setFase({ ...fase, tipo: 'resultado', palpite: i === 0 ? 'A' : 'B' })} onPular={pularPalpites} />
       )}
 
       {fase.tipo === 'resultado' && (

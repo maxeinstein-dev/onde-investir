@@ -28,10 +28,23 @@ describe('PalpiteAntesDeVer', () => {
   it('escolher e pular', () => {
     const escolher = vi.fn();
     const pular = vi.fn();
-    render(<PalpiteAntesDeVer nomeA="CDB 103% do CDI" nomeB="LCI 80% do CDI" onEscolher={escolher} onPular={pular} />);
+    render(<PalpiteAntesDeVer id="teste" opcoes={['CDB 103% do CDI', 'LCI 80% do CDI']} onEscolher={escolher} onPular={pular} />);
     fireEvent.click(screen.getByRole('button', { name: 'B: LCI 80% do CDI' }));
-    expect(escolher).toHaveBeenCalledWith('B');
+    expect(escolher).toHaveBeenCalledWith(1);
     fireEvent.click(screen.getByRole('button', { name: /pular/i }));
     expect(pular).toHaveBeenCalled();
+  });
+  it('um botão por opção, com letras, e ids com o prefixo recebido', () => {
+    render(
+      <>
+        <PalpiteAntesDeVer id="um" opcoes={['X', 'Y', 'Z']} pergunta="Qual lidera em 5 anos?" onEscolher={() => {}} onPular={() => {}} />
+        <PalpiteAntesDeVer id="dois" opcoes={['X', 'Y']} onEscolher={() => {}} onPular={() => {}} />
+      </>,
+    );
+    const um = screen.getByRole('region', { name: 'Qual lidera em 5 anos?' });
+    expect(um.querySelectorAll('button')).toHaveLength(4);
+    expect(screen.getByRole('button', { name: 'C: Z' })).toBeInTheDocument();
+    expect(document.getElementById('um-titulo')).toHaveTextContent('Qual lidera em 5 anos?');
+    expect(document.getElementById('dois-titulo')).toHaveTextContent('Antes de ver: qual você acha que rende mais?');
   });
 });

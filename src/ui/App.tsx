@@ -7,6 +7,7 @@ import { cenarioAtivo, type CenarioAtivo } from '../dados/cenarios';
 import type { IndicadoresCarregados } from '../dados/indicadores';
 import type { OfertaCadastrada } from '../engine/ofertas';
 import { Abas } from './Abas';
+import { Comparacao } from './comparacao/Comparacao';
 import { DueloRapido } from './DueloRapido';
 import { MinhasOfertas } from './ofertas/MinhasOfertas';
 import { PainelIndicadores } from './PainelIndicadores';
@@ -63,8 +64,14 @@ export function App({ carregar }: PropsApp = {}) {
         onChange={mudarPreferencias} />
 
       <Abas rotulo="O que você quer fazer" abas={[
-        // C7: a comparação entra aqui, abaixo das ofertas, recebendo `ativo.cenario`.
-        { id: 'ofertas', rotulo: 'Comparar ofertas', conteudo: <MinhasOfertas ofertas={ofertas} onChange={mudarOfertas} /> },
+        {
+          id: 'ofertas', rotulo: 'Comparar ofertas', conteudo: (
+            <>
+              <MinhasOfertas ofertas={ofertas} onChange={mudarOfertas} />
+              <Comparacao ofertas={ofertas} cenario={ativo.cenario} descricaoCenario={descricaoCenario} />
+            </>
+          ),
+        },
         { id: 'duelo', rotulo: 'Duelo rápido', conteudo: <DueloRapido cenario={ativo.cenario} descricaoCenario={descricaoCenario} /> },
       ]} />
     </main>

@@ -122,4 +122,37 @@ describe('App', () => {
     render(<App />);
     expect(screen.getByRole('article', { name: /A: CDB 100% do CDI/ })).toBeInTheDocument();
   });
+  it('com duas ofertas salvas, "Comparar ofertas" mostra a tabela no cenário ativo', async () => {
+    vi.stubGlobal('fetch', fetchForaDoAr);
+    const base = { conglomerado: 'G', liquidez: 'NO_VENCIMENTO', vencimento: '2027-09-28' };
+    localStorage.setItem(CHAVE_OFERTAS, JSON.stringify([
+      { ...base, id: 'a', emissor: 'Banco X', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 } },
+      { ...base, id: 'b', emissor: 'Banco Y', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.1 } },
+    ]));
+    render(<App />);
+    const painelOfertas = screen.getByRole('tabpanel');
+    await within(painel()).findByText('Sem dados do SGS: usando o cenário manual.');
+    expect(within(painelOfertas).getByText(/^Cenário: Sem dados do SGS: usando o cenário manual./)).toBeInTheDocument();
+    fireEvent.click(within(painelOfertas).getByRole('button', { name: 'Comparar' }));
+    expect(screen.getByRole('heading', { name: 'Qual lidera em 5 anos?' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'B: CDB 110% do CDI (Banco Y)' }));
+    expect(screen.getByText('Você acertou.')).toBeInTheDocument();
+    expect(within(painelOfertas).getByRole('table')).toBeInTheDocument();
+  });
+  it('o duelo e a comparação ficam montados juntos sem ids repetidos, mesmo com os dois palpites abertos', () => {
+    vi.stubGlobal('fetch', fetchForaDoAr);
+    const base = { conglomerado: 'G', liquidez: 'DIARIA' };
+    localStorage.setItem(CHAVE_OFERTAS, JSON.stringify([
+      { ...base, id: 'a', emissor: 'Banco X', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 } },
+      { ...base, id: 'b', emissor: 'Banco Y', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.1 } },
+    ]));
+    render(<App />);
+    fireEvent.click(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Comparar' }));
+    fireEvent.click(aba('Duelo rápido'));
+    fireEvent.click(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Comparar' }));
+    expect(document.getElementById('comparacao-palpite-titulo')).not.toBeNull();
+    expect(document.getElementById('duelo-palpite-titulo')).not.toBeNull();
+    const ids = [...document.querySelectorAll('[id]')].map((e) => e.id);
+    expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
+  });
 });
