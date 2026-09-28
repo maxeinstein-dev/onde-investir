@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { motivoSemResgate, resumirDiferenca, rotuloDaTroca, rotuloDaTrocaDeSinal } from '../../src/conteudo/serie';
-import type { OfertaCadastrada } from '../../src/engine/ofertas';
+import { GRAFICO_VALOR, motivoSemResgate, resumirDiferenca, rotuloDaTroca, rotuloDaTrocaDeSinal } from '../../src/conteudo/serie';
 
-const base = { emissor: 'Banco B', conglomerado: 'B' };
-const cdb: OfertaCadastrada = { ...base, id: '1', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 }, vencimento: '2031-09-28', liquidez: 'NO_VENCIMENTO' };
-const lciDiaria: OfertaCadastrada = { ...base, id: '2', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.9 }, vencimento: '2029-09-28', liquidez: 'DIARIA' };
-const prefixado: OfertaCadastrada = { ...base, id: '3', produto: 'TESOURO_PREFIXADO', indexacao: { tipo: 'PRE', taxaAA: 0.13 }, vencimento: '2030-01-01', liquidez: 'DIARIA' };
 
 describe('rótulos do gráfico do valor líquido', () => {
   it('a troca de líder, pelas letras', () => {
@@ -13,10 +8,15 @@ describe('rótulos do gráfico do valor líquido', () => {
     expect(rotuloDaTroca(['A', 'C'])).toBe('A e C empatam');
     expect(rotuloDaTroca([])).toBe('Ninguém pode resgatar');
   });
-  it('por que o trecho é só referência', () => {
-    expect(motivoSemResgate(cdb)).toBe('(só no vencimento)');
-    expect(motivoSemResgate(lciDiaria)).toBe('(prazo mínimo)');
-    expect(motivoSemResgate(prefixado)).toBe('(marcação a mercado)');
+  it('por que o trecho é só referência, pelo motivo do ponto', () => {
+    expect(motivoSemResgate('NO_VENCIMENTO')).toBe('(só no vencimento)');
+    expect(motivoSemResgate('PRAZO_MINIMO')).toBe('(prazo mínimo)');
+    expect(motivoSemResgate('MARCACAO_A_MERCADO')).toBe('(na curva contratada, não é o preço de mercado)');
+  });
+  it('a dica do tracejado explica também o Tesouro Prefixado e o IPCA+', () => {
+    expect(GRAFICO_VALOR.tracejado).toMatch(/Tesouro Prefixado/);
+    expect(GRAFICO_VALOR.tracejado).toMatch(/curva contratada/);
+    expect(GRAFICO_VALOR.tracejado).toMatch(/preço de mercado/);
   });
 });
 

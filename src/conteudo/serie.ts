@@ -1,7 +1,7 @@
 // Textos do gráfico do valor líquido. Rascunho: a revisão editorial é a tarefa C5 do M3b.
 import { type DataISO, dataBR, somarDias } from '../engine/datas';
 import type { OfertaCadastrada } from '../engine/ofertas';
-import type { TrocaDeLider } from '../engine/serie';
+import type { MotivoSemResgate, TrocaDeLider } from '../engine/serie';
 import { listar, nomeOferta } from './comparacao';
 
 const NINGUEM = 'nenhuma oferta pode ser resgatada';
@@ -37,7 +37,7 @@ export function resumirTrocas(trocas: readonly TrocaDeLider[], ofertas: readonly
 /** Textos fixos do gráfico do valor líquido. */
 export const GRAFICO_VALOR = {
   titulo: 'Valor líquido ao longo do tempo',
-  tracejado: 'Linha tracejada: a oferta ainda não pode ser resgatada, e o valor é só referência.',
+  tracejado: 'Linha tracejada: o valor é só referência. A oferta ainda não pode ser resgatada (só no vencimento ou no prazo mínimo) ou, no Tesouro Prefixado e no IPCA+, a venda antes do vencimento sai pelo preço de mercado, e a linha mostra o valor na curva contratada.',
   premissa: 'premissa',
 } as const;
 
@@ -47,11 +47,14 @@ export function rotuloDaTroca(letras: readonly string[]): string {
   return letras.length === 1 ? `${letras[0]} passa a liderar` : `${listar(letras)} empatam`;
 }
 
-/** Por que o valor da oferta é só referência naquele trecho (no tooltip). */
-export function motivoSemResgate(o: OfertaCadastrada): string {
-  if (o.produto === 'TESOURO_PREFIXADO' || o.produto === 'TESOURO_IPCA') return '(marcação a mercado)';
-  return o.liquidez === 'NO_VENCIMENTO' ? '(só no vencimento)' : '(prazo mínimo)';
-}
+const MOTIVOS: Record<MotivoSemResgate, string> = {
+  NO_VENCIMENTO: '(só no vencimento)',
+  PRAZO_MINIMO: '(prazo mínimo)',
+  MARCACAO_A_MERCADO: '(na curva contratada, não é o preço de mercado)',
+};
+
+/** Por que o valor do ponto é só referência (no tooltip), pelo motivo que a série já calculou. */
+export const motivoSemResgate = (motivo: MotivoSemResgate): string => MOTIVOS[motivo];
 
 /** Textos fixos do gráfico da diferença entre duas ofertas. */
 export const GRAFICO_DIFERENCA = {

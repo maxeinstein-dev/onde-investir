@@ -29,7 +29,7 @@ const SERIES: Serie[] = [
     { data: D3, liquido: 10100, resgatavel: true }, { data: D4, liquido: 10101, resgatavel: true },
   ] },
   { ofertaIndice: 1, pontos: [
-    { data: D1, liquido: null, resgatavel: false }, { data: D2, liquido: 10015, resgatavel: false },
+    { data: D1, liquido: null, resgatavel: false }, { data: D2, liquido: 10015, resgatavel: false, motivo: 'NO_VENCIMENTO' },
     { data: D3, liquido: 10150, resgatavel: true }, { data: D4, liquido: 10152, resgatavel: true },
   ] },
 ];
@@ -95,6 +95,24 @@ describe('GraficoValorLiquido', () => {
     expect(cb.title([{ parsed: { x: paraDia(D2) } }])).toBe('12/10/2026');
     expect(cb.label({ datasetIndex: 1, dataIndex: 1, parsed: { y: 10015 } })).toMatch(/^B: R\$\s10\.015,00 \(só no vencimento\)$/);
     expect(cb.label({ datasetIndex: 0, dataIndex: 1, parsed: { y: 10020 } })).toMatch(/^A: R\$\s10\.020,00$/);
+  });
+
+  it('tooltip: o motivo vem do ponto, sem recalcular pela oferta; no Tesouro Prefixado, a curva contratada', () => {
+    const prefixado: OfertaCadastrada = { ...base, id: 'z', emissor: 'Tesouro', liquidez: 'DIARIA', produto: 'TESOURO_PREFIXADO', indexacao: { tipo: 'PRE', taxaAA: 0.13 }, vencimento: '2030-01-01' };
+    const series: Serie[] = [
+      // A LCI "só no vencimento" já venceu e está na reaplicação, dentro do prazo mínimo.
+      { ofertaIndice: 0, pontos: [{ data: D1, liquido: 10010, resgatavel: false, motivo: 'PRAZO_MINIMO' }] },
+      { ofertaIndice: 1, pontos: [{ data: D1, liquido: 10020, resgatavel: false, motivo: 'MARCACAO_A_MERCADO' }] },
+    ];
+    render(<GraficoValorLiquido series={series} trocas={[]} ofertas={[lci, prefixado]} />);
+    const cb = ultimo().config.options?.plugins?.tooltip?.callbacks as { label: (item: { datasetIndex: number; dataIndex: number; parsed: { y: number } }) => string };
+    expect(cb.label({ datasetIndex: 0, dataIndex: 0, parsed: { y: 10010 } })).toMatch(/^A: R\$\s10\.010,00 \(prazo mínimo\)$/);
+    expect(cb.label({ datasetIndex: 1, dataIndex: 0, parsed: { y: 10020 } })).toMatch(/^B: R\$\s10\.020,00 \(na curva contratada, não é o preço de mercado\)$/);
+  });
+
+  it('a dica explica o tracejado, inclusive no Tesouro', () => {
+    montar();
+    expect(screen.getByText(/Linha tracejada/)).toHaveTextContent(/Tesouro Prefixado/);
   });
 
   it('figure com figcaption; o canvas tem role="img" e o resumo das trocas no aria-label e em texto visível', () => {

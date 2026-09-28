@@ -46,10 +46,9 @@ function montarConfig(p: PaletaGrafico, { series, trocas, ofertas, inicioPremiss
     anotacoes,
     rotuloTooltip: (item) => {
       const s = series[item.datasetIndex];
-      const o = s ? ofertas[s.ofertaIndice] : undefined;
       const ponto = s?.pontos[item.dataIndex];
       const letra = letraDaOferta(s?.ofertaIndice ?? item.datasetIndex);
-      const motivo = ponto && !ponto.resgatavel && o ? ` ${motivoSemResgate(o)}` : '';
+      const motivo = ponto && !ponto.resgatavel && ponto.motivo ? ` ${motivoSemResgate(ponto.motivo)}` : '';
       return `${letra}: ${formatarMoeda(item.parsed.y ?? 0)}${motivo}`;
     },
   });
