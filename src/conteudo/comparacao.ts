@@ -20,7 +20,7 @@ function continuarFrase(texto: string): string {
 }
 
 /** "a", "a e b", "a, b e c". */
-function listar(itens: readonly string[]): string {
+export function listar(itens: readonly string[]): string {
   if (itens.length <= 1) return itens.join('');
   return `${itens.slice(0, -1).join(', ')} e ${itens.at(-1)}`;
 }
