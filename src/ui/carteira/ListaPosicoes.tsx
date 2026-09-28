@@ -25,7 +25,8 @@ function Valor({ linha }: { linha: LinhaPosicao }) {
     <>
       {valor.vencida && <p class="cartao__detalhe">{textoDaVencida(valor.data)}</p>}
       <p class="posicao__valor">{quando}: {formatarMoeda(valor.bruto)} bruto, {formatarMoeda(valor.liquido)} líquido</p>
-      {valor.marcacaoAMercado && <p class="dica">{CURVA_CONTRATADA}</p>}
+      {/* Com o extrato do Tesouro a mercado, o texto da conferência já explica a curva: um só. */}
+      {valor.marcacaoAMercado && !motivo && <p class="dica">{CURVA_CONTRATADA}</p>}
       {extrato && <p class="cartao__detalhe">{textoDoExtrato(extrato)}</p>}
       {extrato?.suspeita && <p class="aviso">{EXTRATO_SUSPEITO}</p>}
       {motivo && <p class="dica">{motivo}</p>}

@@ -181,6 +181,17 @@ describe('aba Carteira', () => {
       const c = cartao(/Tesouro Prefixado/);
       expect(c).toHaveTextContent('O extrato do Tesouro mostra o preço de mercado');
       expect(c).not.toHaveTextContent('A diferença passa de 1%');
+      // Só o texto da conferência: o da curva contratada diria o mesmo de novo.
+      expect(c).not.toHaveTextContent('Valor pela taxa contratada');
+    });
+
+    it('Tesouro Prefixado sem extrato: o texto da curva contratada', () => {
+      const pre: Posicao = {
+        ...cdb, id: 'p-t', produto: 'TESOURO_PREFIXADO', indexacao: { tipo: 'PRE', taxaAA: 0.13 }, emissor: 'Tesouro Nacional',
+        conglomerado: 'Tesouro Nacional', liquidez: 'DIARIA', vencimento: '2031-01-01',
+      };
+      render(<Tela inicial={[pre]} />);
+      expect(cartao(/Tesouro Prefixado/)).toHaveTextContent('Valor pela taxa contratada. Vendido antes do vencimento, sai pelo preço de mercado.');
     });
 
     it('posição vencida: no grupo "Vencidas", com "Venceu em", o valor no vencimento e fora do total', () => {
