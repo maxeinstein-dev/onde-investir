@@ -18,6 +18,8 @@ export interface PropsCarteira {
   /** O cenário ativo com o histórico realizado (`cenarioComHistorico`), ou só o cenário enquanto ele não chega. */
   cenario: Cenario;
   historico: EstadoHistorico;
+  /** Busca o histórico de novo; o botão aparece quando a busca falhou. */
+  onTentarDeNovo?: () => void;
   /** Dias úteis sem CDI no histórico (a UI avisa "histórico incompleto"). */
   lacunas: number;
   /** O histórico veio com dado fora da faixa e foi deixado de lado. */
@@ -31,8 +33,9 @@ const PREFIXO = 'carteira';
 
 /** A aba Carteira: as posições que a pessoa já tem, quanto valem hoje e quanto está coberto pelo FGC (spec §5.3). */
 export function Carteira({
-  posicoes, onChange, cenario, historico, lacunas, historicoInvalido, conglomerados, gerarId = novoIdPosicao,
+  posicoes, onChange, cenario, historico, onTentarDeNovo, lacunas, historicoInvalido, conglomerados, gerarId = novoIdPosicao,
 }: PropsCarteira) {
+  const falhou = historico.fase === 'pronto' && historico.carregado.status === 'FALHOU';
   const [editando, setEditando] = useState<string | null>(null);
   const emEdicao = posicoes.find((p) => p.id === editando) ?? null;
   const cheia = posicoes.length >= LIMITE_POSICOES;
@@ -74,6 +77,7 @@ export function Carteira({
       <h2 id={`${PREFIXO}-titulo`} ref={titulo} tabIndex={-1}>Carteira</h2>
       {/* Contêiner vivo permanente: só o texto muda, e o leitor de tela anuncia. */}
       <p role="status" class="dica">{posicoes.length === 0 ? '' : textoDoHistorico(historico, { lacunas, invalido: historicoInvalido })}</p>
+      {posicoes.length > 0 && falhou && onTentarDeNovo && <button type="button" onClick={onTentarDeNovo}>Tentar de novo</button>}
       {posicoes.length === 0 ? (
         <p class="dica">{SEM_POSICOES}</p>
       ) : (

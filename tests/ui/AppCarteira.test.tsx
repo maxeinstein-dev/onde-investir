@@ -127,6 +127,24 @@ describe('aba Carteira no App', () => {
     expect(screen.getByRole('article', { name: /CDB 100% do CDI/ })).toHaveTextContent(/Hoje: R\$ [\d.]+,\d\d bruto/);
   });
 
+  it('histórico que falhou: "Tentar de novo" busca outra vez e, com a rede de volta, calcula pelo realizado', async () => {
+    let rede = false;
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (!rede) throw new TypeError('Failed to fetch');
+      return fetchHistorico(url);
+    }));
+    localStorage.setItem(CHAVE_POSICOES, JSON.stringify([cdbCdi]));
+    history.replaceState(null, '', '/#carteira');
+    render(<App />);
+    const status = within(painelAtivo()).getAllByRole('status')[0] as HTMLElement;
+    await waitFor(() => expect(status).toHaveTextContent('Não deu para buscar o histórico do Banco Central.'));
+    rede = true;
+    fireEvent.click(within(painelAtivo()).getByRole('button', { name: 'Tentar de novo' }));
+    await waitFor(() => expect(status).toHaveTextContent('Valores calculados com o histórico do Banco Central até 25/09/2026.'));
+    expect(within(painelAtivo()).queryByRole('button', { name: 'Tentar de novo' })).toBeNull();
+    expect(chamadasDoHistorico()).toHaveLength(SERIES_HISTORICO.length * 2);
+  });
+
   describe('alerta do FGC na comparação', () => {
     const oferta = (id: string, emissor: string, conglomerado: string) => ({
       id, produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.1 }, emissor, conglomerado, liquidez: 'NO_VENCIMENTO',

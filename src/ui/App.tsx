@@ -77,7 +77,7 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
 
   // O histórico do Banco Central, uma vez quando há posições, desde a aplicação mais antiga.
   const desde = posicoes.reduce<string | null>((min, p) => (min === null || p.dataAplicacao < min ? p.dataAplicacao : min), null);
-  const historico = useHistorico(desde, carregarHistorico);
+  const { estado: historico, tentarDeNovo: tentarHistoricoDeNovo } = useHistorico(desde, carregarHistorico);
   const series = historico.fase === 'pronto' ? historico.carregado.series : null;
   /** O cenário da carteira: o realizado onde há histórico e o cenário ativo no resto. */
   const daCarteira = useMemo(() => {
@@ -185,6 +185,7 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
         {
           id: 'carteira', rotulo: 'Carteira', conteudo: (
             <Carteira posicoes={posicoes} onChange={mudarPosicoes} cenario={daCarteira.cenario} historico={historico}
+              onTentarDeNovo={tentarHistoricoDeNovo}
               lacunas={daCarteira.lacunas} historicoInvalido={daCarteira.invalido} conglomerados={conglomerados} />
           ),
         },

@@ -314,6 +314,15 @@ describe('aba Carteira', () => {
       render(<Tela inicial={[cdb]} historico={carregado({ series: null, status: 'FALHOU' })} />);
       expect(status()).toHaveTextContent('Não deu para buscar o histórico do Banco Central. Os valores saem pelo cenário.');
     });
+    it('"Tentar de novo" só quando a busca falhou', () => {
+      const tentar = vi.fn();
+      const { rerender } = render(<Tela inicial={[cdb]} historico={carregado({ series, status: 'FALHOU', faltando: [{ serie: 433, ano: 2026 }] })}
+        onTentarDeNovo={tentar} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Tentar de novo' }));
+      expect(tentar).toHaveBeenCalledTimes(1);
+      rerender(<Tela inicial={[cdb]} historico={carregado({ series, status: 'REDE' })} onTentarDeNovo={tentar} />);
+      expect(screen.queryByRole('button', { name: 'Tentar de novo' })).toBeNull();
+    });
     it('sem posições, o contêiner fica vazio', () => {
       render(<Tela historico={{ fase: 'inativo' }} />);
       expect(status()).toHaveTextContent('');
