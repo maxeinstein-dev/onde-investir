@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { OfertaInvalidaError } from '../../src/engine/erros';
 import type { ItemFGC } from '../../src/engine/fgc';
 import type { OfertaCadastrada } from '../../src/engine/ofertas';
-import { casarComCatalogo, validarObjetivo, valorAlvo, type Fatia, type Objetivo } from '../../src/engine/sugestao';
+import {
+  casarComCatalogo, sugerir, validarObjetivo, valorAlvo,
+  type ContextoSugestao, type Fatia, type Objetivo,
+} from '../../src/engine/sugestao';
 
 const HOJE = '2026-09-29';
 
@@ -94,5 +97,35 @@ describe('casarComCatalogo', () => {
     const carteira = [carteiraItem('Banco X', 260000)];
     const [f] = casarComCatalogo([fatiaBase({ valor: null })], catalogo, carteira, HOJE);
     expect(f?.fgc).toBeUndefined();
+  });
+});
+
+const ctx = (over: Partial<ContextoSugestao> = {}): ContextoSugestao => ({ catalogo: [], carteira: [], hoje: HOJE, ...over });
+
+describe('sugerir — RESERVA', () => {
+  it('duas fatias: 50% Tesouro Selic + 50% CDB pós liquidez diária, somando o valor-alvo', () => {
+    const fatias = sugerir({ tipo: 'RESERVA', gastoMensal: 2000, rendaEstavel: true }, ctx());
+    expect(fatias).toHaveLength(2);
+    expect(fatias[0]).toMatchObject({ produto: 'TESOURO_SELIC', indexacaoTipo: 'SELIC', percentual: 0.5, motivo: 'RESERVA_TESOURO_SELIC', garantia: 'TESOURO_NACIONAL', valor: 6000 });
+    expect(fatias[1]).toMatchObject({ produto: 'CDB', indexacaoTipo: 'POS_CDI', percentual: 0.5, motivo: 'RESERVA_CDB_LIQUIDEZ', garantia: 'FGC', valor: 6000 });
+    expect(fatias.reduce((s, f) => s + f.percentual, 0)).toBeCloseTo(1, 10);
+  });
+  it('só casa com CDB de liquidez diária no catálogo', () => {
+    const catalogo = [
+      { id: 'a', produto: 'CDB' as const, indexacao: { tipo: 'POS_CDI' as const, percentualCDI: 1 }, emissor: 'Y', conglomerado: 'Y', liquidez: 'NO_VENCIMENTO' as const, vencimento: '2030-01-01' },
+      { id: 'b', produto: 'CDB' as const, indexacao: { tipo: 'POS_CDI' as const, percentualCDI: 1.1 }, emissor: 'Z', conglomerado: 'Z', liquidez: 'DIARIA' as const },
+    ];
+    const fatias = sugerir({ tipo: 'RESERVA', gastoMensal: 1000, rendaEstavel: true }, ctx({ catalogo }));
+    expect(fatias[1]?.ofertaCatalogo?.id).toBe('b');
+  });
+});
+
+describe('sugerir — LONGO_PRAZO', () => {
+  it('duas fatias pela faixa do horizonte, sem valor (não há valor-alvo)', () => {
+    const fatias = sugerir({ tipo: 'LONGO_PRAZO', horizonteAnos: 15 }, ctx());
+    expect(fatias).toEqual([
+      { produto: 'TESOURO_IPCA', indexacaoTipo: 'IPCA_MAIS', percentual: 0.7, motivo: 'LONGO_PRAZO_IPCA', garantia: 'TESOURO_NACIONAL', valor: null, ofertaCatalogo: undefined, fgc: undefined },
+      { produto: 'CDB', indexacaoTipo: 'POS_CDI', percentual: 0.3, motivo: 'LONGO_PRAZO_POS', garantia: 'FGC', valor: null, ofertaCatalogo: undefined, fgc: undefined },
+    ]);
   });
 });

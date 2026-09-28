@@ -9,7 +9,7 @@ import { coberto, normalizarConglomerado } from './fgc';
 import type { OfertaCadastrada } from './ofertas';
 import type { TipoIndexacao, TipoProduto } from './produtos';
 import { regraFGC } from './regras/fgc';
-import { MULTIPLICADOR_RESERVA } from './regras/sugestao';
+import { faixaLongoPrazo, MULTIPLICADOR_RESERVA } from './regras/sugestao';
 
 export type Objetivo =
   | { tipo: 'RESERVA'; gastoMensal: number; rendaEstavel: boolean }
@@ -112,4 +112,30 @@ export function casarComCatalogo(
       : undefined;
     return { ...f, ofertaCatalogo, fgc };
   });
+}
+
+function sugerirReserva(o: Extract<Objetivo, { tipo: 'RESERVA' }>, ctx: ContextoSugestao): Fatia[] {
+  const total = valorAlvo(o) as number;
+  const base: Fatia[] = [
+    { produto: 'TESOURO_SELIC', indexacaoTipo: 'SELIC', percentual: 0.5, motivo: 'RESERVA_TESOURO_SELIC', garantia: 'TESOURO_NACIONAL', valor: total * 0.5 },
+    { produto: 'CDB', indexacaoTipo: 'POS_CDI', percentual: 0.5, motivo: 'RESERVA_CDB_LIQUIDEZ', garantia: 'FGC', valor: total * 0.5 },
+  ];
+  return casarComCatalogo(base, ctx.catalogo, ctx.carteira, ctx.hoje, { liquidezDiaria: true });
+}
+
+function sugerirLongoPrazo(o: Extract<Objetivo, { tipo: 'LONGO_PRAZO' }>, ctx: ContextoSugestao): Fatia[] {
+  const faixa = faixaLongoPrazo(o.horizonteAnos);
+  const base: Fatia[] = [
+    { produto: 'TESOURO_IPCA', indexacaoTipo: 'IPCA_MAIS', percentual: faixa.ipca, motivo: 'LONGO_PRAZO_IPCA', garantia: 'TESOURO_NACIONAL', valor: null },
+    { produto: 'CDB', indexacaoTipo: 'POS_CDI', percentual: faixa.pos, motivo: 'LONGO_PRAZO_POS', garantia: 'FGC', valor: null },
+  ];
+  return casarComCatalogo(base, ctx.catalogo, ctx.carteira, ctx.hoje);
+}
+
+export function sugerir(objetivo: Objetivo, ctx: ContextoSugestao): Fatia[] {
+  switch (objetivo.tipo) {
+    case 'RESERVA': return sugerirReserva(objetivo, ctx);
+    case 'LONGO_PRAZO': return sugerirLongoPrazo(objetivo, ctx);
+    default: throw new Error(`Objetivo "${objetivo.tipo}" ainda não implementado`);
+  }
 }
