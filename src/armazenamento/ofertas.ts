@@ -9,9 +9,9 @@ import { PERCENTUAL_CDI_MAXIMO } from '../engine/produtos';
 export const CHAVE_OFERTAS = 'rende:ofertas:v1';
 export const LIMITE_OFERTAS = 30;
 export const LIMITE_CARACTERES_IMPORTACAO = 100_000;
-const LIMITE_TEXTO = 80;
+export const LIMITE_TEXTO = 80;
 
-const DataIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(ehDataValida);
+export const DataIso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(ehDataValida);
 const taxaAnual = z.number().gt(-1);
 
 const EsquemaIndexacao = z.discriminatedUnion('tipo', [
@@ -22,7 +22,8 @@ const EsquemaIndexacao = z.discriminatedUnion('tipo', [
   z.strictObject({ tipo: z.literal('POUPANCA') }),
 ]);
 
-const camposOferta = {
+/** Os campos da oferta cadastrada, sem o id: as posições (armazenamento/posicoes) têm os mesmos. */
+export const camposOferta = {
   produto: z.enum(['CDB', 'RDB', 'LC', 'LCI', 'LCA', 'TESOURO_SELIC', 'TESOURO_PREFIXADO', 'TESOURO_IPCA', 'POUPANCA']),
   indexacao: EsquemaIndexacao,
   // Texto livre: a renderização escapa (Preact, sem innerHTML), então "<script>" fica só como texto.
