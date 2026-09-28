@@ -469,6 +469,15 @@ describe('Comparador', () => {
       expect(tituloResultado()).toHaveFocus();
     });
 
+    it('a "sua data" vai para os alertas: prazo incompatível nela, mesmo coincidindo com "1 ano"', () => {
+      montar({ selecao: ['x', 'y'] });
+      fireEvent.input(screen.getByLabelText('Sua data (opcional)'), { target: { value: '2027-09-28' } });
+      compararDireto();
+      const alertas = secaoAlertas() as HTMLElement;
+      expect(within(alertas).getByRole('heading', { name: 'Prazo incompatível' })).toBeInTheDocument();
+      expect(alertas).toHaveTextContent('Não dá para resgatar LCI 80% do CDI (Banco Y) em 1 ano');
+    });
+
     it('os gráficos só aparecem depois de "Comparar", num <details open> entre a tabela e a linha do tempo', () => {
       montar({ selecao: ['x', 'y'] });
       expect(detalhesGraficos()).toBeNull();

@@ -4,7 +4,7 @@ import { armazenamentoLocal } from '../../armazenamento/navegador';
 import { lerPalpitesLigados, salvarPalpitesLigados } from '../../armazenamento/preferencias';
 import { AVISO_CENARIO_INVALIDO, descreverProjecao, nomeDoHorizonte, nomeOferta } from '../../conteudo/comparacao';
 import { descreverOferta } from '../../conteudo/motivos';
-import { gerarAlertas, type Alerta } from '../../engine/alertas';
+import { gerarAlertas, LIMIAR_QUASE_EMPATE, type Alerta } from '../../engine/alertas';
 import { ehDiaUtil } from '../../engine/calendario';
 import { horizontesPadrao, linhaDoTempo, tabelaPorHorizonte, type ColunaHorizonte, type Marco } from '../../engine/comparacao';
 import { dataBR, ehDataValida, type DataISO } from '../../engine/datas';
@@ -114,7 +114,7 @@ function calcular(ofertas: readonly OfertaCadastrada[], entrada: Entrada, cenari
   return {
     ofertas, cenario, entrada, regra, colunas, series,
     linha: linhaDoTempo(ofertas, valor, dataAplicacao, cenario, regra),
-    alertas: gerarAlertas(ofertas, colunas),
+    alertas: gerarAlertas(ofertas, colunas, LIMIAR_QUASE_EMPATE, suaData.trim() === '' ? undefined : suaData),
     trocas: trocasRelevantes(trocasDeLider(series, { ofertas, valor, dataAplicacao, cen: cenario, regra }), { duracaoMinimaDias: DURACAO_MINIMA_LIDERANCA, fim }),
     ...(inicioPremissa === undefined ? {} : { inicioPremissa }),
   };

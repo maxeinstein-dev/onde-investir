@@ -17,14 +17,16 @@ export type Alerta =
   }
   | { tipo: 'IR_REINICIA'; oferta: number; data: DataISO; aliquotaNova: number; aliquotaSemReaplicar: number }
   | { tipo: 'IOF'; oferta: number; horizonte: DataISO; iof: number }
-  | { tipo: 'PRAZO_INCOMPATIVEL'; oferta: number; horizonte: DataISO; disponivelEm?: DataISO };
+  | {
+    tipo: 'PRAZO_INCOMPATIVEL'; oferta: number; horizonte: DataISO; disponivelEm?: DataISO;
+    /** Só no Tesouro Prefixado/IPCA+ antes do vencimento, na data do usuário: dá para vender, a preço de mercado. */
+    motivo?: 'MARCACAO_A_MERCADO';
+  };
 
 /** Diferença, relativa ao líquido do líder, abaixo da qual duas ofertas estão "quase empatadas" (spec §5.6). */
 export const LIMIAR_QUASE_EMPATE = 0.005;
 
 const ORDEM_TIPOS: readonly Alerta['tipo'][] = ['QUASE_EMPATE', 'IR_REINICIA', 'IOF', 'PRAZO_INCOMPATIVEL'];
-/** O rótulo que `horizontesPadrao` dá à data escolhida pelo usuário. */
-const ROTULO_SUA_DATA = 'Sua data';
 
 type Disponivel = Extract<Projecao, { estado: 'DISPONIVEL' }>;
 const disponivel = (p: Projecao | undefined): p is Disponivel => p?.estado === 'DISPONIVEL';
@@ -105,7 +107,10 @@ function iof(p: Projecao, oferta: number, horizonte: DataISO): Alerta[] {
   return final && final.iof > 0 ? [{ tipo: 'IOF', oferta, horizonte, iof: final.iof }] : [];
 }
 
-function prazoIncompativel(p: Projecao, oferta: number, horizonte: DataISO): Alerta[] {
+function prazoIncompativel(p: Projecao, oferta: number, horizonte: DataISO, naDataDoUsuario: boolean): Alerta[] {
+  if (p.estado === 'MARCACAO_A_MERCADO' && naDataDoUsuario) {
+    return [{ tipo: 'PRAZO_INCOMPATIVEL', oferta, horizonte, disponivelEm: p.vencimento, motivo: 'MARCACAO_A_MERCADO' }];
+  }
   if (p.estado !== 'INDISPONIVEL') return [];
   return [p.disponivelEm === undefined
     ? { tipo: 'PRAZO_INCOMPATIVEL', oferta, horizonte }
@@ -123,24 +128,27 @@ const chave = (a: Alerta) => `${a.tipo}:${ofertaDoAlerta(a)}`;
  *   tem liquidez diária sem marcação a mercado enquanto o líder não tem, ou garantia do Tesouro contra FGC.
  * - IR_REINICIA: a reaplicação é tributada com alíquota maior que a dos dias totais desde a aplicação.
  * - IOF: a etapa final paga IOF.
- * - PRAZO_INCOMPATIVEL: indisponível na data do usuário ou no horizonte mais distante.
+ * - PRAZO_INCOMPATIVEL: indisponível no prazo da pessoa: a `dataUsuario`, quando há coluna nessa data (mesmo que
+ *   seja um horizonte padrão), senão o horizonte mais distante. Na data do usuário, a marcação a mercado também
+ *   entra, com o motivo MARCACAO_A_MERCADO.
  */
 export function gerarAlertas(
-  ofertas: readonly OfertaCadastrada[], colunas: readonly ColunaHorizonte[], limiar = LIMIAR_QUASE_EMPATE,
+  ofertas: readonly OfertaCadastrada[], colunas: readonly ColunaHorizonte[], limiar = LIMIAR_QUASE_EMPATE, dataUsuario?: DataISO,
 ): Alerta[] {
   if (!Number.isFinite(limiar) || limiar < 0) throw new RangeError(`Limiar de quase empate inválido: ${limiar}`);
   const ordenadas = [...colunas].sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
-  const maisDistante = ordenadas.at(-1)?.data;
+  const doUsuario = dataUsuario !== undefined && ordenadas.some((c) => c.data === dataUsuario);
+  const dataDoPrazo = doUsuario ? dataUsuario : ordenadas.at(-1)?.data;
   const porChave = new Map<string, Alerta>();
   // Do mais próximo para o mais distante: o horizonte mais distante sobrescreve.
   for (const c of ordenadas) {
-    const doPrazo = c.rotulo === ROTULO_SUA_DATA || c.data === maisDistante;
+    const doPrazo = c.data === dataDoPrazo;
     const novos = [
       ...quaseEmpates(ofertas, c, limiar),
       ...c.projecoes.flatMap((p, i) => [
         ...irReinicia(p, i, c.data),
         ...iof(p, i, c.data),
-        ...(doPrazo ? prazoIncompativel(p, i, c.data) : []),
+        ...(doPrazo ? prazoIncompativel(p, i, c.data, doUsuario) : []),
       ]),
     ];
     for (const a of novos) porChave.set(chave(a), a);

@@ -63,6 +63,14 @@ export function textoDoAlerta(a: Alerta, ofertas: readonly OfertaCadastrada[], h
       };
     case 'PRAZO_INCOMPATIVEL': {
       const o = ofertas[a.oferta];
+      if (a.motivo === 'MARCACAO_A_MERCADO' && a.disponivelEm !== undefined) {
+        return {
+          titulo: 'Venda antes do vencimento',
+          oQue: `Vender ${nome(ofertas, a.oferta)} antes de ${dataBR(a.disponivelEm)} sai pelo preço de mercado.`,
+          porQue: 'O Tesouro Prefixado e o IPCA+ pagam a taxa contratada no vencimento. Antes dele, a venda sai pelo preço do dia, que pode ficar acima ou abaixo do valor na curva contratada.',
+          termo: 'marcacao-mercado',
+        };
+      }
       const inicio = `Não dá para resgatar ${nome(ofertas, a.oferta)} em ${prazo(horizontes, a.horizonte)}.`;
       if (a.disponivelEm === undefined) {
         return { titulo: 'Prazo incompatível', oQue: inicio, porQue: 'A oferta não pode ser resgatada nessa data, e o valor dela fica fora da comparação.', termo: 'liquidez' };

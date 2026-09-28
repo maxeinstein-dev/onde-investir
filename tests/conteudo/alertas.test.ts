@@ -87,6 +87,16 @@ describe('textoDoAlerta', () => {
     expect(t.termo).toBe('prazo-minimo');
   });
 
+  it('PRAZO_INCOMPATIVEL por marcação a mercado na data do usuário', () => {
+    const prefixado: OfertaCadastrada = { ...base, id: '9', produto: 'TESOURO_PREFIXADO', indexacao: { tipo: 'PRE', taxaAA: 0.13 }, vencimento: '2033-01-01', liquidez: 'DIARIA' };
+    const a: Alerta = { tipo: 'PRAZO_INCOMPATIVEL', oferta: 5, horizonte: '2028-01-15', disponivelEm: '2033-01-01', motivo: 'MARCACAO_A_MERCADO' };
+    const t = textoDoAlerta(a, [...ofertas, prefixado], horizontes);
+    expect(t.titulo).toBe('Venda antes do vencimento');
+    expect(t.oQue).toMatch(/^Vender Tesouro Prefixado 13% a\.a\. \(Banco B\) antes de 01\/01\/2033 sai pelo preço de mercado\.$/);
+    expect(t.porQue).toMatch(/curva/);
+    expect(t.termo).toBe('marcacao-mercado');
+  });
+
   it('PRAZO_INCOMPATIVEL sem data de liberação', () => {
     const a: Alerta = { tipo: 'PRAZO_INCOMPATIVEL', oferta: 3, horizonte: '2031-09-28' };
     const t = textoDoAlerta(a, ofertas, horizontes);

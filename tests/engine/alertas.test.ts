@@ -12,7 +12,7 @@ const tesouroSelic: OfertaCadastrada = { ...b, id: 's', produto: 'TESOURO_SELIC'
 
 function alertas(ofertas: OfertaCadastrada[], dataUsuario: string | null = null, limiar?: number): Alerta[] {
   const colunas = tabelaPorHorizonte(ofertas, 10000, INI, horizontesPadrao(INI, dataUsuario), CEN, PADRAO);
-  return gerarAlertas(ofertas, colunas, limiar);
+  return gerarAlertas(ofertas, colunas, limiar, dataUsuario ?? undefined);
 }
 const doTipo = <T extends Alerta['tipo']>(xs: Alerta[], tipo: T) => xs.filter((a): a is Extract<Alerta, { tipo: T }> => a.tipo === tipo);
 const liquido = (p: Projecao | undefined) => (p?.estado === 'DISPONIVEL' ? p.liquido : NaN);
@@ -161,19 +161,39 @@ describe('PRAZO_INCOMPATIVEL', () => {
     ]);
   });
 
-  it('indisponível na data do usuário e no mais distante: um alerta, no mais distante', () => {
+  // Antes o alerta ia para o horizonte mais distante, que não é o prazo da pessoa: com a data do usuário, é ela.
+  it('indisponível na data do usuário e no mais distante: um alerta, na data do usuário', () => {
     expect(doTipo(alertas([lci('2033-09-28')], '2028-01-15'), 'PRAZO_INCOMPATIVEL')).toEqual([
-      { tipo: 'PRAZO_INCOMPATIVEL', oferta: 0, horizonte: '2031-09-28', disponivelEm: '2033-09-28' },
+      { tipo: 'PRAZO_INCOMPATIVEL', oferta: 0, horizonte: '2028-01-15', disponivelEm: '2033-09-28' },
     ]);
+  });
+
+  it('a data do usuário vale mesmo quando coincide com um horizonte padrão (sem a coluna "Sua data")', () => {
+    // 28/09/2027 é o horizonte "1 ano": a tabela não cria a coluna "Sua data".
+    expect(horizontesPadrao(INI, '2027-09-28').some((h) => h.rotulo === 'Sua data')).toBe(false);
+    expect(doTipo(alertas([lci('2029-09-28')], '2027-09-28'), 'PRAZO_INCOMPATIVEL')).toEqual([
+      { tipo: 'PRAZO_INCOMPATIVEL', oferta: 0, horizonte: '2027-09-28', disponivelEm: '2029-09-28' },
+    ]);
+  });
+
+  it('com data do usuário, o mais distante não entra (o prazo é o da pessoa)', () => {
+    expect(doTipo(alertas([lci('2033-09-28')], '2027-09-28'), 'PRAZO_INCOMPATIVEL').map((a) => a.horizonte)).toEqual(['2027-09-28']);
   });
 
   it('indisponível só num horizonte intermediário (nem a data do usuário, nem o mais distante): sem alerta', () => {
     expect(doTipo(alertas([lci('2027-09-28')]), 'PRAZO_INCOMPATIVEL')).toEqual([]);
   });
 
-  it('marcação a mercado não é prazo incompatível', () => {
-    const prefixado: OfertaCadastrada = { ...b, id: 'p', produto: 'TESOURO_PREFIXADO', indexacao: { tipo: 'PRE', taxaAA: 0.13 }, vencimento: '2033-01-01', liquidez: 'DIARIA' };
+  const prefixado: OfertaCadastrada = { ...b, id: 'p', produto: 'TESOURO_PREFIXADO', indexacao: { tipo: 'PRE', taxaAA: 0.13 }, vencimento: '2033-01-01', liquidez: 'DIARIA' };
+
+  it('sem data do usuário, marcação a mercado no horizonte mais distante não é prazo incompatível', () => {
     expect(doTipo(alertas([prefixado]), 'PRAZO_INCOMPATIVEL')).toEqual([]);
+  });
+
+  it('marcação a mercado na data do usuário: prazo incompatível com o motivo da marcação', () => {
+    expect(doTipo(alertas([prefixado], '2028-01-15'), 'PRAZO_INCOMPATIVEL')).toEqual([
+      { tipo: 'PRAZO_INCOMPATIVEL', oferta: 0, horizonte: '2028-01-15', disponivelEm: '2033-01-01', motivo: 'MARCACAO_A_MERCADO' },
+    ]);
   });
 
   it('indisponível sem data de liberação (vence antes da aplicação): alerta sem disponivelEm', () => {
