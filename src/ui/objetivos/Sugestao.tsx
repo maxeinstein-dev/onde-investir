@@ -1,6 +1,7 @@
 // Tela de sugestão de um objetivo: recalcula a cada visualização contra o catálogo e a carteira
 // atuais (spec §9.1, plano M4a C4). O engine nunca produz texto; aqui cada fatia vira frases,
 // com src/conteudo/sugestao.ts, e o link para a lição de cada motivo.
+import { useMemo } from 'preact/hooks';
 import type { ObjetivoSalvo } from '../../armazenamento/objetivos';
 import { nomeOferta } from '../../conteudo/comparacao';
 import { AVISO_EDUCATIVO, descreverFatia, licaoDaFatia, textoDaFatia, textoDoFgc } from '../../conteudo/sugestao';
@@ -40,7 +41,13 @@ function ItemFatia({ f, onIrParaComparar }: { f: Fatia; onIrParaComparar: (ofert
 }
 
 export function Sugestao({ objetivo, catalogo, carteira, hoje, onIrParaComparar }: PropsSugestao) {
-  const fatias = sugerir(objetivo.entradas, { catalogo, carteira, hoje });
+  // useMemo (não useState/congelar): a sugestão nunca pode ficar parada no tempo, tem que recalcular sempre
+  // que entradas/catálogo/carteira/hoje mudarem de verdade. Só evita recriar o array (e, com isso, o gráfico
+  // de pizza em GraficoObjetivo) em renders que não afetam a sugestão.
+  const fatias = useMemo(
+    () => sugerir(objetivo.entradas, { catalogo, carteira, hoje }),
+    [objetivo.entradas, catalogo, carteira, hoje],
+  );
   return (
     <section class="sugestao" aria-labelledby="sugestao-titulo">
       <h2 id="sugestao-titulo">{objetivo.nome ?? 'Sugestão'}</h2>

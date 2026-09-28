@@ -50,4 +50,24 @@ describe('Sugestao', () => {
     await carregou();
     expect(screen.getByText(/passa do limite do FGC/)).toBeInTheDocument();
   });
+
+  it('não recria o gráfico quando o componente pai rerenderiza sem mudar objetivo/catálogo/carteira/hoje', async () => {
+    const catalogo = [cdbDiario];
+    const carteira: ItemFGC[] = [];
+    const { rerender } = render(
+      <Sugestao objetivo={objetivoReserva} catalogo={catalogo} carteira={carteira} hoje={HOJE} onIrParaComparar={() => {}} />,
+    );
+    await carregou();
+    expect(graficos).toHaveLength(1);
+    const primeiro = graficos[0];
+
+    // Rerenderização "não relacionada": mesmas referências de objetivo/catálogo/carteira/hoje, só
+    // `onIrParaComparar` muda (como aconteceria se algo em App.tsx desse setState sem afetar a sugestão).
+    rerender(
+      <Sugestao objetivo={objetivoReserva} catalogo={catalogo} carteira={carteira} hoje={HOJE} onIrParaComparar={() => {}} />,
+    );
+
+    expect(primeiro?.destroy).not.toHaveBeenCalled();
+    expect(graficos).toHaveLength(1);
+  });
 });
