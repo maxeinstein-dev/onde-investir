@@ -115,6 +115,15 @@ export function explicarSimulacao(r: ResultadoSimulacao): ExplicacaoPasso[] {
         fonte: FONTE_IR, termo: 'ir-regressivo',
       });
 
+  const c = r.aplicacao.custoExtraAA ?? 0;
+  if (c > 0) {
+    passos.push({
+      id: 'custoExtra', titulo: 'Custo da corretora', sinal: '−', valor: r.custoExtra,
+      curto: `A corretora cobra ${formatarPercentual(c)} ao ano sobre o saldo: ${formatarMoeda(r.custoExtra)} no período.`,
+      matematica: `custo = bruto × (1 − (1 − ${formatarPercentual(c)})^(${r.diasCorridos}/365)). Premissa do app: descontado depois do IR.`,
+    });
+  }
+
   passos.push({
     id: 'liquido', titulo: 'Valor líquido', sinal: '=', valor: r.valorLiquido,
     curto: `É o que cai na sua conta: ${formatarMoeda(r.valorLiquido)}.`, matematica: '',

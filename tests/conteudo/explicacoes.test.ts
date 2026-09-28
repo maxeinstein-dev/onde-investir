@@ -51,3 +51,33 @@ describe('explicarSimulacao', () => {
     expect(explicarSimulacao(cdbPre).find((p) => p.id === 'rendimentoBruto')?.curto).not.toContain('marcação a mercado');
   });
 });
+
+describe('explicarSimulacao — custo extra', () => {
+  /** Soma os passos exibidos pelo sinal: o que a pessoa vê tem que fechar no líquido. */
+  const fecha = (passos: ReturnType<typeof explicarSimulacao>) =>
+    passos.filter((p) => p.sinal !== '=').reduce((s, p) => (p.sinal === '−' ? s - p.valor : s + p.valor), 0);
+
+  it('com custo: o passo custoExtra antes do líquido, com o texto curto e a matemática', () => {
+    const r = simular({ ...cdb, custoExtraAA: 0.01 }, '2028-09-28', CEN);
+    const passos = explicarSimulacao(r);
+    expect(passos.map((p) => p.id)).toEqual(['aplicado', 'rendimentoBruto', 'iof', 'ir', 'custoExtra', 'liquido']);
+    const custo = passos.find((p) => p.id === 'custoExtra');
+    expect(custo).toMatchObject({ titulo: 'Custo da corretora', sinal: '−', valor: r.custoExtra });
+    expect(custo?.curto).toMatch(/^A corretora cobra 1% ao ano sobre o saldo: R\$\s?\d[\d.]*,\d{2} no período\.$/);
+    expect(custo?.matematica).toBe('custo = bruto × (1 − (1 − 1%)^(731/365)). Premissa do app: descontado depois do IR.');
+    expect(fecha(passos)).toBeCloseTo(r.valorLiquido, 8);
+  });
+  it.each([
+    ['LCI', { produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.95 }, custoExtraAA: 0.02 }],
+    ['Tesouro Selic', { produto: 'TESOURO_SELIC', indexacao: { tipo: 'SELIC' }, valor: 50000, custoExtraAA: 0.005 }],
+    ['poupança', { produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' }, custoExtraAA: 0.01 }],
+  ] as const)('%s com custo: os passos exibidos fecham no líquido', (_, campos) => {
+    const r = simular({ ...cdb, ...campos }, '2028-09-28', CEN);
+    const passos = explicarSimulacao(r);
+    expect(passos.some((p) => p.id === 'custoExtra')).toBe(true);
+    expect(fecha(passos)).toBeCloseTo(r.valorLiquido, 8);
+  });
+  it('sem custo, sem o passo', () => {
+    expect(explicarSimulacao(simular({ ...cdb, custoExtraAA: 0 }, '2028-09-28', CEN)).some((p) => p.id === 'custoExtra')).toBe(false);
+  });
+});
