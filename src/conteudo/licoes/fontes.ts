@@ -10,6 +10,7 @@ export const FONTES = {
   custodiaB3: REGRAS.custodia.fonte,
   regulamentoFGC: REGRAS.fgc.fonte,
   poupancaLei: REGRAS.poupanca.fonte,
+  poupancaLeiAnterior: REGRAS.poupanca.fonteAnterior,
   prazoMinimoB3: REGRAS.prazoMinimo.fonte,
   poupancaBCB: GLOSSARIO.poupanca.fonte,
   cdiB3: GLOSSARIO.cdi.fonte,

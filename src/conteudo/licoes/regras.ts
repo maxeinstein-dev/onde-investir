@@ -8,7 +8,7 @@ import { VERSOES_IR } from '../../engine/regras/ir';
 import { VERSOES_POUPANCA } from '../../engine/regras/poupanca';
 import { VERSOES_PRAZO_MINIMO } from '../../engine/regras/prazoMinimo';
 import type { VersaoRegra } from '../../engine/regras/tipos';
-import { formatarPercentual } from '../../formato';
+import { formatarData, formatarPercentual } from '../../formato';
 import { reaisRedondos } from '../alertas';
 
 /** A versão ainda vigente (sem fim de vigência). */
@@ -23,6 +23,9 @@ const iof = vigente('IOF', VERSOES_IOF);
 const custodia = vigente('custódia', VERSOES_CUSTODIA);
 const fgc = vigente('FGC', VERSOES_FGC);
 const poupanca = vigente('poupança', VERSOES_POUPANCA);
+/** A versão da poupança imediatamente anterior à vigente: vale para sempre nos depósitos feitos antes dela. */
+const poupancaAnterior = VERSOES_POUPANCA.find((v) => v.vigenciaFim === poupanca.vigenciaInicio);
+if (!poupancaAnterior) throw new Error('Sem a versão anterior da regra poupança');
 const prazo = vigente('prazo mínimo', VERSOES_PRAZO_MINIMO);
 
 const faixas = ir.valor;
@@ -76,6 +79,11 @@ export const REGRAS = {
     taxaFixa: pct(poupanca.valor.taxaFixaAM),
     limiarSelic: pct(limiar),
     fracaoSelic: pct(fracao),
+    /** A data de início da regra vigente (dd/mm/aaaa): ela vale para os depósitos feitos desde então. */
+    desde: formatarData(poupanca.vigenciaInicio),
+    /** A regra dos depósitos anteriores. */
+    fonteAnterior: poupancaAnterior.fonte,
+    taxaFixaAnterior: pct(poupancaAnterior.valor.taxaFixaAM),
   },
   prazoMinimo: {
     fonte: prazo.fonte,

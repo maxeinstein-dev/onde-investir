@@ -29,7 +29,7 @@ export const CASOS_CLASSICOS: readonly CasoClassico[] = [
     titulo: 'Poupança × Tesouro Selic',
     pergunta: 'Com a Selic de hoje, quem rende mais: a poupança, isenta de IR, ou o Tesouro Selic?',
     explicacao: [
-      `A poupança rende ${regraPoupanca.taxaFixa} ao mês mais a TR quando a Selic está acima de ${regraPoupanca.limiarSelic} ao ano. Com a Selic igual ou abaixo disso, rende ${regraPoupanca.fracaoSelic} da Selic mais a TR (${link('Lei 12.703/2012', FONTES.poupancaLei)}). Ela é isenta de IR, mas só rende no aniversário mensal (${link('Banco Central', FONTES.poupancaBCB)}).`,
+      `Nos depósitos feitos desde ${regraPoupanca.desde}, a poupança rende ${regraPoupanca.taxaFixa} ao mês mais a TR quando a Selic está acima de ${regraPoupanca.limiarSelic} ao ano. Com a Selic igual ou abaixo disso, rende ${regraPoupanca.fracaoSelic} da Selic mais a TR (${link('Lei 12.703/2012', FONTES.poupancaLei)}). Depósitos anteriores seguem com ${regraPoupanca.taxaFixaAnterior} ao mês mais a TR (${link('Lei 8.177/1991', FONTES.poupancaLeiAnterior)}). Ela é isenta de IR, mas só rende no aniversário mensal (${link('Banco Central', FONTES.poupancaBCB)}).`,
       `O Tesouro Selic rende a própria Selic e paga IR pela tabela regressiva (${link('Lei 11.033/2004', FONTES.lei11033)}). Paga também a custódia da B3, com os primeiros ${custodia.isencaoSelic} isentos (${link('B3', FONTES.custodiaB3)}).`,
       'Os dois têm liquidez diária. A comparação mostra quanto a isenção da poupança compensa, ou não, a diferença de rendimento no cenário atual.',
     ].join('\n\n'),
@@ -46,7 +46,7 @@ export const CASOS_CLASSICOS: readonly CasoClassico[] = [
     pergunta: 'Se os juros subirem, quem rende mais: o Tesouro Prefixado ou o Tesouro Selic?',
     explicacao: [
       'No cenário "juros sobem", a Selic fica acima das projeções do mercado. O Tesouro Selic acompanha essa alta e passa a render mais. O Tesouro Prefixado continua com a taxa combinada na compra.',
-      `Pior: quem precisa vender o prefixado antes do vencimento recebe o preço de mercado do dia, que cai quando os juros sobem (${link('Portal do Investidor', FONTES.titulosPublicos)}). Levado até o vencimento, ele paga a taxa combinada.`,
+      `Além disso, quem precisa vender o prefixado antes do vencimento recebe o preço de mercado do dia, que cai quando os juros sobem (${link('Portal do Investidor', FONTES.titulosPublicos)}). Levado até o vencimento, ele paga a taxa combinada.`,
       'A sua data desta comparação cai antes do vencimento do prefixado, e o alerta de venda a preço de mercado aparece.',
     ].join('\n\n'),
     experimente: {
@@ -63,7 +63,7 @@ export const CASOS_CLASSICOS: readonly CasoClassico[] = [
     pergunta: 'Mesma taxa, prazos diferentes: aplicar por 5 anos ou por 1 ano e reaplicar dá o mesmo resultado?',
     explicacao: [
       `Cada aplicação conta o seu prazo de IR (${link('Lei 11.033/2004', FONTES.lei11033)}). O CDB de 1 ano paga ${ir.aliquotas[2] ?? ''} no vencimento, e a reaplicação recomeça a contagem.`,
-      `O CDB de 5 anos fica aplicado o tempo todo e chega à alíquota de ${ir.menor}. A taxa é a mesma, mas o imposto não: essa diferença é o custo escondido de reaplicar.`,
+      `O CDB de 5 anos fica aplicado o tempo todo e chega à alíquota de ${ir.menor}. A taxa é a mesma e o imposto muda, e essa diferença é o custo escondido de reaplicar.`,
       'Veja o valor líquido dos dois no prazo de 5 anos e o alerta de IR na reaplicação.',
     ].join('\n\n'),
     experimente: {

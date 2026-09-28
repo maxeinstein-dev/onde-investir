@@ -10,7 +10,7 @@ export const RESERVA = definirLicao({
   id: 'reserva',
   ordem: 7,
   titulo: 'Reserva de emergência',
-  resumo: 'Na reserva de emergência, a pergunta principal é se o dinheiro sai amanhã sem perda, e não quanto ele rende.',
+  resumo: 'Na reserva de emergência, a pergunta principal é se o dinheiro sai amanhã sem perda, e o rendimento vem depois.',
   secoes: [
     {
       titulo: 'Para que serve',

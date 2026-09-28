@@ -15,7 +15,7 @@ export const IMPOSTOS = definirLicao({
     {
       titulo: 'IR: quanto mais tempo, menor a alíquota',
       texto: [
-        `O imposto de renda da renda fixa cobra uma parte do **rendimento**, não do valor aplicado. Essa parte diminui com o tempo: ${ir.faixas} (${link('Lei 11.033/2004', FONTES.lei11033)}).`,
+        `O imposto de renda da renda fixa incide só sobre o **rendimento**. A alíquota diminui com o tempo: ${ir.faixas} (${link('Lei 11.033/2004', FONTES.lei11033)}).`,
         'O prazo conta em dias corridos, da aplicação até o resgate. O imposto é retido no resgate ou no vencimento, e você recebe o valor já descontado.',
       ].join('\n\n'),
     },

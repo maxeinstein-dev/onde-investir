@@ -13,7 +13,7 @@ export const DIVERSIFICACAO = definirLicao({
   secoes: [
     {
       titulo: 'O conceito',
-      texto: `O risco não pode ser eliminado, mas pode ser reduzido com diversificação (${link('Portal do Investidor', FONTES.diversificacao)}). A ideia é simples: se um investimento vai mal, os outros podem compensar.`,
+      texto: `O risco não pode ser eliminado, mas pode ser reduzido com diversificação (${link('Portal do Investidor', FONTES.diversificacao)}). Se um investimento vai mal, os outros podem compensar.`,
     },
     {
       titulo: 'Não pôr tudo no mesmo emissor',

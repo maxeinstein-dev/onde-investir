@@ -147,6 +147,15 @@ describe('casos clássicos (integridade)', () => {
     }
   });
 
+  it('Poupança × Tesouro Selic: a regra dos 70% vale só para depósitos desde 04/05/2012, com as duas leis', () => {
+    const texto = CASOS_CLASSICOS.find((c) => c.id === 'caso-poupanca-selic')?.explicacao ?? '';
+    expect(texto).toContain('Nos depósitos feitos desde 04/05/2012, a poupança rende 0,5% ao mês mais a TR quando a Selic está acima de 8,5% ao ano.');
+    expect(texto).toContain('Com a Selic igual ou abaixo disso, rende 70% da Selic mais a TR');
+    expect(texto).toContain('Depósitos anteriores seguem com 0,5% ao mês mais a TR');
+    expect(texto).toContain('(https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2012/lei/l12703.htm)');
+    expect(texto).toContain('[Lei 8.177/1991](https://www.planalto.gov.br/ccivil_03/leis/l8177.htm)');
+  });
+
   it('o caso do prefixado usa o cenário "Juros sobem"', () => {
     const caso = CASOS_CLASSICOS.find((c) => /prefixado/i.test(c.titulo));
     expect(caso?.experimente.cenario).toBe('SOBEM');

@@ -29,7 +29,7 @@ export const FGC = definirLicao({
     },
     {
       titulo: 'O limite é por conglomerado',
-      texto: 'O limite vale por conglomerado financeiro, não por marca. Dois bancos do mesmo grupo dividem um limite só. Antes de somar aplicações, confira a que conglomerado cada banco pertence.',
+      texto: 'O limite vale por conglomerado financeiro: dois bancos do mesmo grupo dividem um limite só. Antes de somar aplicações, confira a que conglomerado cada banco pertence.',
     },
     {
       titulo: 'O que passa do limite',
