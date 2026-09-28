@@ -9,8 +9,27 @@ import { formatarMoeda, formatarNumero, formatarPercentual } from '../formato';
 import { listar, nomeDoHorizonte, nomeOferta } from './comparacao';
 import { descreverOferta } from './motivos';
 import type { IdTermo } from './glossario';
+import type { IdLicao } from './licoes/tipos';
 
-export interface TextoAlerta { titulo: string; oQue: string; porQue: string; termo: IdTermo }
+/** `termo`: o "Saiba mais" (glossário); `licao`: o "Ver lição" (trilha Aprender). */
+export interface TextoAlerta { titulo: string; oQue: string; porQue: string; termo: IdTermo; licao: IdLicao }
+
+/** A lição de cada tipo de alerta (plano M3c, A4). Variantes com outra lição: ver {@link licaoDoAlerta}. */
+export const LICAO_DO_ALERTA: Record<Alerta['tipo'], IdLicao> = {
+  QUASE_EMPATE: 'liquidez',
+  IR_REINICIA: 'reaplicacao',
+  IOF: 'impostos',
+  PRAZO_INCOMPATIVEL: 'liquidez',
+  FGC_LIMITE: 'fgc',
+  FGC_NAO_CALCULADO: 'fgc',
+};
+
+/** A lição do alerta: a do tipo, salvo o quase empate pela garantia (FGC) e a venda a preço de mercado. */
+export function licaoDoAlerta(a: Alerta): IdLicao {
+  if (a.tipo === 'QUASE_EMPATE' && a.vantagem === 'GARANTIA') return 'fgc';
+  if (a.tipo === 'PRAZO_INCOMPATIVEL' && a.motivo === 'MARCACAO_A_MERCADO' && a.disponivelEm !== undefined) return 'marcacao-mercado';
+  return LICAO_DO_ALERTA[a.tipo];
+}
 
 const nome = (ofertas: readonly OfertaCadastrada[], i: number) => {
   const o = ofertas[i];
@@ -60,6 +79,10 @@ function textoDoIOF(a: Extract<Alerta, { tipo: 'IOF' }>, ofertas: readonly Ofert
  * (os da tabela); sem ele, a data.
  */
 export function textoDoAlerta(a: Alerta, ofertas: readonly OfertaCadastrada[], horizontes: readonly Horizonte[] = []): TextoAlerta {
+  return { ...textoSemLicao(a, ofertas, horizontes), licao: licaoDoAlerta(a) };
+}
+
+function textoSemLicao(a: Alerta, ofertas: readonly OfertaCadastrada[], horizontes: readonly Horizonte[]): Omit<TextoAlerta, 'licao'> {
   switch (a.tipo) {
     case 'QUASE_EMPATE': {
       const lideres = listar((a.lideres.length > 0 ? a.lideres : [a.lider]).map((i) => nome(ofertas, i)));
@@ -170,5 +193,6 @@ export function textoDoTetoGlobal(t: TetoGlobal): TextoAlerta {
     oQue: `Somando o que o FGC cobre em cada conglomerado, sua garantia passa de ${teto}. O teto de ${teto} vale para o que o FGC pagar em 4 anos, somando todas as instituições.`,
     porQue: 'O teto só pesa se mais de uma instituição quebrar nesse período. O app não calcula essa janela, então o alerta avisa do risco sem dizer quanto ficaria sem garantia.',
     termo: 'fgc',
+    licao: 'fgc',
   };
 }

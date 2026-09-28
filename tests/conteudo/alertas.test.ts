@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { textoDoAlerta, textoDoTetoGlobal } from '../../src/conteudo/alertas';
+import { LICAO_DO_ALERTA, textoDoAlerta, textoDoTetoGlobal } from '../../src/conteudo/alertas';
+import { LICOES } from '../../src/conteudo/licoes';
 import { GLOSSARIO } from '../../src/conteudo/glossario';
 import { resumirTrocas } from '../../src/conteudo/serie';
 import type { Alerta } from '../../src/engine/alertas';
@@ -292,6 +293,41 @@ describe('textoDoTetoGlobal', () => {
     const t = textoDoTetoGlobal({ garantiaSomada: 1_250_000, teto: 1_000_000, conglomerados: [] });
     expect(t.oQue).toBe('Somando o que o FGC cobre em cada conglomerado, sua garantia passa de R$ 1 milhão. O teto de R$ 1 milhão vale para o que o FGC pagar em 4 anos, somando todas as instituições.');
     expect(t.termo).toBe('fgc');
+  });
+});
+
+describe('alerta → lição (M3c, A4)', () => {
+  const idsDeLicao = new Set(LICOES.map((l) => l.id));
+  it('todo tipo de alerta tem uma lição existente', () => {
+    const tipos: Record<Alerta['tipo'], true> = {
+      QUASE_EMPATE: true, IR_REINICIA: true, IOF: true, PRAZO_INCOMPATIVEL: true, FGC_LIMITE: true, FGC_NAO_CALCULADO: true,
+    };
+    expect(Object.keys(LICAO_DO_ALERTA).sort()).toEqual(Object.keys(tipos).sort());
+    for (const licao of Object.values(LICAO_DO_ALERTA)) expect(idsDeLicao.has(licao)).toBe(true);
+  });
+  it('o texto de cada alerta leva a lição correspondente', () => {
+    const prefixado: OfertaCadastrada = { ...base, id: '9', produto: 'TESOURO_PREFIXADO', indexacao: { tipo: 'PRE', taxaAA: 0.13 }, vencimento: '2033-01-01', liquidez: 'DIARIA' };
+    const lista = [...ofertas, prefixado];
+    const casos: [Alerta, string][] = [
+      [{ tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0], alternativa: 1, diferenca: 1, diferencaPercentual: 0.001, vantagem: 'LIQUIDEZ' }, 'liquidez'],
+      [{ tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 1, lideres: [1], alternativa: 2, diferenca: 1, diferencaPercentual: 0.001, vantagem: 'GARANTIA' }, 'fgc'],
+      [{ tipo: 'IR_REINICIA', oferta: 0, data: '2027-09-28', horizonte: '2028-09-28', reinvestimento: CDB_103, etapa1Isenta: false, aliquotaNova: 0.2, aliquotaSemReaplicar: 0.15, custo: 1 }, 'reaplicacao'],
+      [{ tipo: 'IR_REINICIA', oferta: 3, data: '2029-09-28', horizonte: '2031-09-28', reinvestimento: CDB_100, etapa1Isenta: true, aliquotaNova: 0.175, aliquotaSemReaplicar: 0, custo: 1 }, 'reaplicacao'],
+      [{ tipo: 'IOF', oferta: 0, horizonte: '2027-09-28', iof: 1, etapa: 1, dias: 20 }, 'impostos'],
+      [{ tipo: 'PRAZO_INCOMPATIVEL', oferta: 3, horizonte: '2031-09-28', disponivelEm: '2029-09-28' }, 'liquidez'],
+      [{ tipo: 'PRAZO_INCOMPATIVEL', oferta: 4, horizonte: '2031-09-28', disponivelEm: '2027-03-28' }, 'liquidez'],
+      [{ tipo: 'PRAZO_INCOMPATIVEL', oferta: 3, horizonte: '2031-09-28' }, 'liquidez'],
+      [{ tipo: 'PRAZO_INCOMPATIVEL', oferta: 5, horizonte: '2028-01-15', disponivelEm: '2033-01-01', motivo: 'MARCACAO_A_MERCADO' }, 'marcacao-mercado'],
+      [{
+        tipo: 'FGC_LIMITE', oferta: 0, conglomerado: 'B', data: '2027-07-29', total: 250_010.5, limite: 250_000, excedente: 10.5,
+        fim: '2031-09-28', totalNoFim: 281_800.25, excedenteNoFim: 31_800.25, jaAcima: false, carteiraNaAplicacao: 200_000,
+      }, 'fgc'],
+      [{ tipo: 'FGC_NAO_CALCULADO', oferta: 0, conglomerado: 'B', carteira: [1], ofertaForaDaConta: false }, 'fgc'],
+    ];
+    for (const [a, licao] of casos) expect(textoDoAlerta(a, lista, horizontes).licao, `${a.tipo}`).toBe(licao);
+  });
+  it('o teto global leva à lição do FGC', () => {
+    expect(textoDoTetoGlobal({ garantiaSomada: 1_250_000, teto: 1_000_000, conglomerados: [] }).licao).toBe('fgc');
   });
 });
 
