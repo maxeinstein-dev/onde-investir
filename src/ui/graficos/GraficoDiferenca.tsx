@@ -59,7 +59,7 @@ export function GraficoDiferenca({ series, ofertas, prefixo = 'grafico-diferenca
   const nome = (i: number) => (ofertas[i] ? nomeOferta(ofertas[i]) : letraDaOferta(i));
   const resumo = resumirDiferenca(trechos, nome(a), nome(b));
   const canvas = useRef<HTMLCanvasElement>(null);
-  const estado = useGrafico(canvas, (p) => montarConfig(p, escolha, pontos, trechos), [pontos, trechos, a, b]);
+  const { estado, tentarDeNovo } = useGrafico(canvas, (p) => montarConfig(p, escolha, pontos, trechos), [pontos, trechos, a, b]);
 
   if (n < 2) return null;
 
@@ -86,7 +86,7 @@ export function GraficoDiferenca({ series, ofertas, prefixo = 'grafico-diferenca
       <p class="dica">{GRAFICO_DIFERENCA.explicacao}</p>
       <div class="grafico__area">
         <canvas ref={canvas} role="img" aria-label={resumo} hidden={estado === 'erro'} />
-        <AvisoCarregamento estado={estado} />
+        <AvisoCarregamento estado={estado} onTentarDeNovo={tentarDeNovo} />
       </div>
       <div class="grafico__resumo">
         <p>{resumo}</p>
