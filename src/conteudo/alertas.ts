@@ -30,7 +30,7 @@ function noPrazo(horizontes: readonly Horizonte[], data: DataISO): string {
 }
 
 /** "R$ 250 mil", "R$ 1 milhão", "R$ 2 milhões"; outros valores em reais. */
-function reaisRedondos(valor: number): string {
+export function reaisRedondos(valor: number): string {
   if (valor >= 1_000_000 && valor % 1_000_000 === 0) return `R$ ${formatarNumero(valor / 1_000_000)} ${valor === 1_000_000 ? 'milhão' : 'milhões'}`;
   if (valor >= 1_000 && valor % 1_000 === 0) return `R$ ${formatarNumero(valor / 1_000)} mil`;
   return formatarMoeda(valor);

@@ -1032,3 +1032,56 @@ button:hover {
     height: 17rem;
   }
 }
+
+/* Carteira (M3a) */
+.carteira h2:focus-visible,
+.cartao--posicao h3:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.cartao--posicao h3 {
+  overflow-wrap: anywhere;
+}
+
+.posicao__valor {
+  margin: 0.5rem 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.carteira__total,
+.exposicao-fgc {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  background: var(--fundo-suave);
+  overflow-wrap: anywhere;
+}
+
+.carteira__total h3,
+.exposicao-fgc h3 {
+  margin-top: 0;
+}
+
+.exposicao-fgc__lista {
+  display: grid;
+  gap: 1rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.exposicao-fgc__item label {
+  display: block;
+  font-weight: 600;
+}
+
+/* A barra até o limite do FGC: o próprio <meter>, sem estilo inline (a CSP não aceita). */
+.exposicao-fgc__barra {
+  display: block;
+  width: 100%;
+  height: 1rem;
+  margin: 0.25rem 0;
+}

@@ -9,6 +9,7 @@ import { ehDiaUtil } from '../../engine/calendario';
 import { horizontesPadrao, linhaDoTempo, tabelaPorHorizonte, type ColunaHorizonte, type Marco } from '../../engine/comparacao';
 import { dataBR, ehDataValida, type DataISO } from '../../engine/datas';
 import { calcularEquivalencias } from '../../engine/equivalencia';
+import type { ItemFGC } from '../../engine/fgc';
 import type { Cenario } from '../../engine/indexadores';
 import type { CenarioProjetado } from '../../engine/projecao';
 import { aplicacaoDe, validarRegraReinvestimento, type OfertaCadastrada, type RegraReinvestimento } from '../../engine/ofertas';
@@ -39,6 +40,8 @@ interface Calculo {
   ofertas: readonly OfertaCadastrada[];
   cenario: Cenario;
   entrada: Entrada;
+  /** As posições como itens do FGC: se a carteira mudar, o alerta do FGC deixa de valer. */
+  carteira: readonly ItemFGC[];
   colunas: ColunaHorizonte[];
   linha: { marcos: Marco[] };
   regra: RegraReinvestimento;
@@ -101,7 +104,7 @@ const mesmasOfertas = (x: readonly OfertaCadastrada[], y: readonly OfertaCadastr
   x.length === y.length && x.every((o, i) => o === y[i]);
 
 /** Lança com a mensagem do engine (ex.: taxa de reinvestimento fora dos limites). */
-function calcular(ofertas: readonly OfertaCadastrada[], entrada: Entrada, cenario: Cenario): Calculo {
+function calcular(ofertas: readonly OfertaCadastrada[], entrada: Entrada, cenario: Cenario, carteira: readonly ItemFGC[]): Calculo {
   const { valor, dataAplicacao, suaData, tipoRegra, taxaFixa } = entrada;
   const regra: RegraReinvestimento = tipoRegra === 'TAXA_FIXA' ? { tipo: 'TAXA_FIXA', taxaAA: taxaFixa / 100 } : { tipo: tipoRegra };
   validarRegraReinvestimento(regra);
@@ -112,9 +115,11 @@ function calcular(ofertas: readonly OfertaCadastrada[], entrada: Entrada, cenari
   const series = seriesDeValorLiquido(ofertas, valor, dataAplicacao, fim, cenario, regra);
   const inicioPremissa = 'inicioPremissa' in cenario ? (cenario as CenarioProjetado).inicioPremissa : undefined;
   return {
-    ofertas, cenario, entrada, regra, colunas, series,
+    ofertas, cenario, entrada, carteira, regra, colunas, series,
     linha: linhaDoTempo(ofertas, valor, dataAplicacao, cenario, regra),
-    alertas: gerarAlertas(ofertas, colunas, LIMIAR_QUASE_EMPATE, suaData.trim() === '' ? undefined : suaData),
+    // O alerta do FGC: a carteira do conglomerado mais a oferta aplicada pelo valor da comparação (spec §5.6).
+    alertas: gerarAlertas(ofertas, colunas, LIMIAR_QUASE_EMPATE, suaData.trim() === '' ? undefined : suaData,
+      { carteira, valor, dataAplicacao, cen: cenario }),
     trocas: trocasRelevantes(trocasDeLider(series, { ofertas, valor, dataAplicacao, cen: cenario, regra }), { duracaoMinimaDias: DURACAO_MINIMA_LIDERANCA, fim }),
     ...(inicioPremissa === undefined ? {} : { inicioPremissa }),
   };
@@ -151,11 +156,16 @@ export interface PropsComparador {
   /** Rascunho inválido no painel (premissas ou valores manuais): enquanto houver, não dá para comparar. */
   cenarioInvalido?: string | null;
   gerarId?: () => string;
+  /** As posições da carteira como itens do FGC, para o alerta do limite. Padrão: nenhuma. */
+  carteira?: readonly ItemFGC[];
 }
+
+const SEM_CARTEIRA: readonly ItemFGC[] = [];
 
 /** A tela de comparação: de 2 a 5 ofertas lado a lado, com palpite, linha do tempo e equivalências. */
 export function Comparador({
   catalogo, selecao, onMudarSelecao, onCriarOferta, cenario, descricaoCenario, cenarioInvalido = null, gerarId = novoIdOferta,
+  carteira = SEM_CARTEIRA,
 }: PropsComparador) {
   const [valor, setValor] = useState(10000);
   const [dataAplicacao, setDataAplicacao] = useState<DataISO>(hoje());
@@ -191,7 +201,8 @@ export function Comparador({
   // Mudar entradas, ofertas, seleção ou cenário invalida o resultado. Derivado na renderização, e não num efeito:
   // um efeito atrasado mostraria o resultado velho com o dado novo, ou apagaria uma comparação feita logo depois.
   const fase: Fase = faseSalva.tipo !== 'editando'
-    && (faseSalva.cenario !== cenario || !mesmaEntrada(faseSalva.entrada, entrada) || !mesmasOfertas(faseSalva.ofertas, ofertas))
+    && (faseSalva.cenario !== cenario || faseSalva.carteira !== carteira || !mesmaEntrada(faseSalva.entrada, entrada)
+      || !mesmasOfertas(faseSalva.ofertas, ofertas))
     ? EDITANDO
     : faseSalva;
   const erro = erroSalvo !== null && erroSalvo.cenario === cenario && mesmaEntrada(erroSalvo.entrada, entrada) ? erroSalvo.texto : null;
@@ -242,7 +253,7 @@ export function Comparador({
       return;
     }
     try {
-      const c = calcular(ofertas, entrada, cenario);
+      const c = calcular(ofertas, entrada, cenario, carteira);
       setErroSalvo(null);
       setEqId(null);
       setEqData(null);
@@ -273,7 +284,7 @@ export function Comparador({
     if (fase.tipo === 'resultado' && restantes.length >= 2) {
       try {
         focarFase.current = false;
-        setFase({ tipo: 'resultado', palpite: null, ...calcular(restantes, fase.entrada, fase.cenario) });
+        setFase({ tipo: 'resultado', palpite: null, ...calcular(restantes, fase.entrada, fase.cenario, fase.carteira) });
       } catch {
         setFase(EDITANDO);
       }

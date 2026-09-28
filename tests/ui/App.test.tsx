@@ -79,12 +79,12 @@ const nomesDasColunas = () => colunas().map((c) => c.querySelector('.tabela-comp
 const salvas = (chave: string) => JSON.parse(localStorage.getItem(chave) ?? 'null');
 
 describe('App', () => {
-  it('abre em "Comparar", com duas abas', () => {
+  it('abre em "Comparar", com três abas', () => {
     vi.stubGlobal('fetch', fetchForaDoAr);
     render(<App />);
     expect(screen.getByRole('heading', { level: 1, name: 'Rende' })).toBeInTheDocument();
     expect(screen.getByText(/não é recomendação de investimento/)).toBeInTheDocument();
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Comparar', 'Catálogo']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Comparar', 'Catálogo', 'Carteira']);
     expect(aba('Comparar')).toHaveAttribute('aria-selected', 'true');
     expect(within(painelAtivo()).getByRole('heading', { level: 2, name: 'Comparar' })).toBeInTheDocument();
   });
