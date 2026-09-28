@@ -3,8 +3,11 @@ import { lideres } from './comparacao';
 import { type DataISO, deDia, paraDia, somarDias } from './datas';
 import { OfertaInvalidaError } from './erros';
 import type { Cenario } from './indexadores';
-import { projetar, type OfertaCadastrada, type Projecao, type RegraReinvestimento } from './ofertas';
+import { ofertaDeReinvestimento, projetar, type OfertaCadastrada, type Projecao, type RegraReinvestimento } from './ofertas';
 import { simular } from './produtos';
+
+/** Por que o ponto não pode ser resgatado: só no vencimento, prazo mínimo da LCI/LCA ou marcação a mercado. */
+export type MotivoSemResgate = 'NO_VENCIMENTO' | 'PRAZO_MINIMO' | 'MARCACAO_A_MERCADO';
 
 export interface PontoSerie {
   data: DataISO;
@@ -12,6 +15,11 @@ export interface PontoSerie {
   liquido: number | null;
   /** false: o valor é só referência para a linha tracejada (sem liquidez ou com marcação a mercado). */
   resgatavel: boolean;
+  /**
+   * Só nos pontos não resgatáveis que passam a ser resgatáveis em alguma data. Ausente nos resgatáveis e quando
+   * não há data de liberação (ex.: a oferta vence antes da aplicação).
+   */
+  motivo?: MotivoSemResgate;
 }
 export interface Serie { ofertaIndice: number; pontos: PontoSerie[] }
 
@@ -53,19 +61,49 @@ function referencia(o: OfertaCadastrada, valor: number, dataAplicacao: DataISO, 
   }
 }
 
-function ponto(p: Projecao, o: OfertaCadastrada, valor: number, dataAplicacao: DataISO, data: DataISO, cen: Cenario): PontoSerie {
-  if (p.estado === 'DISPONIVEL') return { data, liquido: p.liquido, resgatavel: true };
-  return { data, liquido: referencia(o, valor, dataAplicacao, data, cen), resgatavel: false };
+function motivoDe(p: Projecao, o: OfertaCadastrada): MotivoSemResgate | undefined {
+  if (p.estado === 'MARCACAO_A_MERCADO') return 'MARCACAO_A_MERCADO';
+  if (p.estado !== 'INDISPONIVEL' || p.disponivelEm === undefined) return undefined;
+  return o.liquidez === 'NO_VENCIMENTO' && p.disponivelEm === o.vencimento ? 'NO_VENCIMENTO' : 'PRAZO_MINIMO';
 }
 
-/** Líquido de cada oferta em cada data de {@link datasDaSerie}, com reinvestimento depois do vencimento. */
+/**
+ * O ponto da série de uma oferta numa data.
+ *
+ * Depois do vencimento, a série fixa a estratégia de reaplicação: o dinheiro vai sempre para a mesma oferta de
+ * reinvestimento (`ofertaDeReinvestimento`), em todos os pontos. Se essa oferta ainda não pode ser resgatada na
+ * data (a LCI/LCA reaplicada dentro do prazo mínimo), o ponto fica não resgatável, com o valor de referência da
+ * própria reaplicação (simulada ignorando o prazo mínimo) e o motivo PRAZO_MINIMO.
+ *
+ * `projetar` (a tabela) responde outra pergunta, "e se eu resgatar nessa data?", e por isso pode cair no CDB 100%
+ * quando a preferida não é resgatável: cada coluna é uma decisão separada. Na série, trocar de CDB para LCI de um
+ * ponto para o outro juntaria duas trajetórias diferentes numa linha só.
+ */
+function pontoNaData(o: OfertaCadastrada, valor: number, dataAplicacao: DataISO, data: DataISO, cen: Cenario, regra: RegraReinvestimento): PontoSerie {
+  const p = projetar(o, valor, dataAplicacao, data, cen, regra);
+  if (p.estado === 'DISPONIVEL') {
+    const etapa1 = p.etapas[0];
+    if (!p.reinvestimento?.fallback || !etapa1) return { data, liquido: p.liquido, resgatavel: true };
+    // O fallback só acontece quando a preferida lança OfertaInvalidaError: o prazo mínimo da LCI/LCA.
+    const preferida = ofertaDeReinvestimento(o, regra);
+    const liquido = simular({ ...preferida, valor: etapa1.valorLiquido, dataAplicacao: p.reinvestimento.data }, data, cen, { ignorarPrazoMinimo: true }).valorLiquido;
+    return { data, liquido, resgatavel: false, motivo: 'PRAZO_MINIMO' };
+  }
+  const motivo = motivoDe(p, o);
+  return { data, liquido: referencia(o, valor, dataAplicacao, data, cen), resgatavel: false, ...(motivo ? { motivo } : {}) };
+}
+
+/**
+ * Líquido de cada oferta em cada data de {@link datasDaSerie}, com reinvestimento depois do vencimento na mesma
+ * oferta de reinvestimento em todos os pontos (ver {@link pontoNaData}).
+ */
 export function seriesDeValorLiquido(
   ofertas: readonly OfertaCadastrada[], valor: number, dataAplicacao: DataISO, fim: DataISO, cen: Cenario, regra: RegraReinvestimento,
 ): Serie[] {
   const datas = datasDaSerie(dataAplicacao, fim, ofertas);
   return ofertas.map((o, ofertaIndice) => ({
     ofertaIndice,
-    pontos: datas.map((data) => ponto(projetar(o, valor, dataAplicacao, data, cen, regra), o, valor, dataAplicacao, data, cen)),
+    pontos: datas.map((data) => pontoNaData(o, valor, dataAplicacao, data, cen, regra)),
   }));
 }
 

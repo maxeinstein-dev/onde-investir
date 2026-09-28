@@ -71,7 +71,9 @@ describe('seriesDeValorLiquido', () => {
     expect(antes.length).toBeGreaterThan(0);
     expect(antes.every((p) => !p.resgatavel)).toBe(true);
     expect(pontos.find((p) => p.data === '2028-09-28')?.resgatavel).toBe(true);
-    expect(pontos.filter((p) => p.data > '2028-09-28').every((p) => p.resgatavel)).toBe(true);
+    // Reaplicada em LCI no vencimento (regra padrão), só volta a ser resgatável 6 meses depois (prazo mínimo).
+    expect(pontos.filter((p) => p.data > '2028-09-28' && p.data < '2029-03-28').every((p) => !p.resgatavel && p.motivo === 'PRAZO_MINIMO')).toBe(true);
+    expect(pontos.find((p) => p.data === '2029-03-28')?.resgatavel).toBe(true);
   });
 
   it('LCI: antes do prazo mínimo legal, liquido null; depois, o valor de referência (simular direto)', () => {
@@ -217,8 +219,9 @@ describe('trocasDeLider', () => {
   it('ninguém resgatável no começo: a primeira oferta que fica resgatável é uma troca de [] para ela', () => {
     const ofertas = [lci2028];
     const series = seriesDeValorLiquido(ofertas, 10000, INI, '2029-01-01', CEN, PADRAO);
+    // Resgatável só no dia do vencimento: no dia seguinte o dinheiro está na LCI reaplicada, dentro do prazo mínimo.
     expect(trocasDeLider(series, { ofertas, valor: 10000, dataAplicacao: INI, cen: CEN, regra: PADRAO }))
-      .toEqual([{ data: '2028-09-28', de: [], para: [0] }]);
+      .toEqual([{ data: '2028-09-28', de: [], para: [0] }, { data: '2028-09-29', de: [0], para: [] }]);
   });
 });
 
@@ -226,3 +229,62 @@ describe('trocasDeLider', () => {
 function seguinteDoPonto(series: readonly Serie[], data: string): string | undefined {
   return series[0]?.pontos.find((p) => p.data >= data)?.data;
 }
+
+describe('reaplicação fixa na série (a mesma oferta de reinvestimento depois do vencimento)', () => {
+  const cen = cenarioReal('BASE');
+  const lci90: OfertaCadastrada = { ...b, id: 'l9', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.9 }, vencimento: '2027-09-28', liquidez: 'NO_VENCIMENTO' };
+  const fim = '2028-09-28';
+  const [s] = seriesDeValorLiquido([lci90], 10000, INI, fim, cen, PADRAO);
+  const pontos = s?.pontos ?? [];
+  // A reaplicação em LCI só pode ser resgatada 6 meses depois do vencimento.
+  const liberada = '2028-03-28';
+
+  it('entre o vencimento e o fim do prazo mínimo da reaplicação: não resgatável, motivo PRAZO_MINIMO, com valor de referência', () => {
+    const carencia = pontos.filter((p) => p.data > '2027-09-28' && p.data < liberada);
+    expect(carencia.length).toBeGreaterThan(20);
+    for (const p of carencia) {
+      expect(p.resgatavel, p.data).toBe(false);
+      expect(p.motivo, p.data).toBe('PRAZO_MINIMO');
+      expect(p.liquido, p.data).not.toBeNull();
+    }
+    expect(pontos.find((p) => p.data === '2027-09-28')).toMatchObject({ resgatavel: true });
+    expect(pontos.filter((p) => p.data >= liberada).every((p) => p.resgatavel && p.motivo === undefined)).toBe(true);
+  });
+
+  it('nenhum salto de categoria: o rendimento diário fica contínuo depois do vencimento (sem CDB no meio)', () => {
+    const depois = pontos.filter((p) => p.data >= '2027-09-28');
+    const taxas = depois.slice(1).map((p, k) => {
+      const anterior = depois[k] as (typeof depois)[number];
+      return ((p.liquido as number) / (anterior.liquido as number)) ** (1 / diasCorridos(anterior.data, p.data)) - 1;
+    });
+    const ordenadas = [...taxas].sort((x, y) => x - y);
+    const mediana = ordenadas[Math.floor(ordenadas.length / 2)] as number;
+    expect(Math.max(...taxas)).toBeLessThan(mediana * 1.6);
+    expect(Math.min(...taxas)).toBeGreaterThanOrEqual(0);
+  });
+
+  it('a partir do fim do prazo mínimo, o valor é o da tabela (projetar sem fallback)', () => {
+    for (const p of pontos.filter((x) => x.data >= liberada)) {
+      const proj = projetar(lci90, 10000, INI, p.data, cen);
+      expect(proj.estado === 'DISPONIVEL' && proj.reinvestimento?.fallback, p.data).toBe(false);
+      expect(p.liquido).toBe(proj.estado === 'DISPONIVEL' ? proj.liquido : NaN);
+    }
+  });
+
+  it('a tabela continua usando o fallback em CDB antes do prazo mínimo da reaplicação', () => {
+    const proj = projetar(lci90, 10000, INI, '2027-12-28', cen);
+    expect(proj.estado === 'DISPONIVEL' && proj.reinvestimento).toMatchObject({ fallback: true });
+  });
+});
+
+describe('motivo do ponto não resgatável', () => {
+  it('só no vencimento, prazo mínimo e marcação a mercado', () => {
+    const lciDiaria: OfertaCadastrada = { ...lci2028, id: 'ld', liquidez: 'DIARIA' };
+    const [noVenc, prazo, marcacao, diario] = seriesDeValorLiquido([lci2028, lciDiaria, prefixado2029, cdbDiario], 10000, INI, '2027-06-01', CEN, PADRAO);
+    expect(noVenc?.pontos.every((p) => p.motivo === 'NO_VENCIMENTO')).toBe(true);
+    expect(prazo?.pontos.filter((p) => p.data < '2027-03-28').every((p) => p.motivo === 'PRAZO_MINIMO')).toBe(true);
+    expect(prazo?.pontos.filter((p) => p.data >= '2027-03-28').every((p) => p.resgatavel && p.motivo === undefined)).toBe(true);
+    expect(marcacao?.pontos.every((p) => p.motivo === 'MARCACAO_A_MERCADO')).toBe(true);
+    expect(diario?.pontos.every((p) => !('motivo' in p))).toBe(true);
+  });
+});

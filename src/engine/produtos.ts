@@ -78,7 +78,13 @@ export const PERCENTUAL_CDI_MAXIMO = 5;
 /** Taxa anual utilizável em (1 + t)^n: finita e acima de −100%. */
 const taxaAnualValida = (t: number): boolean => Number.isFinite(t) && t > -1;
 
-export function validarAplicacao(ap: Aplicacao, dataResgate: DataISO): void {
+/**
+ * `ignorarPrazoMinimo`: só para valores de referência (a linha tracejada do gráfico), nunca para um resgate de
+ * verdade. A LCI/LCA é simulada como se já pudesse ser resgatada.
+ */
+export interface OpcoesSimulacao { ignorarPrazoMinimo?: boolean }
+
+export function validarAplicacao(ap: Aplicacao, dataResgate: DataISO, opcoes: OpcoesSimulacao = {}): void {
   if (!Number.isFinite(ap.valor) || ap.valor <= 0) throw new OfertaInvalidaError('O valor aplicado precisa ser maior que zero');
   const permitidas = Object.hasOwn(INDEXACOES_PERMITIDAS, ap.produto) ? INDEXACOES_PERMITIDAS[ap.produto] : undefined;
   if (!permitidas) throw new OfertaInvalidaError(`Produto desconhecido: ${String(ap.produto)}`);
@@ -94,7 +100,7 @@ export function validarAplicacao(ap: Aplicacao, dataResgate: DataISO): void {
   }
   if (ix.tipo === 'PRE' && !taxaAnualValida(ix.taxaAA)) throw new OfertaInvalidaError('Taxa prefixada inválida');
   if (ix.tipo === 'IPCA_MAIS' && !taxaAnualValida(ix.taxaRealAA)) throw new OfertaInvalidaError('Taxa real inválida');
-  if (ap.produto === 'LCI' || ap.produto === 'LCA') {
+  if ((ap.produto === 'LCI' || ap.produto === 'LCA') && !opcoes.ignorarPrazoMinimo) {
     const minima = dataMinimaResgate(ap.produto, ix.tipo === 'IPCA_MAIS', ap.dataAplicacao);
     if (dataResgate < minima) {
       throw new OfertaInvalidaError(`${ap.produto} tem prazo mínimo legal: o resgate só é possível a partir de ${dataBR(minima)}`);
@@ -153,8 +159,8 @@ function simularPoupanca(ap: Aplicacao, dataResgate: DataISO, cen: Cenario): Res
   return { ...semDescontos, passos: montarPassos(semDescontos) };
 }
 
-export function simular(ap: Aplicacao, dataResgate: DataISO, cen: Cenario): ResultadoSimulacao {
-  validarAplicacao(ap, dataResgate);
+export function simular(ap: Aplicacao, dataResgate: DataISO, cen: Cenario, opcoes: OpcoesSimulacao = {}): ResultadoSimulacao {
+  validarAplicacao(ap, dataResgate, opcoes);
   if (ap.produto === 'POUPANCA') return simularPoupanca(ap, dataResgate, cen);
   const dc = diasCorridos(ap.dataAplicacao, dataResgate);
   const fator = fatorBruto(ap, dataResgate, cen);
