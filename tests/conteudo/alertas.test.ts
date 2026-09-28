@@ -259,6 +259,21 @@ describe('textoDoAlerta — FGC_LIMITE (rascunho, revisão no C2/C3)', () => {
   });
 });
 
+describe('textoDoAlerta — FGC_NAO_CALCULADO', () => {
+  it('itens da carteira de fora da conta', () => {
+    const a: Alerta = { tipo: 'FGC_NAO_CALCULADO', oferta: 0, conglomerado: 'B', carteira: [1, 3], ofertaForaDaConta: false };
+    const t = textoDoAlerta(a, ofertas, horizontes);
+    expect(t.titulo).toBe('Conta do FGC incompleta');
+    expect(t.oQue).toBe('Não deu para calcular 2 aplicações da sua carteira no conglomerado B, e elas ficaram de fora da conta do limite do FGC.');
+    expect(t.termo).toBe('fgc');
+    expect(textoDoAlerta({ ...a, carteira: [1] }, ofertas, horizontes).oQue).toBe('Não deu para calcular 1 aplicação da sua carteira no conglomerado B, e ela ficou de fora da conta do limite do FGC.');
+  });
+  it('a própria oferta de fora da conta', () => {
+    const a: Alerta = { tipo: 'FGC_NAO_CALCULADO', oferta: 0, conglomerado: 'B', carteira: [], ofertaForaDaConta: true };
+    expect(textoDoAlerta(a, ofertas, horizontes).oQue).toBe('Não deu para calcular CDB 103% do CDI (Banco B) até o fim do prazo, então o app não conferiu o limite do FGC no conglomerado B.');
+  });
+});
+
 describe('textoDoTetoGlobal', () => {
   it('qualitativo: a garantia somada passa de R$ 1 milhão e o teto vale para 4 anos', () => {
     const t = textoDoTetoGlobal({ garantiaSomada: 1_250_000, teto: 1_000_000, conglomerados: [] });

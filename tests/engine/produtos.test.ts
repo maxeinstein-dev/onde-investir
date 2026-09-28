@@ -92,6 +92,24 @@ describe('simular — poupança', () => {
     const cen8 = cenarioConstante({ cdiAA: 0.079, selicMetaAA: 0.08, ipcaAA: 0.04, trAM: 0 });
     expect(simular(poup(INI), '2026-12-28', cen8).valorLiquido).toBeCloseTo(10137.152491, 5);
   });
+  describe('regra pela data do depósito (Lei 12.703/2012 só vale para depósitos a partir de 04/05/2012)', () => {
+    // Meta de 10% até 2019 e de 2% em 2020: com a regra nova, 2020 rende 70% da Selic.
+    const TR = 0.0001;
+    const cen2020 = { ...cenarioConstante({ cdiAA: 0.02, selicMetaAA: 0.02, ipcaAA: 0.04, trAM: TR }), selicMetaAA: (d: string) => (d < '2020-01-01' ? 0.1 : 0.02) };
+    /** O rendimento do aniversário de 10/06/2020 a 10/07/2020. */
+    const mesDe2020 = (dataAplicacao: string) =>
+      simular(poup(dataAplicacao), '2020-07-10', cen2020).valorBruto / simular(poup(dataAplicacao), '2020-06-10', cen2020).valorBruto;
+    it('depósito de 2011: 0,5% + TR, mesmo em 2020 com a Selic abaixo de 8,5%', () => {
+      expect(mesDe2020('2011-03-10')).toBeCloseTo(1.005 * (1 + TR), 12);
+    });
+    it('depósito de 2015: 70% da Selic + TR em 2020', () => {
+      expect(mesDe2020('2015-03-10')).toBeCloseTo(Math.pow(1 + 0.7 * 0.02, 1 / 12) * (1 + TR), 12);
+    });
+    it('a véspera da lei nova ainda é a regra antiga; o dia da lei, a nova', () => {
+      expect(mesDe2020('2012-05-03')).toBeCloseTo(1.005 * (1 + TR), 12);
+      expect(mesDe2020('2012-05-04')).toBeCloseTo(Math.pow(1 + 0.7 * 0.02, 1 / 12) * (1 + TR), 12);
+    });
+  });
   it('isenta de IR e de IOF', () => {
     const r = simular(poup(INI), '2026-10-28', CEN);
     expect(r.ir).toBe(0);

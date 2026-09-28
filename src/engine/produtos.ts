@@ -175,7 +175,8 @@ function simularPoupanca(ap: Aplicacao, dataResgate: DataISO, cen: Cenario): Res
   for (let aniversarioAnterior = inicio; ; meses++) {
     const proximo = somarMeses(inicio, meses + 1);
     if (proximo > dataResgate) break;
-    const base = taxaBasePoupancaAM(cen.selicMetaAA(aniversarioAnterior), aniversarioAnterior);
+    // A regra é a da data do depósito; a meta, a do aniversário.
+    const base = taxaBasePoupancaAM(cen.selicMetaAA(aniversarioAnterior), ap.dataAplicacao);
     valor *= (1 + base) * (1 + cen.trAM(aniversarioAnterior));
     aniversarioAnterior = proximo;
   }

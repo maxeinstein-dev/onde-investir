@@ -141,6 +141,19 @@ export function textoDoAlerta(a: Alerta, ofertas: readonly OfertaCadastrada[], h
         porQue: `${textoFGC(a.data)} O limite conta o principal e os rendimentos, e o que passar dele fica sem garantia.`,
         termo: 'fgc',
       };
+    case 'FGC_NAO_CALCULADO': {
+      const n = a.carteira.length;
+      const daCarteira = n === 1
+        ? `Não deu para calcular 1 aplicação da sua carteira no conglomerado ${a.conglomerado}, e ela ficou de fora da conta do limite do FGC.`
+        : `Não deu para calcular ${n} aplicações da sua carteira no conglomerado ${a.conglomerado}, e elas ficaram de fora da conta do limite do FGC.`;
+      const daOferta = `Não deu para calcular ${nome(ofertas, a.oferta)} até o fim do prazo, então o app não conferiu o limite do FGC no conglomerado ${a.conglomerado}.`;
+      return {
+        titulo: 'Conta do FGC incompleta',
+        oQue: [a.ofertaForaDaConta ? daOferta : '', n > 0 ? daCarteira : ''].filter(Boolean).join(' '),
+        porQue: 'Falta uma regra ou um dado para alguma data, ou algum campo está inválido. Confira os dados: sem esse cálculo, o alerta do limite pode não aparecer.',
+        termo: 'fgc',
+      };
+    }
   }
 }
 

@@ -1,7 +1,7 @@
 // src/engine/alertas.ts
 import type { ColunaHorizonte } from './comparacao';
 import { type DataISO, diasCorridos } from './datas';
-import { OfertaInvalidaError } from './erros';
+import { OfertaInvalidaError, RegraNaoEncontradaError } from './erros';
 import { coberto, type ItemFGC, normalizarConglomerado, primeiraDataAcimaDoLimite } from './fgc';
 import type { Cenario } from './indexadores';
 import { aplicacaoDe, type OfertaCadastrada, type Projecao } from './ofertas';
@@ -65,6 +65,19 @@ export type Alerta =
     /** Bruto somado da carteira e da oferta no fim. */
     totalNoFim: number;
     excedenteNoFim: number;
+  }
+  | {
+    /**
+     * Parte da conta do FGC da oferta não pôde ser calculada (regra não cadastrada para a data ou dado inválido):
+     * esses itens ficaram de fora, e o FGC_LIMITE, se houver, conta só o resto.
+     */
+    tipo: 'FGC_NAO_CALCULADO'; oferta: number;
+    /** O nome como está na oferta. */
+    conglomerado: string;
+    /** Os índices em `ContextoFGC.carteira` dos itens do conglomerado que ficaram de fora. */
+    carteira: number[];
+    /** A própria oferta não pôde ser simulada até o fim. */
+    ofertaForaDaConta: boolean;
   };
 
 /**
@@ -76,7 +89,7 @@ export interface ContextoFGC { carteira: readonly ItemFGC[]; valor: number; data
 /** Diferença, relativa ao líquido do líder, abaixo da qual duas ofertas estão "quase empatadas" (spec §5.6). */
 export const LIMIAR_QUASE_EMPATE = 0.005;
 
-const ORDEM_TIPOS: readonly Alerta['tipo'][] = ['QUASE_EMPATE', 'IR_REINICIA', 'IOF', 'PRAZO_INCOMPATIVEL', 'FGC_LIMITE'];
+const ORDEM_TIPOS: readonly Alerta['tipo'][] = ['QUASE_EMPATE', 'IR_REINICIA', 'IOF', 'PRAZO_INCOMPATIVEL', 'FGC_LIMITE', 'FGC_NAO_CALCULADO'];
 
 type Disponivel = Extract<Projecao, { estado: 'DISPONIVEL' }>;
 const disponivel = (p: Projecao | undefined): p is Disponivel => p?.estado === 'DISPONIVEL';
@@ -184,11 +197,37 @@ function prazoIncompativel(p: Projecao, oferta: number, horizonte: DataISO, naDa
     : { tipo: 'PRAZO_INCOMPATIVEL', oferta, horizonte, disponivelEm: p.disponivelEm }];
 }
 
+/** O item de índice `indice` (−1: a oferta) não pôde ser calculado numa das datas. */
+class ItemNaoCalculado extends Error {
+  constructor(public readonly indice: number) {
+    super(`Item ${indice} do FGC não calculado`);
+  }
+}
+
+/** O item com `brutoEm` que troca os erros de regra e de dado por {@link ItemNaoCalculado}; os outros sobem. */
+function marcado(item: ItemFGC, indice: number): ItemFGC {
+  return {
+    ...item,
+    brutoEm: (d) => {
+      try {
+        return item.brutoEm(d);
+      } catch (e) {
+        if (e instanceof RegraNaoEncontradaError || e instanceof OfertaInvalidaError) throw new ItemNaoCalculado(indice);
+        throw e;
+      }
+    },
+  };
+}
+
 /**
  * Para cada oferta coberta pelo FGC: a carteira do mesmo conglomerado (pelo `brutoEm` de cada item) mais a oferta
  * aplicada pelo valor da comparação (pelo bruto do `simular`), até o vencimento dela ou, sem vencimento, até o
  * horizonte mais distante. As datas conferidas são a aplicação, os horizontes até o fim e o fim; entre elas, o dia
- * exato sai de `primeiraDataAcimaDoLimite`. A oferta que não pode ser simulada fica sem o alerta.
+ * exato sai de `primeiraDataAcimaDoLimite`.
+ *
+ * Um item (da carteira ou a própria oferta) cujo `brutoEm` lança RegraNaoEncontradaError ou OfertaInvalidaError
+ * em qualquer data sai da conta, e a conta é refeita sem ele; os itens que saíram vão num FGC_NAO_CALCULADO. Nada
+ * disso derruba `gerarAlertas`.
  */
 function alertasFGC(ofertas: readonly OfertaCadastrada[], horizontes: readonly DataISO[], ctx: ContextoFGC): Alerta[] {
   const maisDistante = horizontes.at(-1);
@@ -196,18 +235,29 @@ function alertasFGC(ofertas: readonly OfertaCadastrada[], horizontes: readonly D
     const fim = o.vencimento ?? maisDistante;
     if (!coberto(o.produto) || fim === undefined || fim <= ctx.dataAplicacao) return [];
     const ap = aplicacaoDe(o, ctx.valor, ctx.dataAplicacao);
-    const item: ItemFGC = {
+    const oferta: ItemFGC = {
       conglomerado: o.conglomerado, produto: o.produto,
       brutoEm: (d) => (d <= ctx.dataAplicacao ? ctx.valor : simular(ap, d < fim ? d : fim, ctx.cen, { ignorarPrazoMinimo: true }).valorBruto),
     };
     const chave = normalizarConglomerado(o.conglomerado);
-    const doConglomerado = ctx.carteira.filter((c) => normalizarConglomerado(c.conglomerado) === chave);
+    const itens = [
+      { indice: -1, item: marcado(oferta, -1) },
+      ...ctx.carteira.flatMap((c, k) => (normalizarConglomerado(c.conglomerado) === chave ? [{ indice: k, item: marcado(c, k) }] : [])),
+    ];
     const datas = [ctx.dataAplicacao, ...horizontes.filter((h) => h > ctx.dataAplicacao && h < fim), fim];
-    try {
-      return primeiraDataAcimaDoLimite([item, ...doConglomerado], datas).map((a) => ({ tipo: 'FGC_LIMITE', oferta: i, ...a }));
-    } catch (e) {
-      if (e instanceof OfertaInvalidaError) return [];
-      throw e;
+    const fora = new Set<number>();
+    for (;;) {
+      try {
+        // Sem a oferta, não há o que alertar sobre aplicar nela: só a marca de não calculado.
+        const limite = fora.has(-1) ? [] : primeiraDataAcimaDoLimite(itens.filter((x) => !fora.has(x.indice)).map((x) => x.item), datas)
+          .map((a): Alerta => ({ tipo: 'FGC_LIMITE', oferta: i, ...a }));
+        if (fora.size === 0) return limite;
+        const carteira = [...fora].filter((k) => k >= 0).sort((a, b) => a - b);
+        return [...limite, { tipo: 'FGC_NAO_CALCULADO', oferta: i, conglomerado: o.conglomerado, carteira, ofertaForaDaConta: fora.has(-1) }];
+      } catch (e) {
+        if (!(e instanceof ItemNaoCalculado) || fora.has(e.indice)) throw e;
+        fora.add(e.indice);
+      }
     }
   });
 }

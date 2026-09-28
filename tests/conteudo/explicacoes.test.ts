@@ -34,6 +34,12 @@ describe('explicarSimulacao', () => {
     const passos = explicarSimulacao(simular({ ...cdb, produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' } }, '2027-03-27', CEN));
     expect(passos.find((p) => p.id === 'rendimentoBruto')?.curto).toMatch(/5 aniversários/);
   });
+  it('Poupança de depósito anterior a 04/05/2012: explica a regra antiga, com a Lei 8.177', () => {
+    const passos = explicarSimulacao(simular({ ...cdb, produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' }, dataAplicacao: '2011-03-10' }, '2020-07-10', CEN));
+    const rendimento = passos.find((p) => p.id === 'rendimentoBruto');
+    expect(rendimento?.matematica).toBe('Depósito feito antes de 04/05/2012: rende 0,5% ao mês + TR, qualquer que seja a Selic.');
+    expect(rendimento?.fonte).toMatch(/l8177/);
+  });
   it('Tesouro Prefixado e IPCA+: avisa que o resgate é tratado como vencimento (marcação a mercado)', () => {
     const aviso = 'Considera o título mantido até o vencimento nessa data. Vender antes sujeita o valor à marcação a mercado.';
     const pre = simular({ ...cdb, produto: 'TESOURO_PREFIXADO', indexacao: { tipo: 'PRE', taxaAA: 0.13 } }, '2028-09-28', CEN);

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { gerarAlertas, LIMIAR_QUASE_EMPATE, resgataQuandoQuiser, type Alerta } from '../../src/engine/alertas';
 import { horizontesPadrao, tabelaPorHorizonte } from '../../src/engine/comparacao';
 import { somarDias } from '../../src/engine/datas';
+import { OfertaInvalidaError, RegraNaoEncontradaError } from '../../src/engine/erros';
 import { projetar, type OfertaCadastrada, type Projecao } from '../../src/engine/ofertas';
 import { primeiraDataAcimaDoLimite, type ItemFGC } from '../../src/engine/fgc';
 import { simular, type ResultadoSimulacao } from '../../src/engine/produtos';
@@ -341,6 +342,31 @@ describe('FGC_LIMITE', () => {
   it('a carteira do conglomerado já acima: a oferta alerta na data de aplicação', () => {
     const [a] = doTipo(comFGC([cdbVenc2031], [carteiraFixa('B', 260_000)]), 'FGC_LIMITE');
     expect(a).toMatchObject({ oferta: 0, data: INI, total: 305_000, excedente: 55_000 });
+  });
+  describe('item da carteira que não pode ser calculado', () => {
+    const quebra = (conglomerado: string, erro: () => Error): ItemFGC => ({ conglomerado, produto: 'POUPANCA', brutoEm: () => { throw erro(); } });
+    it.each([
+      ['RegraNaoEncontradaError', () => new RegraNaoEncontradaError('poupança', '2001-01-10')],
+      ['OfertaInvalidaError', () => new OfertaInvalidaError('taxa inválida')],
+    ])('%s: fica de fora, é marcado como não calculado e não derruba os outros alertas', (_, erro) => {
+      const carteira = [carteiraFixa('B', 240_000), quebra('B', erro), quebra('Outro', erro)];
+      const cdb2027: OfertaCadastrada = { ...cdbVenc2031, id: 'c', vencimento: '2027-09-01' };
+      const todos = comFGC([cdbVenc2031, cdb2027], carteira);
+      expect(doTipo(todos, 'FGC_LIMITE').map((a) => a.oferta)).toContain(0);
+      expect(doTipo(todos, 'FGC_NAO_CALCULADO').filter((a) => a.oferta === 0))
+        .toEqual([{ tipo: 'FGC_NAO_CALCULADO', oferta: 0, conglomerado: 'B', carteira: [1], ofertaForaDaConta: false }]);
+      // Os outros alertas continuam lá.
+      expect(todos.map((a) => a.tipo)).toEqual(expect.arrayContaining(['IR_REINICIA', 'IOF']));
+    });
+    it('item que quebra só numa data do meio da busca também fica de fora', () => {
+      const tardio: ItemFGC = { conglomerado: 'B', produto: 'CDB', brutoEm: (d) => { if (d > '2027-01-01') throw new RegraNaoEncontradaError('x', d); return 10; } };
+      const todos = comFGC([cdbVenc2031], [carteiraFixa('B', 200_000), tardio]);
+      expect(doTipo(todos, 'FGC_NAO_CALCULADO')).toMatchObject([{ carteira: [1] }]);
+      expect(doTipo(todos, 'FGC_LIMITE')).toMatchObject([{ total: expect.any(Number) }]);
+    });
+    it('outro erro continua subindo', () => {
+      expect(() => comFGC([cdbVenc2031], [quebra('B', () => new TypeError('bug'))])).toThrow(TypeError);
+    });
   });
   it('sem o contexto, nada muda', () => {
     const ofertas = [cdbVenc2031, cdbDiario(1.028), tesouroSelic];
