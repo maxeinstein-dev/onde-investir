@@ -408,3 +408,24 @@ describe('trocasDeLider: contexto e séries', () => {
     expect(() => trocasDeLider(series, { ofertas: [cdbDiario], valor: 10000, dataAplicacao: INI, cen: CEN, regra: PADRAO })).toThrow(RangeError);
   });
 });
+
+describe('investigação: CDB 103% só no vencimento (1 ano) × CDB 102,8% diário, cenário real', () => {
+  const cen = cenarioReal('BASE');
+  const noVencimento: OfertaCadastrada = { ...b, id: 'a', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 }, vencimento: '2027-09-28', liquidez: 'NO_VENCIMENTO' };
+  const diario: OfertaCadastrada = { ...b, id: 'c', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.028 }, liquidez: 'DIARIA' };
+  const ofertas = [noVencimento, diario];
+  const fim = '2031-09-28';
+  const series = seriesDeValorLiquido(ofertas, 10000, INI, fim, cen, PADRAO);
+  const trocas = trocasDeLider(series, { ofertas, valor: 10000, dataAplicacao: INI, cen, regra: PADRAO });
+
+  it('A lidera só no dia do vencimento: no dia seguinte a reaplicação paga IOF de 96% e IR de 22,5% sobre 1 dia', () => {
+    expect(trocas).toEqual([{ data: '2027-09-28', de: [1], para: [0] }, { data: '2027-09-29', de: [0], para: [1] }]);
+    const p = projetar(noVencimento, 10000, INI, '2027-09-29', cen);
+    const reaplicacao = p.estado === 'DISPONIVEL' ? p.etapas[1] : undefined;
+    expect(reaplicacao).toMatchObject({ diasCorridos: 1, aliquotaIOF: 0.96, aliquotaIR: 0.225 });
+  });
+
+  it('nas trocas relevantes, a liderança de 1 dia é fundida: B lidera o período com oscilação', () => {
+    expect(trocasRelevantes(trocas, { duracaoMinimaDias: 30, fim })).toEqual({ inicial: { oscilante: true, alternancias: 2, alternam: [0, 1] }, trocas: [] });
+  });
+});
