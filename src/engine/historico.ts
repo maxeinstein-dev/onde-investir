@@ -1,5 +1,6 @@
 // src/engine/historico.ts
-import { type DataISO, ehDataValida, paraDia } from './datas';
+import { paraCadaDiaUtil } from './calendario';
+import { type DataISO, ehDataValida, paraDia, somarDias } from './datas';
 import type { Cenario } from './indexadores';
 
 /**
@@ -22,11 +23,37 @@ export interface SeriesRealizadas {
 
 const ANO_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
 
-function validar(nome: string, serie: ReadonlyMap<string, number>, chaveValida: (k: string) => boolean): void {
+/**
+ * Faixas de sanidade, em fração, para pegar dado corrompido ou erro de unidade (a série em % lida como fração):
+ * - CDI e Selic over diários em [0, 1%): 1% ao dia útil são 1.100% ao ano;
+ * - Selic meta em [0, 100%);
+ * - IPCA mensal com |x| < 20%;
+ * - TR mensal em [0, 5%).
+ */
+const FAIXAS = {
+  diaria: (v: number) => v >= 0 && v < 0.01,
+  meta: (v: number) => v >= 0 && v < 1,
+  ipca: (v: number) => Math.abs(v) < 0.2,
+  tr: (v: number) => v >= 0 && v < 0.05,
+} as const;
+
+function validar(nome: string, serie: ReadonlyMap<string, number>, chaveValida: (k: string) => boolean, naFaixa: (v: number) => boolean): void {
   for (const [k, v] of serie) {
     if (!chaveValida(k)) throw new RangeError(`${nome}: data inválida "${k}"`);
-    if (!Number.isFinite(v) || v <= -1) throw new RangeError(`${nome}: valor inválido em ${k} (${v})`);
+    if (!Number.isFinite(v) || !naFaixa(v)) throw new RangeError(`${nome}: valor fora da faixa em ${k} (${v})`);
   }
+}
+
+/**
+ * Até quantos dias corridos depois de uma entrada a Selic meta ainda vale. A série 432 tem um ponto por dia
+ * corrido: um buraco maior que isso é dado faltando, e o valor não deve atravessá-lo.
+ */
+export const LACUNA_MAXIMA_META_DIAS = 60;
+
+/** O cenário com o histórico, mais os dias úteis sem CDI antes da `ultimaData` (a UI avisa "histórico incompleto"). */
+export interface CenarioComHistorico extends Cenario {
+  /** Dias úteis de [primeiro CDI, `ultimaData`] sem CDI na série, em ordem. Nesses dias vale o cenário projetado. */
+  lacunas: DataISO[];
 }
 
 /**
@@ -35,7 +62,10 @@ function validar(nome: string, serie: ReadonlyMap<string, number>, chaveValida: 
  */
 const anualDe = (diaria: number): number => Math.pow(1 + diaria, 252) - 1;
 
-/** A última vigência até a data (inclusive), por busca binária em datas ordenadas. */
+/**
+ * A última vigência até a data (inclusive), por busca binária em datas ordenadas; undefined se ela começou mais
+ * de {@link LACUNA_MAXIMA_META_DIAS} dias antes.
+ */
 function vigenteEm(vigencias: readonly (readonly [dia: number, valor: number])[], data: DataISO): number | undefined {
   const dia = paraDia(data);
   let lo = 0;
@@ -45,25 +75,39 @@ function vigenteEm(vigencias: readonly (readonly [dia: number, valor: number])[]
     if ((vigencias[meio] as readonly [number, number])[0] <= dia) lo = meio + 1;
     else hi = meio;
   }
-  return lo === 0 ? undefined : (vigencias[lo - 1] as readonly [number, number])[1];
+  if (lo === 0) return undefined;
+  const [inicio, valor] = vigencias[lo - 1] as readonly [number, number];
+  return dia - inicio <= LACUNA_MAXIMA_META_DIAS ? valor : undefined;
+}
+
+/** Dias úteis de [primeiro dia com CDI, `ultima`] sem CDI. */
+function lacunasDoCDI(cdi: ReadonlyMap<DataISO, number>, ultima: DataISO): DataISO[] {
+  let primeira: DataISO | undefined;
+  for (const d of cdi.keys()) if (primeira === undefined || d < primeira) primeira = d;
+  if (primeira === undefined || primeira > ultima) return [];
+  const lacunas: DataISO[] = [];
+  paraCadaDiaUtil(primeira, somarDias(ultima, 1), (d) => { if (!cdi.has(d)) lacunas.push(d); });
+  return lacunas;
 }
 
 /**
  * Cenário que usa o realizado onde ele existe e o `futuro` no resto:
  * - CDI e Selic over: a taxa do dia, até a `ultimaData`. Dia sem dado (lacuna na série) cai no futuro.
- * - Selic meta: a última vigência até a data, até a `ultimaData`; antes da primeira vigência, o futuro.
+ * - Selic meta: a última vigência até a data, até a `ultimaData`, se ela começou até
+ *   {@link LACUNA_MAXIMA_META_DIAS} dias antes; antes da primeira vigência ou depois de uma lacuna maior, o futuro.
  * - IPCA: o mês realizado vira `(1 + mensal)^12 − 1`, e o pró-rata do `fatorIPCA` devolve o fator do mês. Mês
  *   sem dado cai no futuro, qualquer que seja a data.
  * - TR: a do período iniciado na data; sem ela, o futuro.
- * Lança RangeError se uma série tiver data ou valor inválido.
+ * `lacunas` lista os dias úteis sem CDI. Lança RangeError se uma série tiver data inválida ou valor fora da faixa
+ * de sanidade (ver `FAIXAS`).
  */
-export function cenarioComHistorico(realizado: SeriesRealizadas, futuro: Cenario): Cenario {
+export function cenarioComHistorico(realizado: SeriesRealizadas, futuro: Cenario): CenarioComHistorico {
   if (!ehDataValida(realizado.ultimaData)) throw new RangeError(`Última data inválida: "${realizado.ultimaData}"`);
-  validar('CDI', realizado.cdiDiario, ehDataValida);
-  validar('Selic over', realizado.selicOverDiaria, ehDataValida);
-  validar('TR', realizado.trPorInicio, ehDataValida);
-  validar('Selic meta', realizado.selicMetaAA, ehDataValida);
-  validar('IPCA', realizado.ipcaMensal, (k) => ANO_MES.test(k));
+  validar('CDI', realizado.cdiDiario, ehDataValida, FAIXAS.diaria);
+  validar('Selic over', realizado.selicOverDiaria, ehDataValida, FAIXAS.diaria);
+  validar('TR', realizado.trPorInicio, ehDataValida, FAIXAS.tr);
+  validar('Selic meta', realizado.selicMetaAA, ehDataValida, FAIXAS.meta);
+  validar('IPCA', realizado.ipcaMensal, (k) => ANO_MES.test(k), FAIXAS.ipca);
 
   const ultima = realizado.ultimaData;
   const diaria = (serie: ReadonlyMap<DataISO, number>, data: DataISO): number | undefined =>
@@ -85,5 +129,6 @@ export function cenarioComHistorico(realizado: SeriesRealizadas, futuro: Cenario
       return m === undefined ? futuro.ipcaAA(data) : Math.pow(1 + m, 12) - 1;
     },
     trAM: (data) => realizado.trPorInicio.get(data) ?? futuro.trAM(data),
+    lacunas: lacunasDoCDI(realizado.cdiDiario, ultima),
   };
 }

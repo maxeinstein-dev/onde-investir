@@ -94,7 +94,7 @@ describe('cenarioComHistorico', () => {
   });
 
   it('Selic meta: vale a última vigência até a data, só até a ultimaData', () => {
-    const meta = new Map([['2025-01-01', 0.1225], ['2025-03-20', 0.1425]]);
+    const meta = new Map([['2025-01-01', 0.1225], ['2025-02-15', 0.1225], ['2025-03-20', 0.1425], ['2025-05-15', 0.1425]]);
     const cen = cenarioComHistorico(series({ selicMetaAA: meta }), FUTURO);
     expect(cen.selicMetaAA('2025-03-19')).toBe(0.1225);
     expect(cen.selicMetaAA('2025-03-20')).toBe(0.1425);
@@ -107,7 +107,7 @@ describe('cenarioComHistorico', () => {
     const s = series({
       cdiDiario: new Map(), selicOverDiaria: new Map(), ipcaMensal: new Map(),
       trPorInicio: new Map([['2021-01-10', 0], ['2021-02-10', 0], ['2021-03-10', 0]]),
-      selicMetaAA: new Map([['2020-08-06', 0.02], ['2021-03-01', 0.0275]]),
+      selicMetaAA: new Map([['2020-12-15', 0.02], ['2021-02-01', 0.02], ['2021-03-01', 0.0275]]),
       ultimaData: '2021-06-30',
     });
     const cen = cenarioComHistorico(s, FUTURO);
@@ -115,6 +115,55 @@ describe('cenarioComHistorico', () => {
     const mes2 = Math.pow(1 + 0.7 * 0.02, 1 / 12);
     const mes275 = Math.pow(1 + 0.7 * 0.0275, 1 / 12);
     expect(r.valorBruto).toBeCloseTo(10000 * mes2 * mes2 * mes275, 9);
+  });
+
+  it('Selic meta: o preenchimento para a frente vai até 60 dias corridos; depois, o cenário', () => {
+    const cen = cenarioComHistorico(series({ selicMetaAA: new Map([['2025-01-01', 0.1225]]) }), FUTURO);
+    expect(cen.selicMetaAA(somarDias('2025-01-01', 60))).toBe(0.1225);
+    expect(cen.selicMetaAA(somarDias('2025-01-01', 61))).toBe(0.1375);
+    expect(cen.selicMetaAA('2025-06-30')).toBe(0.1375);
+  });
+
+  describe('lacunas', () => {
+    it('sem lacuna, lista vazia', () => {
+      expect(cenarioComHistorico(series(), FUTURO).lacunas).toEqual([]);
+    });
+    it('os dias úteis sem CDI até a ultimaData, em ordem (depois dela, não conta)', () => {
+      const cdi = cdiSintetico('2025-01-02', '2025-07-02');
+      for (const d of ['2025-03-05', '2025-02-12', '2025-07-01']) cdi.delete(d);
+      expect(cenarioComHistorico(series({ cdiDiario: cdi }), FUTURO).lacunas).toEqual(['2025-02-12', '2025-03-05']);
+    });
+    it('fim de semana e feriado não são lacuna', () => {
+      const cdi = cdiSintetico('2025-01-02', '2025-07-02');
+      expect([...cdi.keys()]).not.toContain('2025-03-03'); // segunda de Carnaval
+      expect(cenarioComHistorico(series({ cdiDiario: cdi }), FUTURO).lacunas).not.toContain('2025-03-03');
+    });
+  });
+
+  describe('sanidade das séries: valor fora da faixa lança RangeError', () => {
+    it.each<[string, Partial<SeriesRealizadas>]>([
+      ['CDI negativo', { cdiDiario: new Map([['2025-01-02', -0.0001]]) }],
+      ['CDI diário de 1% (erro de unidade)', { cdiDiario: new Map([['2025-01-02', 0.01]]) }],
+      ['Selic over negativa', { selicOverDiaria: new Map([['2025-01-02', -1e-9]]) }],
+      ['Selic over diária de 1%', { selicOverDiaria: new Map([['2025-01-02', 0.01]]) }],
+      ['meta negativa', { selicMetaAA: new Map([['2025-01-01', -0.01]]) }],
+      ['meta de 100% (13,75 no lugar de 0,1375)', { selicMetaAA: new Map([['2025-01-01', 1]]) }],
+      ['IPCA mensal de 20%', { ipcaMensal: new Map([['2025-03', 0.2]]) }],
+      ['IPCA mensal de −20%', { ipcaMensal: new Map([['2025-03', -0.2]]) }],
+      ['TR negativa', { trPorInicio: new Map([['2025-02-10', -0.0001]]) }],
+      ['TR mensal de 5%', { trPorInicio: new Map([['2025-02-10', 0.05]]) }],
+    ])('%s', (_, parcial) => {
+      expect(() => cenarioComHistorico(series(parcial), FUTURO)).toThrow(RangeError);
+    });
+    it.each<[string, Partial<SeriesRealizadas>]>([
+      ['CDI zero e logo abaixo de 1%', { cdiDiario: new Map([['2025-01-02', 0], ['2025-01-03', 0.0099]]) }],
+      ['Selic over zero e logo abaixo de 1%', { selicOverDiaria: new Map([['2025-01-02', 0], ['2025-01-03', 0.0099]]) }],
+      ['meta zero e 99%', { selicMetaAA: new Map([['2025-01-01', 0], ['2025-02-01', 0.99]]) }],
+      ['IPCA de ±19,9%', { ipcaMensal: new Map([['2025-03', 0.199], ['2025-04', -0.199]]) }],
+      ['TR zero e 4,9%', { trPorInicio: new Map([['2025-02-10', 0], ['2025-03-10', 0.049]]) }],
+    ])('na fronteira aceita: %s', (_, parcial) => {
+      expect(() => cenarioComHistorico(series(parcial), FUTURO)).not.toThrow();
+    });
   });
 
   it('série com valor inválido lança RangeError', () => {
