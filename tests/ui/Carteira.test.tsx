@@ -162,7 +162,7 @@ describe('aba Carteira', () => {
       render(<Tela inicial={[{ ...cdb, valorExtrato: Math.round(calculado * 1.002 * 100) / 100, dataExtrato: '2026-09-01' }]} />);
       const c = cartao(/CDB/);
       expect(c).toHaveTextContent('Extrato de 01/09/2026 (bruto)');
-      expect(c).toHaveTextContent(`O app calcula ${moeda(calculado)} nessa data: diferença de +0,2%`);
+      expect(c).toHaveTextContent(`O app calcula ${moeda(calculado)} nessa data, uma diferença de +0,2%`);
       expect(c).not.toHaveTextContent('A diferença passa de 1%');
     });
 
@@ -281,9 +281,9 @@ describe('aba Carteira', () => {
     });
     it('histórico incompleto (série faltando ou lacunas): o aviso', () => {
       const { rerender } = render(<Tela inicial={[cdb]} historico={carregado({ series, faltando: [{ serie: 433, ano: 2026 }] })} />);
-      expect(status()).toHaveTextContent('Valor calculado sem histórico completo: faltam IPCA (2026).');
+      expect(status()).toHaveTextContent('Faltou parte do histórico (IPCA de 2026), e nesses períodos o valor sai pelo cenário.');
       rerender(<Tela inicial={[cdb]} historico={carregado({ series })} lacunas={3} />);
-      expect(status()).toHaveTextContent('Valor calculado sem histórico completo: faltam 3 dias úteis do CDI.');
+      expect(status()).toHaveTextContent('Faltaram 3 dias úteis do CDI no histórico, e neles o valor sai pelo cenário.');
     });
     it('limitado a 10 anos: o aviso', () => {
       render(<Tela inicial={[cdb]} historico={carregado({ series, limitado: true, inicio: '2016-01-01' })} />);
