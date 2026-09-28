@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from '@testing-library/preact';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
 import { afterEach, describe, expect, it } from 'vitest';
 import { textoDoAlerta } from '../../src/conteudo/alertas';
 import type { Alerta } from '../../src/engine/alertas';
@@ -43,6 +43,24 @@ describe('Alertas', () => {
     expect(screen.queryByRole('alert')).toBeNull();
     expect(container.querySelector('[tabindex], [autofocus], [aria-live]')).toBeNull();
     expect(container.contains(document.activeElement)).toBe(false);
+  });
+
+  it('o id do título leva o prefixo do componente', () => {
+    render(<Alertas alertas={ALERTAS} ofertas={OFERTAS} horizontes={HORIZONTES} prefixo="outro" />);
+    expect(screen.getByRole('heading', { name: 'Alertas' })).toHaveAttribute('id', 'outro-titulo');
+    expect(screen.getByRole('region', { name: 'Alertas' })).toBeInTheDocument();
+  });
+
+  it('tirar uma coluna com um Termo fixado não deixa a dica aberta num alerta diferente', () => {
+    // Um alerta de IOF por oferta; a dica do primeiro (oferta "1") fica fixada com o clique.
+    const iof = (oferta: number): Alerta => ({ tipo: 'IOF', oferta, horizonte: '2031-09-28', iof: 1.2, etapa: 1, dias: 10 });
+    const { rerender } = render(<Alertas alertas={[iof(0), iof(1)]} ofertas={[diario, { ...diario, id: '3' }]} horizontes={HORIZONTES} />);
+    const [primeiro] = screen.getAllByRole('button', { name: 'Saiba mais sobre IOF' });
+    fireEvent.click(primeiro as HTMLElement);
+    expect(primeiro).toHaveAttribute('aria-expanded', 'true');
+    // Sai a oferta "2": o alerta que sobra (agora no índice 0) é o da oferta "3", e a dica dele está fechada.
+    rerender(<Alertas alertas={[iof(0)]} ofertas={[{ ...diario, id: '3' }]} horizontes={HORIZONTES} />);
+    for (const b of screen.getAllByRole('button', { name: 'Saiba mais sobre IOF' })) expect(b).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('sem alertas, nada aparece', () => {

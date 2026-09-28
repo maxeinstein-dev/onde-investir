@@ -13,8 +13,8 @@ vi.mock('chart.js', () => {
     PointElement: componente('pointElement'),
     LinearScale: componente('linear'),
     Tooltip: componente('tooltip'),
+    // Não usados: se aparecerem no registro, o tree-shaking deixa de funcionar. A legenda é HTML (Legenda.tsx).
     Legend: componente('legend'),
-    // Não usados: se aparecerem no registro, o tree-shaking deixa de funcionar.
     Filler: componente('filler'),
     TimeScale: componente('time'),
     CategoryScale: componente('category'),
@@ -26,7 +26,7 @@ describe('Chart.js empacotado', () => {
   it('registra só os componentes usados, mais o plugin de anotação', async () => {
     const { Chart } = await import('../../../src/ui/graficos/chart');
     const registrados = vi.mocked(Chart.register).mock.calls.flat().map((c) => (c as { id: string }).id);
-    expect(registrados.sort()).toEqual(['annotation', 'legend', 'line', 'lineElement', 'linear', 'pointElement', 'tooltip']);
+    expect(registrados.sort()).toEqual(['annotation', 'line', 'lineElement', 'linear', 'pointElement', 'tooltip']);
   });
 });
 

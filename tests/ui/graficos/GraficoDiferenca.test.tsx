@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { paraDia } from '../../../src/engine/datas';
 import type { OfertaCadastrada } from '../../../src/engine/ofertas';
@@ -67,6 +67,27 @@ describe('GraficoDiferenca', () => {
     expect(a.id).toMatch(/^grafico-diferenca-/);
   });
 
+  it('legenda em HTML, fora do canvas, com "A − B" e a cor de A; muda com a escolha', async () => {
+    render(<GraficoDiferenca series={SERIES} ofertas={OFERTAS} />);
+    await carregou();
+    expect(ultimo().config.options?.plugins?.legend?.display).toBe(false);
+    const legenda = () => screen.getByRole('list', { name: 'Legenda' });
+    expect(legenda().closest('figure')).toBe(screen.getByRole('figure'));
+    expect(within(legenda()).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['A − B']);
+    expect(legenda().querySelector('svg')).toHaveClass('grafico__marca--1');
+    fireEvent.change(screen.getByLabelText('Comparar'), { target: { value: '2' } });
+    expect(within(legenda()).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['C − B']);
+    expect(legenda().querySelector('svg')).toHaveClass('grafico__marca--3');
+  });
+
+  it('o seletor B tem nome acessível completo, "Comparar com", e não só "com"', async () => {
+    render(<GraficoDiferenca series={SERIES} ofertas={OFERTAS} />);
+    await carregou();
+    const b = screen.getByRole('combobox', { name: 'Comparar com' }) as HTMLSelectElement;
+    expect(b.value).toBe('1');
+    expect(screen.getByRole('combobox', { name: 'Comparar' })).not.toBe(b);
+  });
+
   it('a linha A − B, com o zero destacado e as trocas de sinal anotadas', async () => {
     render(<GraficoDiferenca series={SERIES} ofertas={OFERTAS} />);
     await carregou();
@@ -79,12 +100,16 @@ describe('GraficoDiferenca', () => {
     expect(ultimo().config.options?.scales?.y).toMatchObject({ suggestedMin: 0, suggestedMax: 0 });
   });
 
-  it('resumo no aria-label e em texto visível', async () => {
+  it('resumo em texto visível, que também dá nome ao canvas (aria-labelledby, sem repetir num aria-label)', async () => {
     render(<GraficoDiferenca series={SERIES} ofertas={OFERTAS} />);
     await carregou();
     const resumo = 'CDB 100% do CDI (Banco Y) fica à frente até 18/10/2026; depois CDB 110% do CDI (Banco X).';
-    expect(screen.getByRole('img')).toHaveAttribute('aria-label', resumo);
-    expect(screen.getByText(resumo)).toBeVisible();
+    const img = screen.getByRole('img');
+    expect(img).not.toHaveAttribute('aria-label');
+    expect(img).toHaveAccessibleName(resumo);
+    const alvo = document.getElementById(img.getAttribute('aria-labelledby') ?? '');
+    expect(alvo).toHaveTextContent(resumo);
+    expect(alvo).toBeVisible();
   });
 
   it('trocar a oferta refaz o gráfico e destrói o anterior; tracejado onde uma delas não resgata', async () => {

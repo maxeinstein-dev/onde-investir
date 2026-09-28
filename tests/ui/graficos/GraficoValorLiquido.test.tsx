@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from '@testing-library/preact';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/preact';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resumirTrocas } from '../../../src/conteudo/serie';
 import { paraDia } from '../../../src/engine/datas';
@@ -61,6 +61,24 @@ describe('GraficoValorLiquido', () => {
     expect(dataset(0).borderColor).not.toBe(dataset(1).borderColor);
     expect(dataset(0).pointStyle).not.toBe(dataset(1).pointStyle);
     expect(ultimo().config.options?.scales?.x?.type).toBe('linear');
+  });
+
+  it('legenda em HTML abaixo do canvas, dentro da figura, e não no canvas (no celular ela tomava a área do gráfico)', async () => {
+    montar();
+    await carregou();
+    expect(ultimo().config.options?.plugins?.legend?.display).toBe(false);
+    const legenda = screen.getByRole('list', { name: 'Legenda' });
+    expect(legenda.closest('figure')).toBe(screen.getByRole('figure'));
+    // Depois do canvas no documento.
+    expect(screen.getByRole('img').compareDocumentPosition(legenda) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const itens = within(legenda).getAllByRole('listitem');
+    expect(itens.map((li) => li.textContent)).toEqual(['A: CDB 103% do CDI (Banco X)', 'B: LCI 95% do CDI (Banco Y)']);
+    // O marcador: a cor da série (o mesmo token do canvas) e a forma do ponto, escondido do leitor de tela.
+    const marcas = itens.map((li) => li.querySelector('svg') as SVGElement);
+    expect(marcas[0]).toHaveClass('grafico__marca', 'grafico__marca--1');
+    expect(marcas[1]).toHaveClass('grafico__marca', 'grafico__marca--2');
+    expect(marcas.map((m) => m.getAttribute('data-forma'))).toEqual([dataset(0).pointStyle, dataset(1).pointStyle]);
+    for (const m of marcas) expect(m).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('os trechos não resgatáveis ficam tracejados', async () => {
@@ -125,13 +143,16 @@ describe('GraficoValorLiquido', () => {
     expect(screen.getByText(/Linha tracejada/)).toHaveTextContent(/Tesouro Prefixado/);
   });
 
-  it('figure com figcaption; o canvas tem role="img" e o resumo das trocas no aria-label e em texto visível', async () => {
+  it('figure com figcaption; o canvas tem role="img" e o nome vem do resumo visível (aria-labelledby)', async () => {
     montar();
     await carregou();
     const resumo = resumirTrocas(TROCAS, OFERTAS, [0]);
     const img = screen.getByRole('img');
     expect(img.tagName).toBe('CANVAS');
-    expect(img).toHaveAttribute('aria-label', resumo.join(' '));
+    // Sem aria-label com o mesmo texto: o leitor de tela não lê o resumo duas vezes.
+    expect(img).not.toHaveAttribute('aria-label');
+    expect(img).toHaveAccessibleName(resumo.join(' '));
+    expect(document.getElementById(img.getAttribute('aria-labelledby') ?? '')).toHaveClass('grafico__resumo');
     expect(img.closest('figure')?.querySelector('figcaption')).toHaveTextContent('Valor líquido ao longo do tempo');
     for (const frase of resumo) expect(screen.getByText(frase)).toBeVisible();
   });
@@ -155,7 +176,7 @@ describe('GraficoValorLiquido com trocas relevantes', () => {
   it('o resumo cita a oscilação do trecho do começo', async () => {
     montar({ trocas: [], oscilacaoInicial: { oscilante: true, alternancias: 2, alternam: [0, 1] } });
     await carregou();
-    expect(screen.getByRole('img').getAttribute('aria-label')).toMatch(/quase o tempo todo e alterna outras 2 vezes\.$/);
+    expect(screen.getByRole('img')).toHaveAccessibleName(/quase o tempo todo e alterna outras 2 vezes\.$/);
   });
   it('trecho oscilante: a linha vertical fica, e o resumo diz que alterna', async () => {
     montar({ trocas: [{ data: D3, de: [0], para: [1], oscilante: true, alternancias: 3, alternam: [0, 1] }] });
