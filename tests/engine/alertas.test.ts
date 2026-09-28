@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gerarAlertas, LIMIAR_QUASE_EMPATE, type Alerta } from '../../src/engine/alertas';
+import { gerarAlertas, LIMIAR_QUASE_EMPATE, resgataQuandoQuiser, type Alerta } from '../../src/engine/alertas';
 import { horizontesPadrao, tabelaPorHorizonte } from '../../src/engine/comparacao';
 import type { OfertaCadastrada, Projecao } from '../../src/engine/ofertas';
 import { CEN, INI } from './cenarioPadrao';
@@ -31,7 +31,7 @@ describe('QUASE_EMPATE', () => {
     expect(resto).toEqual([]);
     const diferenca = liquido(cincoAnos?.projecoes[0]) - liquido(cincoAnos?.projecoes[1]);
     expect(a).toEqual({
-      tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, alternativa: 1,
+      tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0], alternativa: 1,
       diferenca, diferencaPercentual: diferenca / liquido(cincoAnos?.projecoes[0]), vantagem: 'LIQUIDEZ',
     });
     expect(a?.diferencaPercentual).toBeGreaterThan(0);
@@ -67,10 +67,51 @@ describe('QUASE_EMPATE', () => {
     expect(a).toMatchObject({ lider: 0, alternativa: 1, vantagem: 'LIQUIDEZ' });
   });
 
-  it('empate em centavos no topo não gera alerta (não há quem renda menos)', () => {
+  // A expectativa antiga ("empate em centavos no topo não gera alerta") escondia o caso mais claro: rendendo o
+  // mesmo, a oferta com liquidez é melhor. No empate exato, sempre alerta.
+  it('o mesmo CDB com e sem liquidez (empate exato no topo): alerta para o que tem liquidez, com diferença zero', () => {
     const noVencimento = { ...cdbVenc2031, liquidez: 'NO_VENCIMENTO' as const };
     const diario = { ...cdbVenc2031, id: '2', liquidez: 'DIARIA' as const };
-    expect(doTipo(alertas([noVencimento, diario]), 'QUASE_EMPATE')).toEqual([]);
+    expect(doTipo(alertas([noVencimento, diario]), 'QUASE_EMPATE')).toEqual([
+      { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0], alternativa: 1, diferenca: 0, diferencaPercentual: 0, vantagem: 'LIQUIDEZ' },
+    ]);
+  });
+
+  it('dois CDBs 103% empatados no topo e um 102,8% diário: o diário tem vantagem sobre os dois líderes', () => {
+    const outro103 = { ...cdbVenc2031, id: '2' };
+    const ofertas = [cdbVenc2031, outro103, cdbDiario(1.028)];
+    const colunas = tabelaPorHorizonte(ofertas, 10000, INI, horizontesPadrao(INI, null), CEN, PADRAO);
+    const cincoAnos = colunas.at(-1);
+    expect(cincoAnos?.lideres).toEqual([0, 1]);
+    const diferenca = liquido(cincoAnos?.projecoes[0]) - liquido(cincoAnos?.projecoes[2]);
+    expect(doTipo(gerarAlertas(ofertas, colunas), 'QUASE_EMPATE')).toEqual([{
+      tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0, 1], alternativa: 2,
+      diferenca, diferencaPercentual: diferenca / liquido(cincoAnos?.projecoes[0]), vantagem: 'LIQUIDEZ',
+    }]);
+  });
+
+  it('vantagem só sobre um dos líderes empatados não gera alerta', () => {
+    // Líderes: um CDB sem liquidez e o mesmo CDB diário; a alternativa diária não tem vantagem sobre o diário.
+    const diario103 = { ...cdbVenc2031, id: '2', liquidez: 'DIARIA' as const };
+    const alerta = doTipo(alertas([cdbVenc2031, diario103, cdbDiario(1.028)]), 'QUASE_EMPATE');
+    expect(alerta.map((a) => a.alternativa)).toEqual([1]);
+  });
+});
+
+describe('resgataQuandoQuiser', () => {
+  const lciDiaria: OfertaCadastrada = { ...b, id: 'l', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.9 }, liquidez: 'DIARIA' };
+  const poupanca: OfertaCadastrada = { ...b, id: 'p', produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' }, liquidez: 'DIARIA' };
+  const prefixado: OfertaCadastrada = { ...b, id: 'x', produto: 'TESOURO_PREFIXADO', indexacao: { tipo: 'PRE', taxaAA: 0.13 }, vencimento: '2033-01-01', liquidez: 'DIARIA' };
+
+  it('LCI/LCA com liquidez diária: só depois da carência (prazo mínimo)', () => {
+    expect(resgataQuandoQuiser(lciDiaria, INI, '2027-03-27')).toBe(false);
+    expect(resgataQuandoQuiser(lciDiaria, INI, '2027-03-28')).toBe(true);
+  });
+  it('poupança conta; Tesouro com marcação a mercado e oferta sem liquidez não', () => {
+    expect(resgataQuandoQuiser(poupanca, INI, '2027-01-01')).toBe(true);
+    expect(resgataQuandoQuiser(prefixado, INI, '2027-01-01')).toBe(false);
+    expect(resgataQuandoQuiser(cdbVenc2031, INI, '2027-01-01')).toBe(false);
+    expect(resgataQuandoQuiser(cdbDiario(1), INI, '2027-01-01')).toBe(true);
   });
 });
 

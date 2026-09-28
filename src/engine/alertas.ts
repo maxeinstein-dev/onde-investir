@@ -3,10 +3,18 @@ import type { ColunaHorizonte } from './comparacao';
 import { type DataISO, diasCorridos } from './datas';
 import type { OfertaCadastrada, Projecao } from './ofertas';
 import { garantiaDe } from './produtos';
+import { dataMinimaResgate } from './regras/prazoMinimo';
 import { aliquotaIR } from './regras/ir';
 
 export type Alerta =
-  | { tipo: 'QUASE_EMPATE'; horizonte: DataISO; lider: number; alternativa: number; diferenca: number; diferencaPercentual: number; vantagem: 'LIQUIDEZ' | 'GARANTIA' }
+  | {
+    tipo: 'QUASE_EMPATE'; horizonte: DataISO;
+    /** O primeiro dos líderes com que a alternativa se compara. */
+    lider: number;
+    /** Os líderes com que a alternativa se compara (sem ela mesma, se ela também empata no topo). */
+    lideres: number[];
+    alternativa: number; diferenca: number; diferencaPercentual: number; vantagem: 'LIQUIDEZ' | 'GARANTIA';
+  }
   | { tipo: 'IR_REINICIA'; oferta: number; data: DataISO; aliquotaNova: number; aliquotaSemReaplicar: number }
   | { tipo: 'IOF'; oferta: number; horizonte: DataISO; iof: number }
   | { tipo: 'PRAZO_INCOMPATIVEL'; oferta: number; horizonte: DataISO; disponivelEm?: DataISO };
@@ -21,31 +29,65 @@ const ROTULO_SUA_DATA = 'Sua data';
 type Disponivel = Extract<Projecao, { estado: 'DISPONIVEL' }>;
 const disponivel = (p: Projecao | undefined): p is Disponivel => p?.estado === 'DISPONIVEL';
 
-/** Resgate a qualquer momento pela taxa contratada: liquidez diária sem marcação a mercado. */
-const resgataQuandoQuiser = (o: OfertaCadastrada) =>
-  o.liquidez === 'DIARIA' && o.produto !== 'TESOURO_PREFIXADO' && o.produto !== 'TESOURO_IPCA';
+/**
+ * Resgate a qualquer momento pela taxa contratada, no horizonte: liquidez diária sem marcação a mercado. A LCI/LCA
+ * só conta depois da carência (antes do fim do prazo mínimo não dá para resgatar); a poupança conta, perdendo o
+ * rendimento do mês incompleto.
+ */
+export function resgataQuandoQuiser(o: OfertaCadastrada, dataAplicacao: DataISO, horizonte: DataISO): boolean {
+  if (o.liquidez !== 'DIARIA' || o.produto === 'TESOURO_PREFIXADO' || o.produto === 'TESOURO_IPCA') return false;
+  if (o.produto !== 'LCI' && o.produto !== 'LCA') return true;
+  return horizonte >= dataMinimaResgate(o.produto, o.indexacao.tipo === 'IPCA_MAIS', dataAplicacao);
+}
 
-function vantagem(lider: OfertaCadastrada, outra: OfertaCadastrada): 'LIQUIDEZ' | 'GARANTIA' | null {
-  if (resgataQuandoQuiser(outra) && !resgataQuandoQuiser(lider)) return 'LIQUIDEZ';
+type Vantagem = 'LIQUIDEZ' | 'GARANTIA';
+
+function vantagem(lider: OfertaCadastrada, outra: OfertaCadastrada, dataAplicacao: DataISO, horizonte: DataISO): Vantagem | null {
+  if (resgataQuandoQuiser(outra, dataAplicacao, horizonte) && !resgataQuandoQuiser(lider, dataAplicacao, horizonte)) return 'LIQUIDEZ';
   if (garantiaDe(outra.produto) === 'TESOURO_NACIONAL' && garantiaDe(lider.produto) === 'FGC') return 'GARANTIA';
   return null;
 }
 
+/**
+ * A vantagem sobre TODOS os líderes: liquidez se ela vale contra cada um; senão garantia, se ela vale contra cada
+ * um (a alternativa é do Tesouro e todos os líderes têm FGC); senão nenhuma.
+ */
+function vantagemSobreTodos(lideres: readonly OfertaCadastrada[], outra: OfertaCadastrada, dataAplicacao: DataISO, horizonte: DataISO): Vantagem | null {
+  const cada = lideres.map((l) => vantagem(l, outra, dataAplicacao, horizonte));
+  if (cada.length > 0 && cada.every((v) => v === 'LIQUIDEZ')) return 'LIQUIDEZ';
+  const garantia = garantiaDe(outra.produto) === 'TESOURO_NACIONAL' && lideres.every((l) => garantiaDe(l.produto) === 'FGC');
+  return cada.length > 0 && garantia ? 'GARANTIA' : null;
+}
+
+/**
+ * Quase empate com o topo. Com vários líderes (empate em centavos), a referência é o líquido deles, e a alternativa
+ * precisa ter vantagem (liquidez ou garantia) sobre TODOS eles. Um líder empatado com os outros também é
+ * alternativa: no empate exato, sempre alerta (a diferença é zero).
+ */
 function quaseEmpates(ofertas: readonly OfertaCadastrada[], c: ColunaHorizonte, limiar: number): Alerta[] {
-  // Com empate em centavos no topo não há quem renda menos: sem alerta.
-  if (c.lideres.length !== 1) return [];
-  const iLider = c.lideres[0] as number;
-  const pLider = c.projecoes[iLider];
-  const lider = ofertas[iLider];
-  if (!disponivel(pLider) || !lider) return [];
+  const doTopo = c.lideres.flatMap((i) => {
+    const p = c.projecoes[i];
+    const o = ofertas[i];
+    return disponivel(p) && o ? [{ i, p, o }] : [];
+  });
+  const referencia = doTopo[0];
+  if (!referencia) return [];
+  const dataAplicacao = referencia.p.etapas[0]?.aplicacao.dataAplicacao ?? c.data;
   return c.projecoes.flatMap((p, i): Alerta[] => {
     const outra = ofertas[i];
-    if (i === iLider || !disponivel(p) || !outra) return [];
-    const diferenca = pLider.liquido - p.liquido;
-    const diferencaPercentual = diferenca / pLider.liquido;
-    const v = vantagem(lider, outra);
-    if (v === null || !(diferencaPercentual < limiar)) return [];
-    return [{ tipo: 'QUASE_EMPATE', horizonte: c.data, lider: iLider, alternativa: i, diferenca, diferencaPercentual, vantagem: v }];
+    if (!disponivel(p) || !outra) return [];
+    const comparados = doTopo.filter((l) => l.i !== i);
+    const primeiro = comparados[0];
+    if (!primeiro) return [];
+    const noTopo = c.lideres.includes(i);
+    const diferenca = noTopo ? 0 : primeiro.p.liquido - p.liquido;
+    const diferencaPercentual = noTopo ? 0 : diferenca / primeiro.p.liquido;
+    const v = vantagemSobreTodos(comparados.map((l) => l.o), outra, dataAplicacao, c.data);
+    if (v === null || !(noTopo || diferencaPercentual < limiar)) return [];
+    return [{
+      tipo: 'QUASE_EMPATE', horizonte: c.data, lider: primeiro.i, lideres: comparados.map((l) => l.i), alternativa: i,
+      diferenca, diferencaPercentual, vantagem: v,
+    }];
   });
 }
 

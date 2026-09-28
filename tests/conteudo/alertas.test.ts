@@ -22,16 +22,31 @@ const horizontes = horizontesPadrao(INI, '2028-01-15');
 
 describe('textoDoAlerta', () => {
   it('QUASE_EMPATE com liquidez', () => {
-    const a: Alerta = { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, alternativa: 1, diferenca: 35.5, diferencaPercentual: 0.0023, vantagem: 'LIQUIDEZ' };
+    const a: Alerta = { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0], alternativa: 1, diferenca: 35.5, diferencaPercentual: 0.0023, vantagem: 'LIQUIDEZ' };
     const t = textoDoAlerta(a, ofertas, horizontes);
     expect(t.titulo).toBe('Diferença pequena, liquidez maior');
-    expect(t.oQue).toMatch(re(String.raw`CDB 102,8% do CDI \(Banco B\) rende só ${R}35,50 \(0,23%\) a menos que CDB 103% do CDI \(Banco B\) em 5 anos e deixa resgatar quando quiser\.`));
+    expect(t.oQue).toMatch(re(String.raw`CDB 102,8% do CDI \(Banco B\) rende só ${R}35,50 \(0,23%\) a menos que CDB 103% do CDI \(Banco B\) em 5 anos e dá para resgatar a qualquer momento\.`));
     expect(t.porQue).toBe('Dinheiro que pode sair a qualquer momento vale mais quando o plano pode mudar.');
     expect(t.termo).toBe('liquidez');
   });
 
+  it('QUASE_EMPATE com a poupança: resgate a qualquer momento, perdendo o rendimento do mês incompleto', () => {
+    const poupanca: OfertaCadastrada = { ...base, id: 'p', produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' }, liquidez: 'DIARIA' };
+    const a: Alerta = { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0], alternativa: 5, diferenca: 10, diferencaPercentual: 0.001, vantagem: 'LIQUIDEZ' };
+    expect(textoDoAlerta(a, [...ofertas, poupanca], horizontes).oQue)
+      .toMatch(/e dá para resgatar a qualquer momento \(na poupança, perdendo o rendimento do mês incompleto\)\.$/);
+  });
+
+  it('QUASE_EMPATE com empate exato e com vários líderes', () => {
+    const empate: Alerta = { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0], alternativa: 1, diferenca: 0, diferencaPercentual: 0, vantagem: 'LIQUIDEZ' };
+    expect(textoDoAlerta(empate, ofertas, horizontes).oQue)
+      .toBe('CDB 102,8% do CDI (Banco B) rende o mesmo que CDB 103% do CDI (Banco B) em 5 anos e dá para resgatar a qualquer momento.');
+    const dois: Alerta = { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0, 3], alternativa: 1, diferenca: 1, diferencaPercentual: 0.0001, vantagem: 'LIQUIDEZ' };
+    expect(textoDoAlerta(dois, ofertas, horizontes).oQue).toMatch(/a menos que CDB 103% do CDI \(Banco B\) e LCI 90% do CDI \(Banco B\) em 5 anos/);
+  });
+
   it('QUASE_EMPATE com garantia do Tesouro', () => {
-    const a: Alerta = { tipo: 'QUASE_EMPATE', horizonte: '2028-01-15', lider: 1, alternativa: 2, diferenca: 12, diferencaPercentual: 0.001, vantagem: 'GARANTIA' };
+    const a: Alerta = { tipo: 'QUASE_EMPATE', horizonte: '2028-01-15', lider: 1, lideres: [1], alternativa: 2, diferenca: 12, diferencaPercentual: 0.001, vantagem: 'GARANTIA' };
     const t = textoDoAlerta(a, ofertas, horizontes);
     expect(t.titulo).toBe('Diferença pequena, garantia do Tesouro');
     expect(t.oQue).toMatch(re(String.raw`Tesouro Selic \(Banco B\) rende só ${R}12,00 \(0,1%\) a menos que CDB 102,8% do CDI \(Banco B\) em 15/01/2028 \(sua data\) e tem a garantia do Tesouro Nacional\.`));
@@ -86,8 +101,8 @@ describe('textoDoAlerta', () => {
 
   it('todo texto tem as três partes e um termo do glossário', () => {
     const todos: Alerta[] = [
-      { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, alternativa: 1, diferenca: 1, diferencaPercentual: 0.001, vantagem: 'LIQUIDEZ' },
-      { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, alternativa: 2, diferenca: 1, diferencaPercentual: 0.001, vantagem: 'GARANTIA' },
+      { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0], alternativa: 1, diferenca: 1, diferencaPercentual: 0.001, vantagem: 'LIQUIDEZ' },
+      { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0], alternativa: 2, diferenca: 1, diferencaPercentual: 0.001, vantagem: 'GARANTIA' },
       { tipo: 'IR_REINICIA', oferta: 0, data: '2027-09-28', aliquotaNova: 0.2, aliquotaSemReaplicar: 0.15 },
       { tipo: 'IOF', oferta: 0, horizonte: '2027-09-28', iof: 1 },
       { tipo: 'PRAZO_INCOMPATIVEL', oferta: 3, horizonte: '2031-09-28', disponivelEm: '2029-09-28' },

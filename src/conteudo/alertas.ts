@@ -4,7 +4,7 @@ import type { Horizonte } from '../engine/comparacao';
 import { type DataISO, dataBR } from '../engine/datas';
 import type { OfertaCadastrada } from '../engine/ofertas';
 import { formatarMoeda, formatarPercentual } from '../formato';
-import { nomeDoHorizonte, nomeOferta } from './comparacao';
+import { listar, nomeDoHorizonte, nomeOferta } from './comparacao';
 import type { IdTermo } from './glossario';
 
 export interface TextoAlerta { titulo: string; oQue: string; porQue: string; termo: IdTermo }
@@ -27,11 +27,16 @@ function prazo(horizontes: readonly Horizonte[], data: DataISO): string {
 export function textoDoAlerta(a: Alerta, ofertas: readonly OfertaCadastrada[], horizontes: readonly Horizonte[] = []): TextoAlerta {
   switch (a.tipo) {
     case 'QUASE_EMPATE': {
-      const inicio = `${nome(ofertas, a.alternativa)} rende só ${formatarMoeda(a.diferenca)} (${formatarPercentual(a.diferencaPercentual)}) a menos que ${nome(ofertas, a.lider)} em ${prazo(horizontes, a.horizonte)}`;
+      const lideres = listar((a.lideres.length > 0 ? a.lideres : [a.lider]).map((i) => nome(ofertas, i)));
+      const quanto = Math.round(a.diferenca * 100) === 0
+        ? 'rende o mesmo que'
+        : `rende só ${formatarMoeda(a.diferenca)} (${formatarPercentual(a.diferencaPercentual)}) a menos que`;
+      const inicio = `${nome(ofertas, a.alternativa)} ${quanto} ${lideres} em ${prazo(horizontes, a.horizonte)}`;
+      const naPoupanca = ofertas[a.alternativa]?.produto === 'POUPANCA' ? ' (na poupança, perdendo o rendimento do mês incompleto)' : '';
       return a.vantagem === 'LIQUIDEZ'
         ? {
           titulo: 'Diferença pequena, liquidez maior',
-          oQue: `${inicio} e deixa resgatar quando quiser.`,
+          oQue: `${inicio} e dá para resgatar a qualquer momento${naPoupanca}.`,
           porQue: 'Dinheiro que pode sair a qualquer momento vale mais quando o plano pode mudar.',
           termo: 'liquidez',
         }
