@@ -15,8 +15,19 @@
   --erro: #a4161a;
   --erro-fundo: #fdecea;
   --aviso-fundo: #fff6d6;
+  --aviso-borda: #b45309;
   --foco: #0b5cad;
   --raio: 8px;
+  /* Gráficos (lidos pelo JS com getComputedStyle): 5 cores com contraste de 3:1 ou mais sobre o branco. */
+  --grafico-1: #0b5cad;
+  --grafico-2: #b45309;
+  --grafico-3: #1d6b3a;
+  --grafico-4: #7e22ce;
+  --grafico-5: #be123c;
+  --grafico-texto: #4a4a4a;
+  --grafico-grade: #e3e6ea;
+  --grafico-marcador: #1a1a1a;
+  --grafico-premissa: #f1f3f5;
 }
 
 *,
@@ -868,6 +879,101 @@ button:hover {
   border-radius: var(--raio);
 }
 
+/* Alertas que ensinam: cartões abaixo da tabela. */
+.alertas {
+  margin: 1.25rem 0;
+}
+
+.alertas__lista {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.alerta {
+  padding: 0.75rem 1rem;
+  background: var(--aviso-fundo);
+  border-left: 4px solid var(--aviso-borda);
+  border-radius: var(--raio);
+  overflow-wrap: anywhere;
+}
+
+.pagina .alerta__titulo {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.alerta p {
+  margin: 0 0 0.5rem;
+}
+
+.alerta__porque {
+  color: var(--texto-suave);
+}
+
+.graficos {
+  margin: 1.5rem 0;
+  min-width: 0;
+}
+
+.graficos > summary {
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Gráficos: o canvas ocupa a largura do contêiner (o Chart.js mede o pai), com altura fixa. */
+.grafico {
+  margin: 1rem 0 1.5rem;
+  min-width: 0;
+}
+
+.grafico__titulo {
+  font-weight: 700;
+}
+
+.grafico__area {
+  position: relative;
+  width: 100%;
+  height: 20rem;
+}
+
+.grafico__area canvas {
+  max-width: 100%;
+}
+
+/* "Carregando gráfico…" ou a falha do carregamento, no meio da área reservada ao canvas. */
+.grafico__aviso {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 1rem;
+  text-align: center;
+  color: var(--grafico-texto);
+  overflow-wrap: anywhere;
+}
+
+.grafico__escolha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin: 0.5rem 0;
+}
+
+.grafico__escolha select {
+  max-width: 100%;
+}
+
+.grafico__resumo p {
+  margin: 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+
 /* Celular: uma coluna só. */
 @media (max-width: 639px) {
   .pagina {
@@ -876,5 +982,9 @@ button:hover {
 
   .primario {
     justify-self: stretch;
+  }
+
+  .grafico__area {
+    height: 17rem;
   }
 }

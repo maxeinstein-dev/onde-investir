@@ -4,21 +4,27 @@ import { armazenamentoLocal } from '../../armazenamento/navegador';
 import { lerPalpitesLigados, salvarPalpitesLigados } from '../../armazenamento/preferencias';
 import { AVISO_CENARIO_INVALIDO, descreverProjecao, nomeDoHorizonte, nomeOferta } from '../../conteudo/comparacao';
 import { descreverOferta } from '../../conteudo/motivos';
+import { gerarAlertas, LIMIAR_QUASE_EMPATE, type Alerta } from '../../engine/alertas';
 import { ehDiaUtil } from '../../engine/calendario';
 import { horizontesPadrao, linhaDoTempo, tabelaPorHorizonte, type ColunaHorizonte, type Marco } from '../../engine/comparacao';
 import { dataBR, ehDataValida, type DataISO } from '../../engine/datas';
 import { calcularEquivalencias } from '../../engine/equivalencia';
 import type { Cenario } from '../../engine/indexadores';
+import type { CenarioProjetado } from '../../engine/projecao';
 import { validarRegraReinvestimento, type OfertaCadastrada, type RegraReinvestimento } from '../../engine/ofertas';
+import { seriesDeValorLiquido, trocasDeLider, trocasRelevantes, type Serie, type TrocasRelevantes } from '../../engine/serie';
 import { formatarMoeda, formatarPercentual } from '../../formato';
 import { CampoNumerico } from '../CampoNumerico';
 import { Equivalencias, EquivalenciasIndisponiveis } from '../Equivalencias';
+import { GraficoDiferenca } from '../graficos/GraficoDiferenca';
+import { GraficoValorLiquido } from '../graficos/GraficoValorLiquido';
 import { DATA_MAXIMA, DATA_MINIMA, hoje } from '../hoje';
 import { letraDaOferta } from '../letras';
 import { novoIdOferta } from '../ofertas/MinhasOfertas';
 import { PalpiteAntesDeVer } from '../PalpiteAntesDeVer';
 import { Termo } from '../Termo';
 import { AdicionarOferta, ID_BOTAO_ADICIONAR } from './AdicionarOferta';
+import { Alertas } from './Alertas';
 import { LinhaDoTempo } from './LinhaDoTempo';
 import { PorQueLidera } from './PorQueLidera';
 import { idColuna, TabelaComparacao } from './TabelaComparacao';
@@ -36,6 +42,13 @@ interface Calculo {
   colunas: ColunaHorizonte[];
   linha: { marcos: Marco[] };
   regra: RegraReinvestimento;
+  alertas: Alerta[];
+  /** O valor líquido de cada oferta até o horizonte mais distante, para os gráficos. */
+  series: Serie[];
+  /** As trocas de líder para exibir: lideranças de menos de {@link DURACAO_MINIMA_LIDERANCA} dias fundidas. */
+  trocas: TrocasRelevantes;
+  /** A partir desta data o cenário projetado é premissa do app; ausente no cenário manual. */
+  inicioPremissa?: DataISO;
 }
 type Fase =
   | { tipo: 'editando' }
@@ -43,6 +56,8 @@ type Fase =
   | ({ tipo: 'resultado'; palpite: number | null } & Calculo);
 
 const EDITANDO: Fase = { tipo: 'editando' };
+/** Liderança mais curta que isto, em dias, é transitória: o gráfico e o resumo a fundem no trecho vizinho. */
+const DURACAO_MINIMA_LIDERANCA = 30;
 const PREFIXO = 'comparador';
 const VAZIO = 'Adicione pelo menos duas ofertas para comparar (até 5).';
 /** Tempo com o anúncio vazio antes de reescrever a mesma mensagem, para o leitor de tela anunciar de novo. */
@@ -91,10 +106,17 @@ function calcular(ofertas: readonly OfertaCadastrada[], entrada: Entrada, cenari
   const regra: RegraReinvestimento = tipoRegra === 'TAXA_FIXA' ? { tipo: 'TAXA_FIXA', taxaAA: taxaFixa / 100 } : { tipo: tipoRegra };
   validarRegraReinvestimento(regra);
   const horizontes = horizontesPadrao(dataAplicacao, suaData.trim() === '' ? null : suaData);
+  const colunas = tabelaPorHorizonte(ofertas, valor, dataAplicacao, horizontes, cenario, regra);
+  // Os horizontes vêm ordenados: o gráfico vai até o mais distante.
+  const fim = horizontes.at(-1)?.data ?? dataAplicacao;
+  const series = seriesDeValorLiquido(ofertas, valor, dataAplicacao, fim, cenario, regra);
+  const inicioPremissa = 'inicioPremissa' in cenario ? (cenario as CenarioProjetado).inicioPremissa : undefined;
   return {
-    ofertas, cenario, entrada, regra,
-    colunas: tabelaPorHorizonte(ofertas, valor, dataAplicacao, horizontes, cenario, regra),
+    ofertas, cenario, entrada, regra, colunas, series,
     linha: linhaDoTempo(ofertas, valor, dataAplicacao, cenario, regra),
+    alertas: gerarAlertas(ofertas, colunas, LIMIAR_QUASE_EMPATE, suaData.trim() === '' ? undefined : suaData),
+    trocas: trocasRelevantes(trocasDeLider(series, { ofertas, valor, dataAplicacao, cen: cenario, regra }), { duracaoMinimaDias: DURACAO_MINIMA_LIDERANCA, fim }),
+    ...(inicioPremissa === undefined ? {} : { inicioPremissa }),
   };
 }
 
@@ -347,7 +369,14 @@ export function Comparador({
             <Termo id="reinvestimento">Reinvestimento</Termo>: {descreverRegra(resultado.regra)} O IR recomeça na reaplicação.
           </p>
           {tabela}
+          <Alertas alertas={resultado.alertas} ofertas={resultado.ofertas} horizontes={resultado.colunas} />
           <PorQueLidera ofertas={resultado.ofertas} colunas={resultado.colunas} data={liderData} onData={setLiderData} />
+          <details open class="graficos">
+            <summary>Gráficos</summary>
+            <GraficoValorLiquido series={resultado.series} trocas={resultado.trocas.trocas} ofertas={resultado.ofertas}
+              inicioPremissa={resultado.inicioPremissa} {...(resultado.trocas.inicial ? { oscilacaoInicial: resultado.trocas.inicial } : {})} />
+            <GraficoDiferenca series={resultado.series} ofertas={resultado.ofertas} prefixo={`${PREFIXO}-diferenca`} />
+          </details>
           <LinhaDoTempo ofertas={resultado.ofertas} linha={resultado.linha} ultimaColuna={resultado.colunas.at(-1)} />
           <EquivalenciasDaComparacao calculo={resultado} eqId={eqId} eqData={eqData}
             onOferta={(id) => { setEqId(id); setEqData(null); }} onData={setEqData} />

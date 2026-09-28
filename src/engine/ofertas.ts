@@ -50,7 +50,8 @@ export function validarRegraReinvestimento(regra: RegraReinvestimento): void {
   if (!Number.isFinite(t) || t <= -1 || t > 1) throw new OfertaInvalidaError('Taxa de reinvestimento inválida');
 }
 
-function ofertaDeReinvestimento(o: Oferta, regra: RegraReinvestimento): Oferta {
+/** A oferta em que o dinheiro é reaplicado no vencimento, pela regra (sem o fallback em CDB 100%). */
+export function ofertaDeReinvestimento(o: Oferta, regra: RegraReinvestimento): Oferta {
   const mesma: Oferta = { produto: o.produto, indexacao: o.indexacao };
   switch (regra.tipo) {
     case 'MESMA_TAXA': return mesma;

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
 import { render as renderizarDireto } from 'preact';
 import { useState } from 'preact/hooks';
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
@@ -14,8 +14,18 @@ import { formatarMoeda } from '../../src/formato';
 import { Comparador } from '../../src/ui/comparacao/Comparador';
 import { idColuna } from '../../src/ui/comparacao/TabelaComparacao';
 import { CEN, INI } from '../engine/cenarioPadrao';
+import { seriesDeValorLiquido } from '../../src/engine/serie';
+import { paraDia, somarMeses } from '../../src/engine/datas';
+import { graficos } from './graficos/mockChart';
 
-afterEach(cleanup);
+// Sem canvas no jsdom: o Chart.js falso guarda a configuração de cada gráfico.
+vi.mock('chart.js', () => import('./graficos/mockChart'));
+vi.mock('chartjs-plugin-annotation', () => ({ default: { id: 'annotation' } }));
+
+afterEach(() => {
+  cleanup();
+  graficos.length = 0;
+});
 beforeEach(() => localStorage.clear());
 
 const base = { conglomerado: 'G', liquidez: 'NO_VENCIMENTO' as const };
@@ -437,6 +447,95 @@ describe('Comparador', () => {
       render(<Tela selecao={['x', 'y']} cenarioInvalido="Preencha o CDI do cenário." />);
       expect(botaoComparar()).toBeDisabled();
       expect(botaoComparar()).toHaveAccessibleDescription('Corrija o cenário no painel antes de comparar.');
+    });
+  });
+
+  describe('alertas e gráficos', () => {
+    // CDB 102,8% com liquidez diária contra o CDB 103% só no vencimento: diferença pequena, liquidez maior.
+    const quase: OfertaCadastrada = { id: 'w', emissor: 'Banco W', conglomerado: 'W', liquidez: 'DIARIA', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.028 } };
+    const secaoAlertas = () => screen.queryByRole('region', { name: 'Alertas' });
+    const detalhesGraficos = () => [...document.querySelectorAll('details')].find((d) => d.querySelector('summary')?.textContent === 'Gráficos') ?? null;
+
+    it('com um quase empate e liquidez, o alerta aparece logo abaixo da tabela, antes do "Por que lidera"', () => {
+      montar({ catalogo: [...CATALOGO, quase], selecao: ['x', 'w'] });
+      compararDireto();
+      const alertas = secaoAlertas() as HTMLElement;
+      expect(within(alertas).getByRole('heading', { name: 'Diferença pequena, liquidez maior' })).toBeInTheDocument();
+      expect(within(alertas).getByRole('list')).toBeInTheDocument();
+      const depois = (a: Node, b: Node) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+      expect(depois(tabela(), alertas)).toBe(true);
+      expect(depois(alertas, secaoLider() as HTMLElement)).toBe(true);
+      // O alerta não rouba o foco: ele continua no título do resultado.
+      expect(tituloResultado()).toHaveFocus();
+    });
+
+    it('a "sua data" vai para os alertas: prazo incompatível nela, mesmo coincidindo com "1 ano"', () => {
+      montar({ selecao: ['x', 'y'] });
+      fireEvent.input(screen.getByLabelText('Sua data (opcional)'), { target: { value: '2027-09-28' } });
+      compararDireto();
+      const alertas = secaoAlertas() as HTMLElement;
+      expect(within(alertas).getByRole('heading', { name: 'Prazo incompatível' })).toBeInTheDocument();
+      expect(alertas).toHaveTextContent('Não dá para resgatar LCI 80% do CDI (Banco Y) em 1 ano');
+    });
+
+    /** O Chart.js vem por import dinâmico: espera os dois gráficos serem criados. */
+    const graficosCriados = () => waitFor(() => expect(graficos.filter((g) => g.destroy.mock.calls.length === 0)).toHaveLength(2));
+
+    it('os gráficos só aparecem depois de "Comparar", num <details open> entre a tabela e a linha do tempo', async () => {
+      montar({ selecao: ['x', 'y'] });
+      expect(detalhesGraficos()).toBeNull();
+      comparar();
+      // No palpite, ainda não.
+      expect(detalhesGraficos()).toBeNull();
+      expect(graficos).toHaveLength(0);
+      fireEvent.click(screen.getByRole('button', { name: 'A: CDB 103% do CDI (Banco X)' }));
+      const detalhes = detalhesGraficos() as HTMLDetailsElement;
+      expect(detalhes.open).toBe(true);
+      const linha = screen.getByRole('heading', { name: 'Linha do tempo dos vencimentos' });
+      expect(tabela().compareDocumentPosition(detalhes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(detalhes.compareDocumentPosition(linha) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(within(detalhes).getAllByRole('img')).toHaveLength(2);
+      await graficosCriados();
+      expect(graficos).toHaveLength(2);
+    });
+
+    it('o gráfico do valor líquido recebe as séries do engine, até o horizonte mais distante', async () => {
+      montar({ selecao: ['x', 'y'] });
+      compararDireto();
+      await graficosCriados();
+      const esperado = seriesDeValorLiquido([cdb, lci], 10000, INI, somarMeses(INI, 60), CEN, { tipo: 'PADRAO' });
+      const valor = graficos[0]?.config.data.datasets ?? [];
+      expect(valor).toHaveLength(2);
+      esperado.forEach((s, i) => {
+        expect(valor[i]?.data).toEqual(s.pontos.map((p) => ({ x: paraDia(p.data), y: p.liquido })));
+      });
+      // O da diferença começa com A − B.
+      expect(graficos[1]?.config.data.datasets[0]?.label).toBe('A − B');
+      expect(within(detalhesGraficos() as HTMLElement).getByLabelText('Comparar').id).toMatch(/^comparador-/);
+    });
+
+    it('editar invalida: os alertas e os gráficos somem, e os gráficos são destruídos', async () => {
+      montar({ catalogo: [...CATALOGO, quase], selecao: ['x', 'w'] });
+      compararDireto();
+      expect(secaoAlertas()).toBeInTheDocument();
+      await graficosCriados();
+      expect(graficos).toHaveLength(2);
+      fireEvent.input(screen.getByLabelText('Valor (R$)'), { target: { value: '5000' } });
+      expect(secaoAlertas()).toBeNull();
+      expect(detalhesGraficos()).toBeNull();
+      for (const g of graficos) expect(g.destroy).toHaveBeenCalledTimes(1);
+    });
+
+    it('tirar uma coluna com o resultado aberto refaz os gráficos com as ofertas que ficaram', async () => {
+      montar({ selecao: ['x', 'y', 'z'] });
+      compararDireto();
+      await graficosCriados();
+      expect(graficos[0]?.config.data.datasets).toHaveLength(3);
+      fireEvent.click(screen.getByRole('button', { name: 'Tirar da comparação: LCI 80% do CDI (Banco Y)' }));
+      await graficosCriados();
+      const vivos = graficos.filter((g) => g.destroy.mock.calls.length === 0);
+      expect(vivos).toHaveLength(2);
+      expect(vivos[0]?.config.data.datasets).toHaveLength(2);
     });
   });
 

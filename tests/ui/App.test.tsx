@@ -17,6 +17,11 @@ import sgs226 from '../fixtures/bcb/sgs-226.json';
 import sgs432 from '../fixtures/bcb/sgs-432.json';
 import sgs433 from '../fixtures/bcb/sgs-433.json';
 import sgs4389 from '../fixtures/bcb/sgs-4389.json';
+import { graficos } from './graficos/mockChart';
+
+// Sem canvas no jsdom: o Chart.js falso guarda a configuração de cada gráfico.
+vi.mock('chart.js', () => import('./graficos/mockChart'));
+vi.mock('chartjs-plugin-annotation', () => ({ default: { id: 'annotation' } }));
 
 const RESPOSTAS = new Map<string, unknown>([
   [urlSgsUltimos(432, 1), sgs432],
@@ -50,6 +55,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  graficos.length = 0;
 });
 
 const painel = () => screen.getByRole('region', { name: 'Indicadores e cenário' });
@@ -168,6 +174,12 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: /pular/i }));
     expect(screen.getByRole('heading', { name: 'Resultado da comparação' })).toBeInTheDocument();
     expect(fetchFixtures).toHaveBeenCalledTimes(RESPOSTAS.size);
+    // Com o cenário projetado, o gráfico do valor líquido sombreia a faixa em que a projeção vira premissa.
+    // O Chart.js é carregado sob demanda: os gráficos aparecem depois do import dinâmico.
+    await waitFor(() => expect(graficos).toHaveLength(2));
+    const anotacoes = (graficos.at(-2)?.config.options?.plugins as { annotation: { annotations: Record<string, { type: string; label?: { content?: string } }> } })
+      .annotation.annotations;
+    expect(anotacoes.premissa).toMatchObject({ type: 'box', label: { content: 'premissa' } });
   });
   it('trocar para "Juros sobem" muda a explicação e fica salvo', async () => {
     vi.stubGlobal('fetch', fetchFixtures);
