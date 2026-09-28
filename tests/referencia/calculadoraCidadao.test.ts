@@ -14,6 +14,9 @@ import sgs12de2026 from '../fixtures/bcb/historico/sgs-12-2026.json';
 // Para conferir: simule na calculadora, escreva o valor corrigido em VALOR_CALCULADORA_CIDADAO e rode `npm test`.
 // A meta é uma diferença abaixo de R$ 0,01. Se divergir, investigue a convenção (a calculadora conta o dia final?
 // arredonda o fator diário como a B3, em 8 casas?) antes de ajustar o engine.
+//
+// Tentativa em 2026-09-28: pendente. A calculadora respondeu "Série histórica de dados não acessível no momento"
+// e não devolveu o valor corrigido; o teste de referência continua skipped até uma nova tentativa.
 const VALOR_CALCULADORA_CIDADAO: number | null = null;
 
 const APLICADO = 10_000;
