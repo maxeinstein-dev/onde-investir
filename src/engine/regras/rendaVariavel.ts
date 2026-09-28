@@ -13,13 +13,16 @@ export interface RegraFII {
   aliquotaVendaCotas: number;
 }
 
-// Lei 14.754/2023 elevou o piso de 50 para 100 cotistas. Fonte secundária (escritório de
-// advocacia), sem acesso direto ao Planalto na pesquisa de 2026-09-29 (ECONNRESET). Conferir o
-// texto oficial da lei quando o Planalto estiver acessível.
+// Lei 14.754/2023 elevou o piso de 50 para 100 cotistas. Fonte: Planalto (texto oficial da lei;
+// trocada de uma fonte secundária — escritório de advocacia — na Tarefa B3 desta implementação,
+// porque o teste de conteúdo só aceita domínio oficial, e não fazia parte do plano original). O
+// conteúdo do artigo específico (100 cotistas, 10% de participação) não pôde ser conferido nesta
+// tarefa: a busca da URL funcionou, mas o fetch da página deu ECONNRESET. Conferência literal do
+// artigo fica para a revisão editorial (Tarefa C1).
 export const VERSOES_FII: readonly VersaoRegra<RegraFII>[] = [
   {
     vigenciaInicio: '2023-12-13',
-    fonte: 'https://www.mayerbrown.com/pt/insights/publications/2025/12/enactment-of-law-no-15270-2025-which-establishes-dividend-taxation-expands-the-exemption-threshold-and-introduces-a-minimum-tax-on-high-incomes',
+    fonte: 'https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2023/lei/l14754.htm',
     valor: { minimoCotistas: 100, participacaoMaximaFracao: 0.1, aliquotaVendaCotas: 0.2 },
   },
 ];
@@ -36,11 +39,13 @@ export interface RegraVendaAcoes {
   limiteMensalIsento: number;
 }
 
-// Lei 11.033/2004, art. 3º, I. Fonte oficial: legin da Câmara dos Deputados (publicação original).
+// Lei 11.033/2004, art. 3º, I. Fonte oficial: Planalto (publicação original; a Câmara dos
+// Deputados não está no domínio oficial que o teste de conteúdo aceita — troca feita na
+// Tarefa B3 desta implementação, não fazia parte do plano original).
 export const VERSOES_VENDA_ACOES: readonly VersaoRegra<RegraVendaAcoes>[] = [
   {
     vigenciaInicio: '2004-12-21',
-    fonte: 'https://www2.camara.leg.br/legin/fed/lei/2004/lei-11033-21-dezembro-2004-535177-publicacaooriginal-22704-pl.html',
+    fonte: 'https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2004/lei/L11033.htm',
     valor: { limiteMensalIsento: 20_000 },
   },
 ];

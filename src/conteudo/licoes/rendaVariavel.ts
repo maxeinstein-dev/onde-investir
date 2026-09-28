@@ -1,5 +1,6 @@
 // Lição 10, conceitual (sem "Experimente" e sem indicar ativos). RASCUNHO para o portão humano (plano M3c, D1).
 import { FONTES, link } from './fontes';
+import { REGRAS } from './regras';
 import { definirLicao } from './tipos';
 
 export const RENDA_VARIAVEL = definirLicao({
@@ -27,10 +28,18 @@ export const RENDA_VARIAVEL = definirLicao({
       texto: 'Dinheiro de que você pode precisar logo corre o risco de ter de ser vendido num dia de baixa. Quanto mais tempo o dinheiro pode esperar, menos o resultado depende do preço de um dia específico. Por isso a reserva de emergência e a renda variável são coisas diferentes.',
     },
     {
+      titulo: 'Impostos na renda variável',
+      texto: [
+        `Dividendos de FII são isentos de IR para pessoa física, com condições: o fundo precisa ter pelo menos ${REGRAS.rendaVariavel.minimoCotistasFII} cotistas, e o cotista não pode ter ${REGRAS.rendaVariavel.participacaoMaximaFII} ou mais das cotas (${link('Lei 14.754/2023', FONTES.fonteFII)}).`,
+        `Vender ações no mercado à vista até ${REGRAS.rendaVariavel.limiteVendaAcoes} por mês é isento de IR sobre o ganho. Só vale para ações: FII, ETF e day trade ficam de fora (${link('Lei 11.033/2004', FONTES.fonteVendaAcoes)}).`,
+        `Vender cotas de FII é sempre tributado a ${REGRAS.rendaVariavel.aliquotaVendaFII}, sem nenhuma isenção por valor — ao contrário das ações.`,
+      ].join('\n\n'),
+    },
+    {
       titulo: 'Neste app',
       texto: 'Esta lição é só conceitual. O app ainda não calcula renda variável: esse cálculo vem numa próxima etapa. O app também não indica ações, fundos ou qualquer outro ativo.',
     },
   ],
   termos: ['liquidez', 'fgc'],
-  fontes: [FONTES.rendaFixaXVariavel, FONTES.riscosAcoes, FONTES.regulamentoFGC],
+  fontes: [FONTES.rendaFixaXVariavel, FONTES.riscosAcoes, FONTES.regulamentoFGC, FONTES.fonteFII, FONTES.fonteVendaAcoes],
 });
