@@ -175,6 +175,8 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'Resultado da comparação' })).toBeInTheDocument();
     expect(fetchFixtures).toHaveBeenCalledTimes(RESPOSTAS.size);
     // Com o cenário projetado, o gráfico do valor líquido sombreia a faixa em que a projeção vira premissa.
+    // O Chart.js é carregado sob demanda: os gráficos aparecem depois do import dinâmico.
+    await waitFor(() => expect(graficos).toHaveLength(2));
     const anotacoes = (graficos.at(-2)?.config.options?.plugins as { annotation: { annotations: Record<string, { type: string; label?: { content?: string } }> } })
       .annotation.annotations;
     expect(anotacoes.premissa).toMatchObject({ type: 'box', label: { content: 'premissa' } });

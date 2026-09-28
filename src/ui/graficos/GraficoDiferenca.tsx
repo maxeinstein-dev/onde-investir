@@ -9,6 +9,7 @@ import type { PaletaGrafico } from './cores';
 import { type Anotacoes, type ConfigLinha, configLinhas, limites, linha, linhaVertical } from './config';
 import { diferencaEntre, type PontoDiferenca, trechosDaDiferenca } from './diferenca';
 import { diaDoEixo } from './eixo';
+import { AvisoCarregamento } from './AvisoCarregamento';
 import { useGrafico } from './useGrafico';
 
 export interface PropsGraficoDiferenca {
@@ -58,7 +59,7 @@ export function GraficoDiferenca({ series, ofertas, prefixo = 'grafico-diferenca
   const nome = (i: number) => (ofertas[i] ? nomeOferta(ofertas[i]) : letraDaOferta(i));
   const resumo = resumirDiferenca(trechos, nome(a), nome(b));
   const canvas = useRef<HTMLCanvasElement>(null);
-  useGrafico(canvas, (p) => montarConfig(p, escolha, pontos, trechos), [pontos, trechos, a, b]);
+  const estado = useGrafico(canvas, (p) => montarConfig(p, escolha, pontos, trechos), [pontos, trechos, a, b]);
 
   if (n < 2) return null;
 
@@ -70,7 +71,7 @@ export function GraficoDiferenca({ series, ofertas, prefixo = 'grafico-diferenca
 
   const opcoes = ofertas.slice(0, n).map((o, i) => <option key={o.id} value={String(i)}>{letraDaOferta(i)}: {nomeOferta(o)}</option>);
   return (
-    <figure class="grafico">
+    <figure class="grafico" aria-busy={estado === 'carregando' ? 'true' : 'false'}>
       <figcaption class="grafico__titulo">{GRAFICO_DIFERENCA.titulo}</figcaption>
       <div class="grafico__escolha">
         <div class="campo">
@@ -84,7 +85,8 @@ export function GraficoDiferenca({ series, ofertas, prefixo = 'grafico-diferenca
       </div>
       <p class="dica">{GRAFICO_DIFERENCA.explicacao}</p>
       <div class="grafico__area">
-        <canvas ref={canvas} role="img" aria-label={resumo} />
+        <canvas ref={canvas} role="img" aria-label={resumo} hidden={estado === 'erro'} />
+        <AvisoCarregamento estado={estado} />
       </div>
       <div class="grafico__resumo">
         <p>{resumo}</p>

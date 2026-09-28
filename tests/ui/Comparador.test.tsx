@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
 import { render as renderizarDireto } from 'preact';
 import { useState } from 'preact/hooks';
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
@@ -478,7 +478,10 @@ describe('Comparador', () => {
       expect(alertas).toHaveTextContent('Não dá para resgatar LCI 80% do CDI (Banco Y) em 1 ano');
     });
 
-    it('os gráficos só aparecem depois de "Comparar", num <details open> entre a tabela e a linha do tempo', () => {
+    /** O Chart.js vem por import dinâmico: espera os dois gráficos serem criados. */
+    const graficosCriados = () => waitFor(() => expect(graficos.filter((g) => g.destroy.mock.calls.length === 0)).toHaveLength(2));
+
+    it('os gráficos só aparecem depois de "Comparar", num <details open> entre a tabela e a linha do tempo', async () => {
       montar({ selecao: ['x', 'y'] });
       expect(detalhesGraficos()).toBeNull();
       comparar();
@@ -492,12 +495,14 @@ describe('Comparador', () => {
       expect(tabela().compareDocumentPosition(detalhes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(detalhes.compareDocumentPosition(linha) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(within(detalhes).getAllByRole('img')).toHaveLength(2);
+      await graficosCriados();
       expect(graficos).toHaveLength(2);
     });
 
-    it('o gráfico do valor líquido recebe as séries do engine, até o horizonte mais distante', () => {
+    it('o gráfico do valor líquido recebe as séries do engine, até o horizonte mais distante', async () => {
       montar({ selecao: ['x', 'y'] });
       compararDireto();
+      await graficosCriados();
       const esperado = seriesDeValorLiquido([cdb, lci], 10000, INI, somarMeses(INI, 60), CEN, { tipo: 'PADRAO' });
       const valor = graficos[0]?.config.data.datasets ?? [];
       expect(valor).toHaveLength(2);
@@ -509,10 +514,11 @@ describe('Comparador', () => {
       expect(within(detalhesGraficos() as HTMLElement).getByLabelText('Comparar').id).toMatch(/^comparador-/);
     });
 
-    it('editar invalida: os alertas e os gráficos somem, e os gráficos são destruídos', () => {
+    it('editar invalida: os alertas e os gráficos somem, e os gráficos são destruídos', async () => {
       montar({ catalogo: [...CATALOGO, quase], selecao: ['x', 'w'] });
       compararDireto();
       expect(secaoAlertas()).toBeInTheDocument();
+      await graficosCriados();
       expect(graficos).toHaveLength(2);
       fireEvent.input(screen.getByLabelText('Valor (R$)'), { target: { value: '5000' } });
       expect(secaoAlertas()).toBeNull();
@@ -520,11 +526,13 @@ describe('Comparador', () => {
       for (const g of graficos) expect(g.destroy).toHaveBeenCalledTimes(1);
     });
 
-    it('tirar uma coluna com o resultado aberto refaz os gráficos com as ofertas que ficaram', () => {
+    it('tirar uma coluna com o resultado aberto refaz os gráficos com as ofertas que ficaram', async () => {
       montar({ selecao: ['x', 'y', 'z'] });
       compararDireto();
+      await graficosCriados();
       expect(graficos[0]?.config.data.datasets).toHaveLength(3);
       fireEvent.click(screen.getByRole('button', { name: 'Tirar da comparação: LCI 80% do CDI (Banco Y)' }));
+      await graficosCriados();
       const vivos = graficos.filter((g) => g.destroy.mock.calls.length === 0);
       expect(vivos).toHaveLength(2);
       expect(vivos[0]?.config.data.datasets).toHaveLength(2);

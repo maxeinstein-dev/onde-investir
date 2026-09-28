@@ -951,6 +951,20 @@ button:hover {
   max-width: 100%;
 }
 
+/* "Carregando gráfico…" ou a falha do carregamento, no meio da área reservada ao canvas. */
+.grafico__aviso {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 1rem;
+  text-align: center;
+  color: var(--grafico-texto);
+  overflow-wrap: anywhere;
+}
+
 .grafico__escolha {
   display: flex;
   flex-wrap: wrap;

@@ -9,6 +9,7 @@ import { letraDaOferta } from '../letras';
 import type { PaletaGrafico } from './cores';
 import { type Anotacoes, type ConfigLinha, configLinhas, limites, linha, linhaVertical } from './config';
 import { diaDoEixo } from './eixo';
+import { AvisoCarregamento } from './AvisoCarregamento';
 import { useGrafico } from './useGrafico';
 
 export interface PropsGraficoValorLiquido {
@@ -63,13 +64,14 @@ export function GraficoValorLiquido(props: PropsGraficoValorLiquido) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const resumo = useMemo(
     () => resumirTrocas(trocas, ofertas, lideresNoPonto(series, 0), oscilacaoInicial), [series, trocas, ofertas, oscilacaoInicial]);
-  useGrafico(canvas, (p) => montarConfig(p, props), [series, trocas, ofertas, inicioPremissa]);
+  const estado = useGrafico(canvas, (p) => montarConfig(p, props), [series, trocas, ofertas, inicioPremissa]);
   return (
-    <figure class="grafico">
+    <figure class="grafico" aria-busy={estado === 'carregando' ? 'true' : 'false'}>
       <figcaption class="grafico__titulo">{GRAFICO_VALOR.titulo}</figcaption>
       <p class="dica">{GRAFICO_VALOR.tracejado}</p>
       <div class="grafico__area">
-        <canvas ref={canvas} role="img" aria-label={resumo.join(' ')} />
+        <canvas ref={canvas} role="img" aria-label={resumo.join(' ')} hidden={estado === 'erro'} />
+        <AvisoCarregamento estado={estado} />
       </div>
       <div class="grafico__resumo">
         {resumo.map((frase) => <p key={frase}>{frase}</p>)}

@@ -61,6 +61,12 @@ export function resumirTrocas(
   return [...frases.slice(0, MAXIMO_FRASES_RESUMO - 1), `Depois, a liderança ainda muda outras ${restantes} vezes até o fim do período.`];
 }
 
+/** O Chart.js é carregado sob demanda: o que a figura diz enquanto carrega e se o carregamento falhar. */
+export const GRAFICO_CARREGAMENTO = {
+  carregando: 'Carregando gráfico…',
+  erro: 'Não deu para carregar o gráfico. A tabela acima tem os mesmos dados.',
+} as const;
+
 /** Textos fixos do gráfico do valor líquido. */
 export const GRAFICO_VALOR = {
   titulo: 'Valor líquido ao longo do tempo',
