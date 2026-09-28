@@ -4,6 +4,7 @@ import { decodificar, type EstadoCompartilhado, lerEstadoDoHash, limparEstadoDoH
 import { armazenamentoLocal } from '../armazenamento/navegador';
 import { lerOfertas, salvarOfertas } from '../armazenamento/ofertas';
 import { lerPosicoes, salvarPosicoes } from '../armazenamento/posicoes';
+import { lerObjetivos, salvarObjetivos, type ObjetivoSalvo } from '../armazenamento/objetivos';
 import { lerPreferencias, salvarPreferencias, type PreferenciasCenario } from '../armazenamento/preferencias';
 import {
   contarVisita, dispensarDica, lerProgresso, marcarConcluida, type Progresso, registrarPalpite, salvarProgresso,
@@ -28,6 +29,7 @@ import {
   textoDoBanner,
 } from './comparacao/temporaria';
 import { MinhasOfertas, novoIdOferta } from './ofertas/MinhasOfertas';
+import { Objetivos } from './objetivos/Objetivos';
 import { hoje } from './hoje';
 import { PainelIndicadores } from './PainelIndicadores';
 import { type CarregarHistorico, useHistorico } from './useHistorico';
@@ -37,7 +39,7 @@ const CARREGANDO = 'Enquanto os indicadores carregam, vale o cenário manual.';
 const FALHA_AO_GRAVAR = 'Não deu para salvar neste navegador. Exporte suas ofertas para não perdê-las.';
 const LINK_INVALIDO = 'Este link de comparação não pôde ser aberto.';
 
-const ABAS = ['comparar', 'catalogo', 'carteira', ABA_APRENDER] as const;
+const ABAS = ['comparar', 'catalogo', 'carteira', 'objetivos', ABA_APRENDER] as const;
 /** As abas do M2 ("Comparar ofertas" e "Duelo rápido") viraram a tela única de comparação. */
 const APELIDOS = { duelo: 'comparar', ofertas: 'comparar' };
 
@@ -87,6 +89,7 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
   const [preferencias, setPreferencias] = useState(() => lerPreferencias(armazenamento));
   const [ofertas, setOfertas] = useState(() => lerOfertas(armazenamento));
   const [posicoes, setPosicoes] = useState(() => lerPosicoes(armazenamento, hoje()));
+  const [objetivos, setObjetivos] = useState(() => lerObjetivos(armazenamento));
   // Sem seleção salva (primeira visita ao M2.1), a comparação começa vazia, mesmo com ofertas no catálogo.
   const [selecaoSalva, setSelecaoSalva] = useState(() => lerSelecao(armazenamento));
   const [aba, irPara] = useAbaDaUrl(ABAS, APELIDOS);
@@ -307,6 +310,16 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
     if (!salvarPosicoes(armazenamento, p)) setFalhouAoGravar(true);
   }
 
+  function mudarObjetivos(o: ObjetivoSalvo[]) {
+    setObjetivos(o);
+    if (!salvarObjetivos(armazenamento, o)) setFalhouAoGravar(true);
+  }
+
+  /** "Comparar" numa fatia da sugestão: mesmo destino de "Comparar" no catálogo. */
+  function irParaComparar(o: OfertaCadastrada) {
+    compararDoCatalogo(o.id);
+  }
+
   function criarOferta(o: OfertaCadastrada) {
     const catalogo = [...ofertas, o];
     setOfertas(catalogo);
@@ -384,6 +397,12 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
             <Carteira posicoes={posicoes} onChange={mudarPosicoes} cenario={daCarteira.cenario} historico={historico}
               onTentarDeNovo={tentarHistoricoDeNovo}
               lacunas={daCarteira.lacunas} historicoInvalido={daCarteira.invalido} conglomerados={conglomerados} />
+          ),
+        },
+        {
+          id: 'objetivos', rotulo: 'Objetivos', conteudo: (
+            <Objetivos objetivos={objetivos} onChange={mudarObjetivos} catalogo={ofertas} carteira={carteiraFGC.itens}
+              hoje={dataHoje} onIrParaComparar={irParaComparar} />
           ),
         },
         {

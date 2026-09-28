@@ -531,6 +531,14 @@ button:hover {
   overflow-wrap: anywhere;
 }
 
+.cartao--objetivo h3 {
+  overflow-wrap: anywhere;
+}
+
+.sugestao h2 {
+  overflow-wrap: anywhere;
+}
+
 .cartao__detalhe {
   margin: 0.25rem 0;
   overflow-wrap: anywhere;

@@ -11,7 +11,7 @@ function declaracoes(seletor: string): string[] {
 }
 
 describe('estilos: texto longo sem espaço quebra em vez de rolar a página no celular', () => {
-  it.each(['.equivalencias h2', '.marco__lider', '.palpite__opcoes button', '.lideranca', '.linha-do-tempo', '.feedback', '.grafico__resumo p', '.alerta', '.grafico__legenda li', '.aprender', '.temporaria', '.voce-sabia', '.dica-contextual', '.compartilhar .dica'])('%s', (seletor) => {
+  it.each(['.equivalencias h2', '.marco__lider', '.palpite__opcoes button', '.lideranca', '.linha-do-tempo', '.feedback', '.grafico__resumo p', '.alerta', '.grafico__legenda li', '.aprender', '.temporaria', '.voce-sabia', '.dica-contextual', '.compartilhar .dica', '.cartao--objetivo h3', '.sugestao h2'])('%s', (seletor) => {
     expect(declaracoes(seletor).some((d) => /overflow-wrap:\s*anywhere/.test(d))).toBe(true);
   });
 });

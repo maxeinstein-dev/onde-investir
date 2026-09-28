@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { CHAVE_COMPARACAO } from '../../src/armazenamento/comparacao';
 import { exportarDados } from '../../src/armazenamento/arquivo';
 import { ABA_DO_LINK, lerEstadoDoHash } from '../../src/armazenamento/link';
+import { CHAVE_OBJETIVOS } from '../../src/armazenamento/objetivos';
 import { CHAVE_OFERTAS } from '../../src/armazenamento/ofertas';
 import { CHAVE_POSICOES } from '../../src/armazenamento/posicoes';
 import { CHAVE_PREFERENCIAS } from '../../src/armazenamento/preferencias';
@@ -80,12 +81,12 @@ const nomesDasColunas = () => colunas().map((c) => c.querySelector('.tabela-comp
 const salvas = (chave: string) => JSON.parse(localStorage.getItem(chave) ?? 'null');
 
 describe('App', () => {
-  it('abre em "Comparar", com quatro abas', () => {
+  it('abre em "Comparar", com cinco abas', () => {
     vi.stubGlobal('fetch', fetchForaDoAr);
     render(<App />);
     expect(screen.getByRole('heading', { level: 1, name: 'Rende' })).toBeInTheDocument();
     expect(within(document.querySelector('header') as HTMLElement).getByText(/não é recomendação de investimento/)).toBeInTheDocument();
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Comparar', 'Catálogo', 'Carteira', 'Aprender']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Comparar', 'Catálogo', 'Carteira', 'Objetivos', 'Aprender']);
     expect(aba('Comparar')).toHaveAttribute('aria-selected', 'true');
     expect(within(painelAtivo()).getByRole('heading', { level: 2, name: 'Comparar' })).toBeInTheDocument();
   });
@@ -385,5 +386,45 @@ describe('App', () => {
     expect(document.getElementById('cadastro-titulo')).not.toBeNull();
     const ids = [...document.querySelectorAll('[id]')].map((e) => e.id);
     expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
+  });
+
+  describe('aba Objetivos', () => {
+    it('#objetivos abre nela', () => {
+      vi.stubGlobal('fetch', fetchForaDoAr);
+      history.replaceState(null, '', '/#objetivos');
+      render(<App />);
+      expect(aba('Objetivos')).toHaveAttribute('aria-selected', 'true');
+      expect(within(painelAtivo()).getByRole('heading', { level: 2, name: 'Objetivos' })).toBeInTheDocument();
+    });
+    it('clicar em "Objetivos" muda o hash e a aba', () => {
+      vi.stubGlobal('fetch', fetchForaDoAr);
+      render(<App />);
+      fireEvent.click(aba('Objetivos'));
+      expect(location.hash).toBe('#objetivos');
+      expect(within(painelAtivo()).getByRole('heading', { level: 2, name: 'Objetivos' })).toBeInTheDocument();
+    });
+    it('criar um objetivo persiste no localStorage e sobrevive à recarga', () => {
+      vi.stubGlobal('fetch', fetchForaDoAr);
+      render(<App />);
+      fireEvent.click(aba('Objetivos'));
+      const painel = painelAtivo();
+      fireEvent.click(within(painel).getByRole('button', { name: '+ Novo objetivo' }));
+      fireEvent.click(within(painel).getByRole('button', { name: 'Sem objetivo definido' }));
+      fireEvent.input(within(painel).getByLabelText('Horizonte (anos)'), { target: { value: '3' } });
+      fireEvent.click(within(painel).getByRole('button', { name: /Salvar/ }));
+      const lista = salvas(CHAVE_OBJETIVOS);
+      expect(lista).toHaveLength(1);
+      expect(lista[0]).toMatchObject({ entradas: { tipo: 'SEM_OBJETIVO', horizonteAnos: 3 } });
+      cleanup();
+      render(<App />);
+      fireEvent.click(aba('Objetivos'));
+      expect(screen.getByRole('article', { name: /Objetivo sem nome/ })).toBeInTheDocument();
+    });
+    it('nenhum id duplicado com as cinco abas montadas ao mesmo tempo', () => {
+      vi.stubGlobal('fetch', fetchForaDoAr);
+      render(<App />);
+      const ids = [...document.querySelectorAll('[id]')].map((e) => e.id);
+      expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
+    });
   });
 });
