@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Fatia, MotivoFatia } from '../../src/engine/sugestao';
-import { AVISO_EDUCATIVO, descreverFatia, licaoDaFatia, textoDaFatia, textoDoFgc } from '../../src/conteudo/sugestao';
+import { AVISO_EDUCATIVO, descreverFatia, licaoDaFatia, notaRendaVariavel, textoDaFatia, textoDoFgc } from '../../src/conteudo/sugestao';
 
 const TODOS_OS_MOTIVOS: MotivoFatia[] = [
   'RESERVA_TESOURO_SELIC', 'RESERVA_CDB_LIQUIDEZ', 'DATA_VENCIMENTO_CASADO', 'DATA_SEM_CASAMENTO',
@@ -42,5 +42,18 @@ describe('sugestão — conteúdo', () => {
   it('aviso educativo fixo', () => {
     expect(AVISO_EDUCATIVO.length).toBeGreaterThan(10);
     expect(AVISO_EDUCATIVO).toMatch(/educativo/i);
+  });
+});
+
+describe('notaRendaVariavel', () => {
+  it('aparece para LONGO_PRAZO e SEM_OBJETIVO com horizonte acima de 5 anos', () => {
+    expect(notaRendaVariavel({ tipo: 'LONGO_PRAZO', horizonteAnos: 6 })).toMatch(/renda variável/);
+    expect(notaRendaVariavel({ tipo: 'SEM_OBJETIVO', horizonteAnos: 10 })).toMatch(/renda variável/);
+  });
+  it('não aparece com horizonte de até 5 anos, nem para RESERVA/COM_DATA', () => {
+    expect(notaRendaVariavel({ tipo: 'LONGO_PRAZO', horizonteAnos: 5 })).toBeNull();
+    expect(notaRendaVariavel({ tipo: 'SEM_OBJETIVO', horizonteAnos: 1 })).toBeNull();
+    expect(notaRendaVariavel({ tipo: 'RESERVA', gastoMensal: 1000, rendaEstavel: true })).toBeNull();
+    expect(notaRendaVariavel({ tipo: 'COM_DATA', valorAlvo: 1000, data: '2030-01-01' })).toBeNull();
   });
 });
