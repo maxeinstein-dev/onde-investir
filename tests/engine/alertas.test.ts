@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gerarAlertas, LIMIAR_QUASE_EMPATE, resgataQuandoQuiser, type Alerta } from '../../src/engine/alertas';
+import { chaveDoAlerta, gerarAlertas, LIMIAR_QUASE_EMPATE, resgataQuandoQuiser, type Alerta } from '../../src/engine/alertas';
 import { horizontesPadrao, tabelaPorHorizonte } from '../../src/engine/comparacao';
 import { somarDias } from '../../src/engine/datas';
 import { projetar, type OfertaCadastrada, type Projecao } from '../../src/engine/ofertas';
@@ -278,5 +278,19 @@ describe('gerarAlertas', () => {
     expect(gerarAlertas([cdbVenc2031], [])).toEqual([]);
     expect(() => gerarAlertas([cdbVenc2031], [], Number.NaN)).toThrow(RangeError);
     expect(() => gerarAlertas([cdbVenc2031], [], -0.01)).toThrow(RangeError);
+  });
+});
+
+describe('chaveDoAlerta', () => {
+  const o = (id: string): OfertaCadastrada => ({ id, emissor: 'B', conglomerado: 'B', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1 }, liquidez: 'DIARIA' });
+  it('tipo, id da oferta e etapa: a mesma oferta em outro índice mantém a chave', () => {
+    const iof = (oferta: number, etapa: 1 | 2): Alerta => ({ tipo: 'IOF', oferta, horizonte: '2031-09-28', iof: 1, etapa, dias: 10 });
+    expect(chaveDoAlerta(iof(1, 2), [o('x'), o('y')])).toBe('IOF:y:2');
+    expect(chaveDoAlerta(iof(0, 2), [o('y')])).toBe('IOF:y:2');
+    expect(chaveDoAlerta(iof(0, 1), [o('y')])).not.toBe(chaveDoAlerta(iof(0, 2), [o('y')]));
+  });
+  it('no quase empate, a oferta é a alternativa', () => {
+    const a: Alerta = { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0], alternativa: 1, diferenca: 1, diferencaPercentual: 0.001, vantagem: 'LIQUIDEZ' };
+    expect(chaveDoAlerta(a, [o('x'), o('y')])).toBe('QUASE_EMPATE:y:0');
   });
 });

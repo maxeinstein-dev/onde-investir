@@ -162,6 +162,15 @@ const etapaDoAlerta = (a: Alerta) => (a.tipo === 'IOF' ? a.etapa : 0);
 const chave = (a: Alerta) => `${a.tipo}:${ofertaDoAlerta(a)}:${etapaDoAlerta(a)}`;
 
 /**
+ * A chave estável de um alerta, a mesma que o deduplica em `gerarAlertas` (tipo, oferta e etapa), mas com o id
+ * da oferta no lugar do índice: tirar uma oferta não faz o alerta de outra herdar a chave (a key da lista).
+ */
+export const chaveDoAlerta = (a: Alerta, ofertas: readonly OfertaCadastrada[]): string => {
+  const i = ofertaDoAlerta(a);
+  return `${a.tipo}:${ofertas[i]?.id ?? `#${i}`}:${etapaDoAlerta(a)}`;
+};
+
+/**
  * Alertas que ensinam (spec §5.6), a partir das colunas de `tabelaPorHorizonte`. Um alerta por (tipo, oferta) e,
  * no IOF, por etapa, no horizonte mais distante em que vale; no quase empate, a oferta é a alternativa. Ordem:
  * pelo tipo, pela oferta e pela etapa.
