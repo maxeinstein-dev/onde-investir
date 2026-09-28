@@ -4,6 +4,7 @@ import { OfertaInvalidaError, RegraNaoEncontradaError } from '../../engine/erros
 import { conferirPrazoMinimo, validarOfertaCadastrada, type Liquidez, type OfertaCadastrada } from '../../engine/ofertas';
 import { ehTesouro, type Oferta } from '../../engine/produtos';
 import { dataMinimaResgate, prazoMinimoMeses } from '../../engine/regras/prazoMinimo';
+import { CampoNumerico } from '../CampoNumerico';
 import { FormOferta, taxaPreenchida } from '../FormOferta';
 import { DATA_MAXIMA, DATA_MINIMA, hoje } from '../hoje';
 import { Termo } from '../Termo';
@@ -23,6 +24,9 @@ export interface PropsFormOfertaCadastrada {
   /** Texto do botão de cadastrar. */
   rotuloSalvar?: string;
 }
+
+// Rascunho do M3a: a revisão editorial é da tarefa C3.
+const DICA_CUSTO = 'Tarifa cobrada pela corretora, se houver. Na renda fixa bancária costuma ser zero.';
 
 const NOVA: Oferta = { produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1 } };
 
@@ -46,6 +50,8 @@ export function FormOfertaCadastrada({
   const [conglomerado, setConglomerado] = useState(inicial?.conglomerado ?? '');
   const [liquidez, setLiquidez] = useState<Liquidez>(inicial?.liquidez ?? 'DIARIA');
   const [vencimento, setVencimento] = useState(inicial?.vencimento ?? '');
+  /** Custo extra em % ao ano; NaN com o campo vazio (sem custo). Fica fora de `oferta`: trocar o produto não o apaga. */
+  const [custo, setCusto] = useState(inicial?.custoExtraAA === undefined ? NaN : inicial.custoExtraAA * 100);
   const [erro, setErro] = useState<string | null>(null);
   const refTitulo = useRef<HTMLHeadingElement>(null);
 
@@ -63,6 +69,7 @@ export function FormOfertaCadastrada({
     const base = {
       id: inicial?.id ?? '', produto: oferta.produto, indexacao: oferta.indexacao,
       emissor: emissor.trim(), conglomerado: conglomerado.trim(), liquidez: tesouro || poupanca ? 'DIARIA' as const : liquidez,
+      ...(Number.isFinite(custo) ? { custoExtraAA: custo / 100 } : {}),
     };
     return venc === undefined ? base : { ...base, vencimento: venc };
   }
@@ -82,6 +89,7 @@ export function FormOfertaCadastrada({
     setConglomerado('');
     setLiquidez('DIARIA');
     setVencimento('');
+    setCusto(NaN);
   }
 
   function salvar(e: Event) {
@@ -106,7 +114,11 @@ export function FormOfertaCadastrada({
   return (
     <form class="formulario cadastro" onSubmit={salvar} noValidate aria-labelledby={`${ID}-titulo`}>
       <h3 id={`${ID}-titulo`} ref={refTitulo} tabIndex={-1}>{inicial ? 'Editar oferta' : titulo}</h3>
-      <FormOferta id={ID} titulo="Produto e taxa" oferta={oferta} onChange={editar(setOferta)} />
+      <FormOferta id={ID} titulo="Produto e taxa" oferta={oferta} onChange={editar(setOferta)}>
+        <label for={`${ID}-custo`}>Custo extra (% ao ano, opcional)</label>
+        <CampoNumerico id={`${ID}-custo`} min="0" step="0.01" valor={custo} onChange={editar(setCusto)} describedBy={`${ID}-custo-dica`} />
+        <p id={`${ID}-custo-dica`} class="dica">{DICA_CUSTO}</p>
+      </FormOferta>
       <fieldset class="cadastro__detalhes">
         <legend>Emissor e prazo</legend>
         <div class="campo">
