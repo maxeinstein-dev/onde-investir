@@ -23,13 +23,16 @@ export type Indexacao =
 
 export type TipoIndexacao = Indexacao['tipo'];
 
-/** O que se compara: produto + como rende. */
-export interface Oferta { produto: TipoProduto; indexacao: Indexacao }
+/**
+ * O que se compara: produto + como rende. `custoExtraAA`: tarifa da corretora ou da plataforma, em fração ao ano
+ * (0,005 = 0,5% a.a.), de 0 a {@link CUSTO_EXTRA_MAXIMO_AA}. Ausente = sem custo.
+ */
+export interface Oferta { produto: TipoProduto; indexacao: Indexacao; custoExtraAA?: number }
 
 /** Uma oferta aplicada com valor e data. */
 export interface Aplicacao extends Oferta { valor: number; dataAplicacao: DataISO }
 
-export type IdPasso = 'aplicado' | 'rendimentoBruto' | 'iof' | 'custodia' | 'ir' | 'liquido';
+export type IdPasso = 'aplicado' | 'rendimentoBruto' | 'iof' | 'custodia' | 'ir' | 'custoExtra' | 'liquido';
 export interface Passo { id: IdPasso; valor: number }
 
 export interface ResultadoSimulacao {
@@ -47,6 +50,8 @@ export interface ResultadoSimulacao {
   isentoIR: boolean;
   aliquotaIR: number;
   ir: number;
+  /** R$ do custo extra, descontado depois do IR; 0 sem custo. */
+  custoExtra: number;
   valorLiquido: number;
   /** Só para poupança: aniversários mensais completos. */
   mesesPoupanca?: number;
@@ -75,6 +80,17 @@ export const INDEXACOES_PERMITIDAS: Record<TipoProduto, readonly [TipoIndexacao,
 /** 5 = 500% do CDI. */
 export const PERCENTUAL_CDI_MAXIMO = 5;
 
+/** 5% a.a.: acima disso, é quase certo um erro de unidade (0,5 digitado no lugar de 0,005). */
+export const CUSTO_EXTRA_MAXIMO_AA = 0.05;
+
+/** Custo extra ausente, ou finito entre 0 e 5% a.a. */
+export function validarCustoExtra(custoExtraAA: number | undefined): void {
+  if (custoExtraAA === undefined) return;
+  if (!Number.isFinite(custoExtraAA) || custoExtraAA < 0 || custoExtraAA > CUSTO_EXTRA_MAXIMO_AA) {
+    throw new OfertaInvalidaError('O custo extra precisa ficar entre 0 e 5% ao ano');
+  }
+}
+
 /** Taxa anual utilizável em (1 + t)^n: finita e acima de −100%. */
 const taxaAnualValida = (t: number): boolean => Number.isFinite(t) && t > -1;
 
@@ -91,6 +107,7 @@ export function validarAplicacao(ap: Aplicacao, dataResgate: DataISO, opcoes: Op
   if (!permitidas.includes(ap.indexacao.tipo)) {
     throw new OfertaInvalidaError(`${ap.produto} não aceita a indexação ${ap.indexacao.tipo}`);
   }
+  validarCustoExtra(ap.custoExtraAA);
   if (diasCorridos(ap.dataAplicacao, dataResgate) < 1) throw new OfertaInvalidaError('O resgate precisa ser depois da aplicação');
   const ix = ap.indexacao;
   if (ix.tipo === 'POS_CDI') {
@@ -121,15 +138,28 @@ function fatorBruto(ap: Aplicacao, dataResgate: DataISO, cen: Cenario): number {
   }
 }
 
-function montarPassos(r: Omit<ResultadoSimulacao, 'passos'>): Passo[] {
-  return [
+type SemCusto = Omit<ResultadoSimulacao, 'passos' | 'custoExtra'>;
+
+/**
+ * Desconta o custo extra e monta a memória de cálculo. O custo é `bruto × (1 − (1 − c)^(dc/365))`, tirado DEPOIS
+ * do IR: premissa conservadora, porque a tarifa da corretora não reduz a base do IR. Sem custo (c = 0 ou
+ * ausente), nada muda e a memória não tem o passo `custoExtra`. Com custo, o líquido é o bruto menos os
+ * descontos na ordem dos passos, então somar os passos da esquerda para a direita dá exatamente o líquido.
+ */
+function comCustoExtra(r: SemCusto): ResultadoSimulacao {
+  const c = r.aplicacao.custoExtraAA ?? 0;
+  const custoExtra = c > 0 ? r.valorBruto * (1 - Math.pow(1 - c, r.diasCorridos / 365)) : 0;
+  const valorLiquido = c > 0 ? r.valorBruto - r.iof - r.custodia - r.ir - custoExtra : r.valorLiquido;
+  const passos: Passo[] = [
     { id: 'aplicado', valor: r.valorAplicado },
     { id: 'rendimentoBruto', valor: r.rendimentoBruto },
     { id: 'iof', valor: r.iof },
     { id: 'custodia', valor: r.custodia },
     { id: 'ir', valor: r.ir },
-    { id: 'liquido', valor: r.valorLiquido },
+    ...(c > 0 ? [{ id: 'custoExtra' as const, valor: custoExtra }] : []),
+    { id: 'liquido', valor: valorLiquido },
   ];
+  return { ...r, custoExtra, valorLiquido, passos };
 }
 
 /** Depósitos nos dias 29, 30 e 31 contam como feitos no dia 1º do mês seguinte. */
@@ -145,18 +175,19 @@ function simularPoupanca(ap: Aplicacao, dataResgate: DataISO, cen: Cenario): Res
   for (let aniversarioAnterior = inicio; ; meses++) {
     const proximo = somarMeses(inicio, meses + 1);
     if (proximo > dataResgate) break;
-    const base = taxaBasePoupancaAM(cen.selicMetaAA(aniversarioAnterior), aniversarioAnterior);
+    // A regra é a da data do depósito; a meta, a do aniversário.
+    const base = taxaBasePoupancaAM(cen.selicMetaAA(aniversarioAnterior), ap.dataAplicacao);
     valor *= (1 + base) * (1 + cen.trAM(aniversarioAnterior));
     aniversarioAnterior = proximo;
   }
-  const semDescontos = {
+  const semDescontos: SemCusto = {
     aplicacao: ap, dataResgate, diasCorridos: diasCorridos(ap.dataAplicacao, dataResgate),
     diasUteis: diasUteis(ap.dataAplicacao, dataResgate), fator: valor / ap.valor,
     valorAplicado: ap.valor, valorBruto: valor, rendimentoBruto: valor - ap.valor,
     aliquotaIOF: 0, iof: 0, custodia: 0, isentoIR: true, aliquotaIR: 0, ir: 0, valorLiquido: valor,
     mesesPoupanca: meses,
   };
-  return { ...semDescontos, passos: montarPassos(semDescontos) };
+  return comCustoExtra(semDescontos);
 }
 
 export function simular(ap: Aplicacao, dataResgate: DataISO, cen: Cenario, opcoes: OpcoesSimulacao = {}): ResultadoSimulacao {
@@ -174,10 +205,10 @@ export function simular(ap: Aplicacao, dataResgate: DataISO, cen: Cenario, opcoe
     : 0;
   const aliqIR = isentoIR ? 0 : aliquotaIR(dc, dataResgate);
   const ir = Math.max(0, rendimentoBruto - iof - custodia) * aliqIR;
-  const base = {
+  const base: SemCusto = {
     aplicacao: ap, dataResgate, diasCorridos: dc, diasUteis: diasUteis(ap.dataAplicacao, dataResgate), fator,
     valorAplicado: ap.valor, valorBruto, rendimentoBruto, aliquotaIOF: aliqIOF, iof, custodia,
     isentoIR, aliquotaIR: aliqIR, ir, valorLiquido: valorBruto - iof - custodia - ir,
   };
-  return { ...base, passos: montarPassos(base) };
+  return comCustoExtra(base);
 }

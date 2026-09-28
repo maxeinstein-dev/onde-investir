@@ -1,9 +1,11 @@
+import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { dataBR, ehDataValida } from '../../engine/datas';
 import { OfertaInvalidaError, RegraNaoEncontradaError } from '../../engine/erros';
 import { conferirPrazoMinimo, validarOfertaCadastrada, type Liquidez, type OfertaCadastrada } from '../../engine/ofertas';
 import { ehTesouro, type Oferta } from '../../engine/produtos';
 import { dataMinimaResgate, prazoMinimoMeses } from '../../engine/regras/prazoMinimo';
+import { CampoNumerico } from '../CampoNumerico';
 import { FormOferta, taxaPreenchida } from '../FormOferta';
 import { DATA_MAXIMA, DATA_MINIMA, hoje } from '../hoje';
 import { Termo } from '../Termo';
@@ -22,7 +24,26 @@ export interface PropsFormOfertaCadastrada {
   titulo?: string;
   /** Texto do botão de cadastrar. */
   rotuloSalvar?: string;
+  /** Título na edição. Padrão: "Editar oferta". */
+  tituloEdicao?: string;
+  /** Sem o prazo mínimo legal da LCI/LCA para quem aplica hoje (a posição já foi aplicada). */
+  semPrazoMinimo?: boolean;
+  /** Campos a mais, depois de "Emissor e prazo" (a posição acrescenta o valor aplicado e o extrato). */
+  extras?: ComponentChildren;
+  /**
+   * Validação dos campos a mais, depois da validação da oferta: a mensagem do primeiro problema, ou null. Com
+   * erro, nada é salvo.
+   */
+  validarExtra?: (o: OfertaCadastrada) => string | null;
+  /**
+   * Um retrato dos campos a mais. O erro vale para o retrato em que apareceu: mudar um campo a mais o apaga,
+   * como mudar um campo da oferta.
+   */
+  estadoExtra?: string;
 }
+
+// Rascunho do M3a: a revisão editorial é da tarefa C3.
+const DICA_CUSTO = 'Tarifa cobrada pela corretora, se houver. Na renda fixa bancária costuma ser zero.';
 
 const NOVA: Oferta = { produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1 } };
 
@@ -40,13 +61,19 @@ function prazoMinimoDeHoje(o: Oferta): { meses: number; data: string } | null {
 
 export function FormOfertaCadastrada({
   inicial, conglomerados, gerarId, onSalvar, onCancelar, id: ID = 'cadastro', titulo = 'Nova oferta', rotuloSalvar = 'Adicionar oferta',
+  tituloEdicao = 'Editar oferta', semPrazoMinimo = false, extras, validarExtra, estadoExtra = '',
 }: PropsFormOfertaCadastrada) {
   const [oferta, setOferta] = useState<Oferta>(inicial ? { produto: inicial.produto, indexacao: inicial.indexacao } : NOVA);
   const [emissor, setEmissor] = useState(inicial?.emissor ?? '');
   const [conglomerado, setConglomerado] = useState(inicial?.conglomerado ?? '');
   const [liquidez, setLiquidez] = useState<Liquidez>(inicial?.liquidez ?? 'DIARIA');
   const [vencimento, setVencimento] = useState(inicial?.vencimento ?? '');
-  const [erro, setErro] = useState<string | null>(null);
+  /** Custo extra em % ao ano; NaN com o campo vazio (sem custo). Fica fora de `oferta`: trocar o produto não o apaga. */
+  const [custo, setCusto] = useState(inicial?.custoExtraAA === undefined ? NaN : Math.round(inicial.custoExtraAA * 1e8) / 1e6);
+  /** O erro vale para o retrato dos campos a mais em que apareceu (ver `estadoExtra`). */
+  const [erroSalvo, setErroSalvo] = useState<{ texto: string; extra: string } | null>(null);
+  const erro = erroSalvo !== null && erroSalvo.extra === estadoExtra ? erroSalvo.texto : null;
+  const setErro = (texto: string | null) => setErroSalvo(texto === null ? null : { texto, extra: estadoExtra });
   const refTitulo = useRef<HTMLHeadingElement>(null);
 
   // Ao abrir uma oferta para edição, o foco vai para o título do formulário.
@@ -63,14 +90,16 @@ export function FormOfertaCadastrada({
     const base = {
       id: inicial?.id ?? '', produto: oferta.produto, indexacao: oferta.indexacao,
       emissor: emissor.trim(), conglomerado: conglomerado.trim(), liquidez: tesouro || poupanca ? 'DIARIA' as const : liquidez,
+      // Arredondado a 6 casas em % (8 em fração): 0,57 / 100 daria 0,005699999999999999.
+      ...(Number.isFinite(custo) ? { custoExtraAA: Math.round(custo * 1e6) / 1e8 } : {}),
     };
     return venc === undefined ? base : { ...base, vencimento: venc };
   }
 
-  const prazoMinimo = prazoMinimoDeHoje(oferta);
+  const prazoMinimo = semPrazoMinimo ? null : prazoMinimoDeHoje(oferta);
   // Data digitada que o engine não aceita (ex.: ano com 5 dígitos): nada de dataBR nem de prazo mínimo com ela.
   const vencimentoInvalido = !poupanca && vencimento.trim() !== '' && !ehDataValida(vencimento);
-  const avisoPrazo = vencimentoInvalido ? null : conferirPrazoMinimo(montar(), hoje());
+  const avisoPrazo = vencimentoInvalido || semPrazoMinimo ? null : conferirPrazoMinimo(montar(), hoje());
 
   function editar<T>(set: (v: T) => void) {
     return (v: T) => { set(v); setErro(null); };
@@ -82,6 +111,7 @@ export function FormOfertaCadastrada({
     setConglomerado('');
     setLiquidez('DIARIA');
     setVencimento('');
+    setCusto(NaN);
   }
 
   function salvar(e: Event) {
@@ -98,6 +128,11 @@ export function FormOfertaCadastrada({
       setErro(`${err.message}.`);
       return;
     }
+    const problema = validarExtra?.(o) ?? null;
+    if (problema !== null) {
+      setErro(problema);
+      return;
+    }
     setErro(null);
     onSalvar(inicial ? o : { ...o, id: gerarId() });
     if (!inicial) limpar();
@@ -105,8 +140,12 @@ export function FormOfertaCadastrada({
 
   return (
     <form class="formulario cadastro" onSubmit={salvar} noValidate aria-labelledby={`${ID}-titulo`}>
-      <h3 id={`${ID}-titulo`} ref={refTitulo} tabIndex={-1}>{inicial ? 'Editar oferta' : titulo}</h3>
-      <FormOferta id={ID} titulo="Produto e taxa" oferta={oferta} onChange={editar(setOferta)} />
+      <h3 id={`${ID}-titulo`} ref={refTitulo} tabIndex={-1}>{inicial ? tituloEdicao : titulo}</h3>
+      <FormOferta id={ID} titulo="Produto e taxa" oferta={oferta} onChange={editar(setOferta)}>
+        <label for={`${ID}-custo`}>Custo extra (% ao ano, opcional)</label>
+        <CampoNumerico id={`${ID}-custo`} min="0" step="0.01" valor={custo} onChange={editar(setCusto)} describedBy={`${ID}-custo-dica`} />
+        <p id={`${ID}-custo-dica`} class="dica">{DICA_CUSTO}</p>
+      </FormOferta>
       <fieldset class="cadastro__detalhes">
         <legend>Emissor e prazo</legend>
         <div class="campo">
@@ -156,6 +195,7 @@ export function FormOfertaCadastrada({
         )}
         {avisoPrazo && <p class="aviso cadastro__aviso">{avisoPrazo}. Nesse caso, a comparação mostra a oferta como indisponível.</p>}
       </fieldset>
+      {extras}
       {erro && <p role="alert" class="erro">{erro}</p>}
       <div class="cadastro__acoes">
         <button type="submit" class="primario">{inicial ? 'Salvar alterações' : rotuloSalvar}</button>

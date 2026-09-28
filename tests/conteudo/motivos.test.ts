@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { descreverOferta, explicarVencedor } from '../../src/conteudo/motivos';
+import { descreverOferta, explicarVencedor, textoDaConferencia } from '../../src/conteudo/motivos';
 import { simular, type Oferta, type ResultadoSimulacao } from '../../src/engine/produtos';
 import { CEN, INI } from '../engine/cenarioPadrao';
 
@@ -42,5 +42,12 @@ describe('explicarVencedor', () => {
   });
   it('empate', () => {
     expect(explicarVencedor(...dois(cdb(1), cdb(1)))[0]).toMatch(/empatad/);
+  });
+});
+
+describe('textoDaConferencia', () => {
+  it('extrato do Tesouro antes do vencimento: a diferença é normal', () => {
+    expect(textoDaConferencia({ motivo: 'MARCACAO_A_MERCADO' })).toBe('O extrato do Tesouro mostra o preço de mercado, e o app calcula pela curva contratada. Diferenças são normais.');
+    expect(textoDaConferencia({})).toBeNull();
   });
 });

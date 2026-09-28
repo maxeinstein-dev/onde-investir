@@ -16,6 +16,9 @@ const q = (parametros: Record<string, string>) =>
 
 export const urlSgsUltimos = (codigo: number, n: number) =>
   `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${codigo}/dados/ultimos/${n}?formato=json`;
+/** A série no ano civil inteiro (o ano corrente vem até o último dado publicado). */
+export const urlSgsAno = (codigo: number, ano: number) =>
+  `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${codigo}/dados?formato=json&dataInicial=01/01/${ano}&dataFinal=31/12/${ano}`;
 export const urlFocusSelic = () =>
   `${OLINDA}/ExpectativasMercadoSelic?${q({ $filter: 'baseCalculo eq 0', $orderby: 'Data desc', $top: '80', $format: 'json' })}`;
 export const urlFocusIpcaMensal = () =>
@@ -75,6 +78,30 @@ function daColetaMaisRecente<T extends { Data: string }>(linhas: readonly T[]): 
 const Sgs = z.array(z.object({ data: DataBR, valor: z.string().regex(DECIMAL) })).max(MAX_SGS);
 export function interpretarSgs(json: unknown): { data: DataISO; valor: number }[] {
   return validar('SGS', Sgs, json).map((p) => ({ data: deBR(p.data), valor: Number(p.valor) }));
+}
+
+// Um ano civil de série diária tem até 366 pontos (a 226 e a 432 têm um por dia corrido). A 226 repete o dia 1º
+// para os aniversários 29, 30 e 31 do mês anterior (cerca de 372 pontos no ano): a folga cobre isso.
+const MAX_SGS_ANO = 400;
+const SgsAno = z.array(z.object({ data: DataBR, dataFim: DataBR.optional(), valor: z.string().regex(DECIMAL) })).max(MAX_SGS_ANO);
+export interface PontoSgs { data: DataISO; valor: number; dataFim?: DataISO }
+/**
+ * Um ano da série, com o valor como o SGS publica (em %). Lista vazia é válida (ano sem dado ainda). Lança
+ * RespostaInvalidaError se algum ponto estiver fora do ano, o `dataFim` (da 226) não vier depois da data ou o par
+ * data e `dataFim` se repetir. A mesma data com `dataFim` diferentes é da 226: ver `trPorInicio` no histórico.
+ */
+export function interpretarSgsAno(json: unknown, ano: number): PontoSgs[] {
+  const pontos = validar('SGS', SgsAno, json).map((p): PontoSgs => ({
+    data: deBR(p.data), ...(p.dataFim === undefined ? {} : { dataFim: deBR(p.dataFim) }), valor: Number(p.valor),
+  }));
+  const vistos = new Set<string>();
+  for (const p of pontos) {
+    const chave = `${p.data}/${p.dataFim ?? ''}`;
+    if (!p.data.startsWith(`${ano}-`) || vistos.has(chave)) throw new RespostaInvalidaError('SGS');
+    if (p.dataFim !== undefined && p.dataFim <= p.data) throw new RespostaInvalidaError('SGS');
+    vistos.add(chave);
+  }
+  return pontos;
 }
 
 const FocusSelic = z.object({ value: z.array(z.object({

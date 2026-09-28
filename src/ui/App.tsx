@@ -1,23 +1,29 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { adicionar, lerSelecao, salvarSelecao, sincronizarSelecao } from '../armazenamento/comparacao';
 import { armazenamentoLocal } from '../armazenamento/navegador';
 import { lerOfertas, salvarOfertas } from '../armazenamento/ofertas';
+import { lerPosicoes, salvarPosicoes } from '../armazenamento/posicoes';
 import { lerPreferencias, salvarPreferencias, type PreferenciasCenario } from '../armazenamento/preferencias';
 import { explicarCenario } from '../conteudo/comparacao';
 import { cenarioAtivo, usaSoManual, type CenarioAtivo } from '../dados/cenarios';
 import type { IndicadoresCarregados } from '../dados/indicadores';
+import { cenarioComHistorico } from '../engine/historico';
 import type { OfertaCadastrada } from '../engine/ofertas';
+import { itemFGCDaPosicao, type Posicao } from '../engine/posicoes';
 import { Abas, useAbaDaUrl } from './Abas';
+import { Carteira } from './carteira/Carteira';
 import { Comparador } from './comparacao/Comparador';
 import { idColuna } from './comparacao/TabelaComparacao';
 import { MinhasOfertas } from './ofertas/MinhasOfertas';
+import { hoje } from './hoje';
 import { PainelIndicadores } from './PainelIndicadores';
+import { type CarregarHistorico, useHistorico } from './useHistorico';
 import { SEM_INDICADORES, useIndicadores } from './useIndicadores';
 
 const CARREGANDO = 'Enquanto os indicadores carregam, vale o cenário manual.';
 const FALHA_AO_GRAVAR = 'Não deu para salvar neste navegador. Exporte suas ofertas para não perdê-las.';
 
-const ABAS = ['comparar', 'catalogo'] as const;
+const ABAS = ['comparar', 'catalogo', 'carteira'] as const;
 /** As abas do M2 ("Comparar ofertas" e "Duelo rápido") viraram a tela única de comparação. */
 const APELIDOS = { duelo: 'comparar', ofertas: 'comparar' };
 
@@ -31,13 +37,16 @@ function calcularAtivo(ind: IndicadoresCarregados | null, p: PreferenciasCenario
 export interface PropsApp {
   /** Para testes e para trocar a fonte; por padrão, `fetch` + localStorage + `Date.now()`. */
   carregar?: () => Promise<IndicadoresCarregados>;
+  /** O histórico do Banco Central para as posições; por padrão, `fetch` + localStorage + `Date.now()`. */
+  carregarHistorico?: CarregarHistorico;
 }
 
-export function App({ carregar }: PropsApp = {}) {
+export function App({ carregar, carregarHistorico }: PropsApp = {}) {
   const armazenamento = useMemo(armazenamentoLocal, []);
   const indicadores = useIndicadores(carregar);
   const [preferencias, setPreferencias] = useState(() => lerPreferencias(armazenamento));
   const [ofertas, setOfertas] = useState(() => lerOfertas(armazenamento));
+  const [posicoes, setPosicoes] = useState(() => lerPosicoes(armazenamento, hoje()));
   // Sem seleção salva (primeira visita ao M2.1), a comparação começa vazia, mesmo com ofertas no catálogo.
   const [selecaoSalva, setSelecaoSalva] = useState(() => lerSelecao(armazenamento));
   const [aba, irPara] = useAbaDaUrl(ABAS, APELIDOS);
@@ -66,6 +75,39 @@ export function App({ carregar }: PropsApp = {}) {
   }), [ativo, indicadores, preferencias.premissas.k]);
   const descricaoCenario = indicadores === null ? CARREGANDO : explicacao.join(' ');
 
+  // O histórico do Banco Central, uma vez quando há posições, desde a aplicação mais antiga.
+  const desde = posicoes.reduce<string | null>((min, p) => (min === null || p.dataAplicacao < min ? p.dataAplicacao : min), null);
+  const { estado: historico, tentarDeNovo: tentarHistoricoDeNovo } = useHistorico(desde, carregarHistorico);
+  const series = historico.fase === 'pronto' ? historico.carregado.series : null;
+  /** O cenário da carteira: o realizado onde há histórico e o cenário ativo no resto. */
+  const daCarteira = useMemo(() => {
+    if (series === null) return { cenario: ativo.cenario, lacunas: 0, invalido: false };
+    try {
+      const cenario = cenarioComHistorico(series, ativo.cenario);
+      return { cenario, lacunas: cenario.lacunas.length, invalido: false };
+    } catch (e) {
+      // Dado fora da faixa de sanidade: o histórico inteiro fica de lado, e a Carteira avisa.
+      if (!(e instanceof RangeError)) throw e;
+      return { cenario: ativo.cenario, lacunas: 0, invalido: true };
+    }
+  }, [series, ativo.cenario]);
+  const dataHoje = hoje();
+  /** As posições da última carteira do FGC: diz se a próxima mudou pelas posições ou pelo histórico. */
+  const posicoesDoFGC = useRef(posicoes);
+  /**
+   * As posições como itens do FGC, para o alerta da comparação (o valor é o da comparação), e o motivo da mudança,
+   * para o aviso do resultado recalculado: com as mesmas posições, foi o histórico que chegou.
+   */
+  const carteiraFGC = useMemo(() => {
+    const motivo = posicoesDoFGC.current === posicoes ? 'HISTORICO' as const : 'CARTEIRA' as const;
+    posicoesDoFGC.current = posicoes;
+    return { itens: posicoes.map((p) => itemFGCDaPosicao(p, dataHoje, daCarteira.cenario)), motivo };
+  }, [posicoes, dataHoje, daCarteira.cenario]);
+  const conglomerados = useMemo(
+    () => [...new Set([...ofertas, ...posicoes].map((o) => o.conglomerado))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [ofertas, posicoes],
+  );
+
   useEffect(() => {
     if (foco === null) return;
     document.getElementById(foco)?.focus();
@@ -89,6 +131,11 @@ export function App({ carregar }: PropsApp = {}) {
     // Oferta removida do catálogo sai da comparação (e da seleção salva).
     const sincronizada = sincronizarSelecao(selecao, o);
     if (sincronizada.length !== selecao.length) mudarSelecao(sincronizada, o);
+  }
+
+  function mudarPosicoes(p: Posicao[]) {
+    setPosicoes(p);
+    if (!salvarPosicoes(armazenamento, p)) setFalhouAoGravar(true);
   }
 
   function criarOferta(o: OfertaCadastrada) {
@@ -124,12 +171,23 @@ export function App({ carregar }: PropsApp = {}) {
         {
           id: 'comparar', rotulo: 'Comparar', conteudo: (
             <Comparador catalogo={ofertas} selecao={selecao} onMudarSelecao={mudarSelecao} onCriarOferta={criarOferta}
-              cenario={ativo.cenario} descricaoCenario={descricaoCenario} cenarioInvalido={cenarioInvalido} />
+              cenario={ativo.cenario} descricaoCenario={descricaoCenario} cenarioInvalido={cenarioInvalido} carteira={carteiraFGC.itens}
+              motivoCarteira={carteiraFGC.motivo} />
           ),
         },
         {
           id: 'catalogo', rotulo: 'Catálogo',
-          conteudo: <MinhasOfertas ofertas={ofertas} onChange={mudarOfertas} selecao={selecao} onComparar={compararDoCatalogo} />,
+          conteudo: (
+            <MinhasOfertas ofertas={ofertas} onChange={mudarOfertas} selecao={selecao} onComparar={compararDoCatalogo}
+              posicoes={posicoes} onImportarPosicoes={(novas) => mudarPosicoes([...posicoes, ...novas])} />
+          ),
+        },
+        {
+          id: 'carteira', rotulo: 'Carteira', conteudo: (
+            <Carteira posicoes={posicoes} onChange={mudarPosicoes} cenario={daCarteira.cenario} historico={historico}
+              onTentarDeNovo={tentarHistoricoDeNovo}
+              lacunas={daCarteira.lacunas} historicoInvalido={daCarteira.invalido} conglomerados={conglomerados} />
+          ),
         },
       ]} />
     </main>

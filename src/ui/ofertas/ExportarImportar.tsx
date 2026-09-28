@@ -1,13 +1,19 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { exportarOfertas, importarOfertas, LIMITE_CARACTERES_IMPORTACAO, LIMITE_OFERTAS } from '../../armazenamento/ofertas';
+import { exportarDados, importarDados, LIMITE_CARACTERES_IMPORTACAO } from '../../armazenamento/arquivo';
+import { LIMITE_OFERTAS } from '../../armazenamento/ofertas';
+import { LIMITE_POSICOES, novoIdPosicao } from '../../armazenamento/posicoes';
 import type { OfertaCadastrada } from '../../engine/ofertas';
+import type { Posicao } from '../../engine/posicoes';
 import { hoje } from '../hoje';
 
 export interface PropsExportarImportar {
   ofertas: readonly OfertaCadastrada[];
+  /** Vão no arquivo junto com as ofertas (v2). Padrão: nenhuma (a aba Carteira passa as dela). */
+  posicoes?: readonly Posicao[];
   gerarId: () => string;
-  /** As ofertas importadas, já validadas e com ids novos; quem chama acrescenta à lista. */
-  onImportar: (novas: OfertaCadastrada[]) => void;
+  gerarIdPosicao?: () => string;
+  /** As ofertas e as posições importadas, já validadas e com ids novos; quem chama acrescenta às listas. */
+  onImportar: (novas: OfertaCadastrada[], posicoes: Posicao[]) => void;
 }
 
 /** Cada caractere ocupa até 4 bytes em UTF-8: acima disso nem vale ler o arquivo. */
@@ -16,6 +22,20 @@ const LIMITE_BYTES = LIMITE_CARACTERES_IMPORTACAO * 4;
 const ESPERA_REVOGAR_MS = 1000;
 /** Tempo com o status vazio antes de reescrever a mesma mensagem, para o leitor de tela anunciar de novo. */
 const ESPERA_REPETIR_MS = 100;
+
+const contarOfertas = (n: number) => (n === 1 ? '1 oferta' : `${n} ofertas`);
+const contarPosicoes = (n: number) => (n === 1 ? '1 posição' : `${n} posições`);
+
+/**
+ * "1 oferta exportada.", "2 posições importadas." ou, com as duas, "3 ofertas e 2 posições exportadas.". A parte
+ * com zero some; sem nenhuma das duas, fica a das ofertas ("0 ofertas importadas.").
+ */
+export function resumoDaTransferencia(ofertas: number, posicoes: number, verbo: 'exportad' | 'importad'): string {
+  if (posicoes === 0) return `${contarOfertas(ofertas)} ${verbo}${ofertas === 1 ? 'a' : 'as'}.`;
+  if (ofertas === 0) return `${contarPosicoes(posicoes)} ${verbo}${posicoes === 1 ? 'a' : 'as'}.`;
+  // Com as duas, o particípio concorda no feminino plural (ofertas e posições).
+  return `${contarOfertas(ofertas)} e ${contarPosicoes(posicoes)} ${verbo}as.`;
+}
 
 function baixar(texto: string, nome: string) {
   const url = URL.createObjectURL(new Blob([texto], { type: 'application/json' }));
@@ -29,7 +49,7 @@ function baixar(texto: string, nome: string) {
   }
 }
 
-export function ExportarImportar({ ofertas, gerarId, onImportar }: PropsExportarImportar) {
+export function ExportarImportar({ ofertas, posicoes = [], gerarId, gerarIdPosicao = novoIdPosicao, onImportar }: PropsExportarImportar) {
   // O status fica num contêiner vivo permanente (role="status"): só o texto muda, e o leitor de tela anuncia.
   const [status, setStatus] = useState('');
   const [alerta, setAlerta] = useState<string | null>(null);
@@ -62,12 +82,12 @@ export function ExportarImportar({ ofertas, gerarId, onImportar }: PropsExportar
   }
 
   function exportar() {
-    baixar(exportarOfertas(ofertas, Date.now()), `rende-ofertas-${hoje()}.json`);
-    informar(`${ofertas.length === 1 ? '1 oferta exportada' : `${ofertas.length} ofertas exportadas`}.`);
+    baixar(exportarDados(ofertas, posicoes, Date.now()), `rende-ofertas-${hoje()}.json`);
+    informar(resumoDaTransferencia(ofertas.length, posicoes.length, 'exportad'));
   }
 
   function processar(texto: string) {
-    const r = importarOfertas(texto, gerarId);
+    const r = importarDados(texto, { hoje: hoje(), gerarIdOferta: gerarId, gerarIdPosicao });
     if (!r.ok) {
       avisar(r.erro);
       return;
@@ -77,9 +97,13 @@ export function ExportarImportar({ ofertas, gerarId, onImportar }: PropsExportar
       avisar(`Com as importadas seriam ${total} ofertas; o limite é ${LIMITE_OFERTAS}.`);
       return;
     }
-    onImportar(r.ofertas);
-    const n = r.ofertas.length;
-    informar(n === 1 ? '1 oferta importada.' : `${n} ofertas importadas.`);
+    const totalPosicoes = posicoes.length + r.posicoes.length;
+    if (totalPosicoes > LIMITE_POSICOES) {
+      avisar(`Com as importadas seriam ${totalPosicoes} posições; o limite é ${LIMITE_POSICOES}.`);
+      return;
+    }
+    onImportar(r.ofertas, r.posicoes);
+    informar(resumoDaTransferencia(r.ofertas.length, r.posicoes.length, 'importad'));
   }
 
   function aoEscolher(e: Event) {
@@ -100,7 +124,7 @@ export function ExportarImportar({ ofertas, gerarId, onImportar }: PropsExportar
 
   return (
     <div class="exportar-importar">
-      <button type="button" onClick={exportar} disabled={ofertas.length === 0}>Exportar ofertas</button>
+      <button type="button" onClick={exportar} disabled={ofertas.length === 0 && posicoes.length === 0}>Exportar ofertas</button>
       <div class="campo">
         <label for="importar-ofertas">Importar ofertas (.json)</label>
         <input id="importar-ofertas" type="file" accept="application/json,.json" onChange={aoEscolher} />

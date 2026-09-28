@@ -2,7 +2,7 @@
 import { type DataISO, deDia, paraDia, somarDias, somarMeses } from './datas';
 import { OfertaInvalidaError } from './erros';
 import type { Cenario } from './indexadores';
-import { ofertaDeReinvestimento, projetar, type OfertaCadastrada, type Projecao, type RegraReinvestimento } from './ofertas';
+import { aplicacaoDe, ofertaDeReinvestimento, projetar, type OfertaCadastrada, type Projecao, type RegraReinvestimento } from './ofertas';
 import { inicioEfetivoPoupanca, simular } from './produtos';
 
 /** Por que o ponto não pode ser resgatado: só no vencimento, prazo mínimo da LCI/LCA ou marcação a mercado. */
@@ -60,7 +60,7 @@ export function datasDaSerie(dataAplicacao: DataISO, fim: DataISO, ofertas: read
 function referencia(o: OfertaCadastrada, valor: number, dataAplicacao: DataISO, data: DataISO, cen: Cenario): number | null {
   if (o.vencimento !== undefined && data > o.vencimento) return null;
   try {
-    return simular({ produto: o.produto, indexacao: o.indexacao, valor, dataAplicacao }, data, cen).valorLiquido;
+    return simular(aplicacaoDe(o, valor, dataAplicacao), data, cen).valorLiquido;
   } catch (e) {
     if (e instanceof OfertaInvalidaError) return null;
     throw e;

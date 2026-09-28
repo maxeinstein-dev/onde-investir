@@ -112,3 +112,16 @@ describe('equivalência', () => {
     expect(performance.now() - t0).toBeLessThan(200);
   });
 });
+
+describe('regra de bolso com custo extra', () => {
+  it('LCI 95% com custo de 2% a.a., em 2 anos: sem regra de bolso (ela ignora o custo), o exato continua', () => {
+    const lci95 = { ...lci80, indexacao: { tipo: 'POS_CDI' as const, percentualCDI: 0.95 } };
+    expect(calcularEquivalencias(lci95, '2028-09-28', CEN).regraDeBolso).not.toBeNull();
+    const eq = calcularEquivalencias({ ...lci95, custoExtraAA: 0.02 }, '2028-09-28', CEN);
+    expect(eq.regraDeBolso).toBeNull();
+    expect(eq.tributadoPosCDI.disponivel).toBe(true);
+  });
+  it('custo zero não muda nada', () => {
+    expect(calcularEquivalencias({ ...cdb103, custoExtraAA: 0 }, '2028-09-28', CEN).regraDeBolso).not.toBeNull();
+  });
+});

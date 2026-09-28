@@ -34,6 +34,12 @@ describe('explicarSimulacao', () => {
     const passos = explicarSimulacao(simular({ ...cdb, produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' } }, '2027-03-27', CEN));
     expect(passos.find((p) => p.id === 'rendimentoBruto')?.curto).toMatch(/5 aniversários/);
   });
+  it('Poupança de depósito anterior a 04/05/2012: explica a regra antiga, com a Lei 8.177', () => {
+    const passos = explicarSimulacao(simular({ ...cdb, produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' }, dataAplicacao: '2011-03-10' }, '2020-07-10', CEN));
+    const rendimento = passos.find((p) => p.id === 'rendimentoBruto');
+    expect(rendimento?.matematica).toBe('Depósito feito antes de 04/05/2012: rende 0,5% ao mês + TR, qualquer que seja a Selic.');
+    expect(rendimento?.fonte).toMatch(/l8177/);
+  });
   it('Tesouro Prefixado e IPCA+: avisa que o resgate é tratado como vencimento (marcação a mercado)', () => {
     const aviso = 'Considera o título mantido até o vencimento nessa data. Vender antes sujeita o valor à marcação a mercado.';
     const pre = simular({ ...cdb, produto: 'TESOURO_PREFIXADO', indexacao: { tipo: 'PRE', taxaAA: 0.13 } }, '2028-09-28', CEN);
@@ -43,5 +49,35 @@ describe('explicarSimulacao', () => {
     }
     const cdbPre = simular({ ...cdb, indexacao: { tipo: 'PRE', taxaAA: 0.13 } }, '2028-09-28', CEN);
     expect(explicarSimulacao(cdbPre).find((p) => p.id === 'rendimentoBruto')?.curto).not.toContain('marcação a mercado');
+  });
+});
+
+describe('explicarSimulacao — custo extra', () => {
+  /** Soma os passos exibidos pelo sinal: o que a pessoa vê tem que fechar no líquido. */
+  const fecha = (passos: ReturnType<typeof explicarSimulacao>) =>
+    passos.filter((p) => p.sinal !== '=').reduce((s, p) => (p.sinal === '−' ? s - p.valor : s + p.valor), 0);
+
+  it('com custo: o passo custoExtra antes do líquido, com o texto curto e a matemática', () => {
+    const r = simular({ ...cdb, custoExtraAA: 0.01 }, '2028-09-28', CEN);
+    const passos = explicarSimulacao(r);
+    expect(passos.map((p) => p.id)).toEqual(['aplicado', 'rendimentoBruto', 'iof', 'ir', 'custoExtra', 'liquido']);
+    const custo = passos.find((p) => p.id === 'custoExtra');
+    expect(custo).toMatchObject({ titulo: 'Custo da corretora', sinal: '−', valor: r.custoExtra });
+    expect(custo?.curto).toMatch(/^A corretora cobra 1% ao ano sobre o saldo: R\$\s?\d[\d.]*,\d{2} no período\.$/);
+    expect(custo?.matematica).toBe('custo = bruto × (1 − (1 − 1%)^(731/365)). Premissa do app: descontado depois do IR.');
+    expect(fecha(passos)).toBeCloseTo(r.valorLiquido, 8);
+  });
+  it.each([
+    ['LCI', { produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.95 }, custoExtraAA: 0.02 }],
+    ['Tesouro Selic', { produto: 'TESOURO_SELIC', indexacao: { tipo: 'SELIC' }, valor: 50000, custoExtraAA: 0.005 }],
+    ['poupança', { produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' }, custoExtraAA: 0.01 }],
+  ] as const)('%s com custo: os passos exibidos fecham no líquido', (_, campos) => {
+    const r = simular({ ...cdb, ...campos }, '2028-09-28', CEN);
+    const passos = explicarSimulacao(r);
+    expect(passos.some((p) => p.id === 'custoExtra')).toBe(true);
+    expect(fecha(passos)).toBeCloseTo(r.valorLiquido, 8);
+  });
+  it('sem custo, sem o passo', () => {
+    expect(explicarSimulacao(simular({ ...cdb, custoExtraAA: 0 }, '2028-09-28', CEN)).some((p) => p.id === 'custoExtra')).toBe(false);
   });
 });

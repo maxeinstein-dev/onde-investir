@@ -3,7 +3,7 @@ import { ehTesouro } from '../engine/produtos';
 import { FONTE_CUSTODIA } from '../engine/regras/custodia';
 import { FONTE_IOF } from '../engine/regras/iof';
 import { FONTE_IR } from '../engine/regras/ir';
-import { FONTE_POUPANCA } from '../engine/regras/poupanca';
+import { regraDoDeposito } from '../engine/regras/poupanca';
 import { formatarData, formatarMoeda, formatarPercentual } from '../formato';
 import { descreverOferta } from './motivos';
 import type { IdTermo } from './glossario';
@@ -55,13 +55,17 @@ function explicarRendimento(r: ResultadoSimulacao): Pick<ExplicacaoPasso, 'curto
         matematica: `fator = ∏ (1 + Selic)^(1/252) nos ${du} = ${fator}`,
         termo: 'selic',
       };
-    case 'POUPANCA':
+    case 'POUPANCA': {
+      const regra = regraDoDeposito(r.aplicacao.dataAplicacao);
       return {
         curto: `Foram ${r.mesesPoupanca ?? 0} aniversários mensais completos. A poupança só rende no dia do aniversário, então o mês incompleto não conta.`,
-        matematica: 'Com a Selic acima de 8,5% a.a., o rendimento é 0,5% ao mês + TR. Com a Selic em até 8,5%, é 70% da Selic mensalizada + TR.',
-        fonte: FONTE_POUPANCA,
+        matematica: regra.taxaFixaSempre
+          ? 'Depósito feito antes de 04/05/2012: rende 0,5% ao mês + TR, qualquer que seja a Selic.'
+          : 'Com a Selic acima de 8,5% a.a., o rendimento é 0,5% ao mês + TR. Com a Selic em até 8,5%, é 70% da Selic mensalizada + TR.',
+        fonte: regra.fonte,
         termo: 'poupanca',
       };
+    }
   }
 }
 
@@ -110,6 +114,15 @@ export function explicarSimulacao(r: ResultadoSimulacao): ExplicacaoPasso[] {
         matematica: `IR = (rendimento − IOF − custódia) × ${formatarPercentual(r.aliquotaIR)}. Faixas: até 180 dias 22,5%; até 360, 20%; até 720, 17,5%; acima, 15%.`,
         fonte: FONTE_IR, termo: 'ir-regressivo',
       });
+
+  const c = r.aplicacao.custoExtraAA ?? 0;
+  if (c > 0) {
+    passos.push({
+      id: 'custoExtra', titulo: 'Custo da corretora', sinal: '−', valor: r.custoExtra,
+      curto: `A corretora cobra ${formatarPercentual(c)} ao ano sobre o saldo: ${formatarMoeda(r.custoExtra)} no período.`,
+      matematica: `custo = bruto × (1 − (1 − ${formatarPercentual(c)})^(${r.diasCorridos}/365)). Premissa do app: descontado depois do IR.`,
+    });
+  }
 
   passos.push({
     id: 'liquido', titulo: 'Valor líquido', sinal: '=', valor: r.valorLiquido,

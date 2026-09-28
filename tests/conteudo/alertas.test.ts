@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { textoDoAlerta } from '../../src/conteudo/alertas';
+import { textoDoAlerta, textoDoTetoGlobal } from '../../src/conteudo/alertas';
 import { GLOSSARIO } from '../../src/conteudo/glossario';
 import { resumirTrocas } from '../../src/conteudo/serie';
 import type { Alerta } from '../../src/engine/alertas';
@@ -241,6 +241,57 @@ describe('resumirTrocas com trocas relevantes (alternância fundida)', () => {
     expect(resumo).toHaveLength(5);
     expect(resumo.slice(0, 4)).toEqual(resumirTrocas(trocas.slice(0, 3), lista, [0]));
     expect(resumo[4]).toBe('Depois, a liderança ainda muda outras 5 vezes até o fim do período.');
+  });
+});
+
+describe('textoDoAlerta — FGC_LIMITE (rascunho, revisão no C2/C3)', () => {
+  it('conta o conglomerado, a data, o total e o excedente, com o termo fgc', () => {
+    const a: Alerta = {
+      tipo: 'FGC_LIMITE', oferta: 0, conglomerado: 'B', data: '2027-07-29', total: 250_010.5, limite: 250_000, excedente: 10.5,
+      fim: '2031-09-28', totalNoFim: 281_800.25, excedenteNoFim: 31_800.25, jaAcima: false, carteiraNaAplicacao: 200_000,
+    };
+    const t = textoDoAlerta(a, ofertas, horizontes);
+    expect(t.titulo).toBe('Acima do limite do FGC');
+    expect(t.oQue).toMatch(re(String.raw`Aplicando o valor da comparação em CDB 103% do CDI \(Banco B\), o total no conglomerado B passa de ${R}250 mil em 29/07/2027 e chega a ${R}281\.800,25 em 28/09/2031, ${R}31\.800,25 acima do que o FGC cobre\.`));
+    expect(t.porQue).toMatch(/^O FGC cobre até R\$ 250 mil/);
+    expect(t.termo).toBe('fgc');
+    expect(GLOSSARIO[t.termo]).toBeDefined();
+  });
+});
+
+describe('textoDoAlerta — FGC_LIMITE com a carteira já acima', () => {
+  it('avisa que aplicar mais aumenta a parte sem garantia', () => {
+    const a: Alerta = {
+      tipo: 'FGC_LIMITE', oferta: 0, conglomerado: 'B', data: INI, total: 305_000, limite: 250_000, excedente: 55_000,
+      fim: '2031-09-28', totalNoFim: 330_000, excedenteNoFim: 80_000, jaAcima: true, carteiraNaAplicacao: 260_000,
+    };
+    const t = textoDoAlerta(a, ofertas, horizontes);
+    expect(t.titulo).toBe('Acima do limite do FGC');
+    expect(t.oQue).toMatch(re(String.raw`Você já tem ${R}260\.000,00 no conglomerado B, acima dos ${R}250 mil que o FGC cobre\. Aplicar mais aqui aumenta a parte sem garantia\.`));
+    expect(t.termo).toBe('fgc');
+  });
+});
+
+describe('textoDoAlerta — FGC_NAO_CALCULADO', () => {
+  it('itens da carteira de fora da conta', () => {
+    const a: Alerta = { tipo: 'FGC_NAO_CALCULADO', oferta: 0, conglomerado: 'B', carteira: [1, 3], ofertaForaDaConta: false };
+    const t = textoDoAlerta(a, ofertas, horizontes);
+    expect(t.titulo).toBe('Conta do FGC incompleta');
+    expect(t.oQue).toBe('Não deu para calcular 2 aplicações da sua carteira no conglomerado B, e elas ficaram de fora da conta do limite do FGC.');
+    expect(t.termo).toBe('fgc');
+    expect(textoDoAlerta({ ...a, carteira: [1] }, ofertas, horizontes).oQue).toBe('Não deu para calcular 1 aplicação da sua carteira no conglomerado B, e ela ficou de fora da conta do limite do FGC.');
+  });
+  it('a própria oferta de fora da conta', () => {
+    const a: Alerta = { tipo: 'FGC_NAO_CALCULADO', oferta: 0, conglomerado: 'B', carteira: [], ofertaForaDaConta: true };
+    expect(textoDoAlerta(a, ofertas, horizontes).oQue).toBe('Não deu para calcular CDB 103% do CDI (Banco B) até o fim do prazo, então o app não conferiu o limite do FGC no conglomerado B.');
+  });
+});
+
+describe('textoDoTetoGlobal', () => {
+  it('qualitativo: a garantia somada passa de R$ 1 milhão e o teto vale para 4 anos', () => {
+    const t = textoDoTetoGlobal({ garantiaSomada: 1_250_000, teto: 1_000_000, conglomerados: [] });
+    expect(t.oQue).toBe('Somando o que o FGC cobre em cada conglomerado, sua garantia passa de R$ 1 milhão. O teto de R$ 1 milhão vale para o que o FGC pagar em 4 anos, somando todas as instituições.');
+    expect(t.termo).toBe('fgc');
   });
 });
 

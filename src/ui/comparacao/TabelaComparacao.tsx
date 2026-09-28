@@ -8,7 +8,7 @@ import { RegraNaoEncontradaError } from '../../engine/erros';
 import type { OfertaCadastrada, Projecao } from '../../engine/ofertas';
 import { ehIsentoIR, garantiaDe } from '../../engine/produtos';
 import { prazoMinimoMeses } from '../../engine/regras/prazoMinimo';
-import { formatarMoeda } from '../../formato';
+import { formatarMoeda, formatarPercentual } from '../../formato';
 import { hoje } from '../hoje';
 import { letraDaOferta } from '../letras';
 import { PorQueEsseResultado } from '../PorQueEsseResultado';
@@ -60,6 +60,12 @@ const CARACTERISTICAS: { rotulo: string; valor: (o: OfertaCadastrada, dataAplica
   { rotulo: 'Imposto de Renda', valor: (o) => (ehIsentoIR(o.produto) ? 'Isento' : 'Tabela regressiva (de 22,5% a 15%)') },
 ];
 
+/** A linha do custo extra: só entra na tabela quando alguma oferta tem custo. */
+const CUSTO_EXTRA = {
+  rotulo: 'Custo extra',
+  valor: (o: OfertaCadastrada) => ((o.custoExtraAA ?? 0) > 0 ? `${formatarPercentual(o.custoExtraAA as number)} ao ano` : 'Sem custo'),
+};
+
 function Celula({ p, lider }: { p: Projecao; lider: boolean }) {
   // Os passos só são renderizados quando o "Por que?" abre (e ficam depois): a tabela tem até 5 × 6 células.
   const [aberto, setAberto] = useState(false);
@@ -103,6 +109,7 @@ export function TabelaComparacao({ ofertas, colunas, dataAplicacao, onRemover }:
   const n = ofertas.length;
   const idCaracteristicas = `${PREFIXO}-bloco-caracteristicas`;
   const idValores = `${PREFIXO}-bloco-valores`;
+  const caracteristicas = ofertas.some((o) => (o.custoExtraAA ?? 0) > 0) ? [...CARACTERISTICAS, CUSTO_EXTRA] : CARACTERISTICAS;
   return (
     // No celular a tabela rola dentro deste contêiner, sem rolar a página; tabindex para rolar pelo teclado.
     <div class="tabela-rolavel" role="region" aria-labelledby={ID_LEGENDA} tabIndex={0}>
@@ -133,7 +140,7 @@ export function TabelaComparacao({ ofertas, colunas, dataAplicacao, onRemover }:
         </thead>
         <tbody aria-labelledby={idCaracteristicas}>
           <TituloDoBloco id={idCaracteristicas} colunas={n + 1}>Características</TituloDoBloco>
-          {CARACTERISTICAS.map((c) => (
+          {caracteristicas.map((c) => (
             <tr key={c.rotulo}>
               <th scope="row">{c.rotulo}</th>
               {ofertas.map((o) => <td key={o.id}>{c.valor(o, dataAplicacao)}</td>)}

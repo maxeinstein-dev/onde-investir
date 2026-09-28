@@ -2,10 +2,13 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
 import { useState } from 'preact/hooks';
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
-import { exportarOfertas, LIMITE_OFERTAS } from '../../src/armazenamento/ofertas';
+import { exportarDados } from '../../src/armazenamento/arquivo';
+import { LIMITE_OFERTAS } from '../../src/armazenamento/ofertas';
 import { somarDias } from '../../src/engine/datas';
 import type { OfertaCadastrada } from '../../src/engine/ofertas';
+import type { Posicao } from '../../src/engine/posicoes';
 import { hoje } from '../../src/ui/hoje';
+import { resumoDaTransferencia } from '../../src/ui/ofertas/ExportarImportar';
 import { MinhasOfertas } from '../../src/ui/ofertas/MinhasOfertas';
 
 afterEach(() => {
@@ -305,7 +308,7 @@ describe('Catálogo de ofertas', () => {
       vi.advanceTimersByTime(1);
       expect(revogar).toHaveBeenCalledWith('blob:teste');
       vi.useRealTimers();
-      expect(JSON.parse(await blob.text()).ofertas).toEqual([cdb]);
+      expect(JSON.parse(await blob.text())).toMatchObject({ versao: 2, ofertas: [cdb], posicoes: [] });
     });
 
     it('o status é um contêiner vivo permanente; a mesma mensagem é limpa e reescrita', () => {
@@ -333,10 +336,41 @@ describe('Catálogo de ofertas', () => {
     it('importação válida acrescenta as ofertas com ids novos', async () => {
       const aoMudar = vi.fn();
       render(<ComEstado inicial={[cdb]} aoMudar={aoMudar} />);
-      importar(arquivo(exportarOfertas([cdb, lci], Date.now())));
+      importar(arquivo(exportarDados([cdb, lci], [], Date.now())));
       expect(await screen.findByText('2 ofertas importadas.')).toBe(screen.getByRole('status'));
       expect(aoMudar).toHaveBeenLastCalledWith([cdb, { ...cdb, id: 'novo-1' }, { ...lci, id: 'novo-2' }]);
       expect(screen.getAllByRole('article')).toHaveLength(3);
+    });
+
+    describe('arquivo v2 com posições', () => {
+      const posicao: Posicao = { ...cdb, id: 'p', valorAplicado: 10_000, dataAplicacao: '2026-01-05', eventos: [] };
+      it('importar entrega as posições (com ids novos) a onImportarPosicoes, e o status conta as duas', async () => {
+        const aoMudar = vi.fn();
+        const aoImportarPosicoes = vi.fn();
+        render(<MinhasOfertas ofertas={[]} onChange={aoMudar} gerarId={() => 'o-novo'} posicoes={[]}
+          gerarIdPosicao={() => 'p-novo'} onImportarPosicoes={aoImportarPosicoes} />);
+        importar(arquivo(exportarDados([cdb], [posicao], Date.now())));
+        expect(await screen.findByText('1 oferta e 1 posição importadas.')).toBe(screen.getByRole('status'));
+        expect(aoMudar).toHaveBeenLastCalledWith([{ ...cdb, id: 'o-novo' }]);
+        expect(aoImportarPosicoes).toHaveBeenLastCalledWith([{ ...posicao, id: 'p-novo' }]);
+      });
+      it('exportar leva as posições e fica habilitado só com posições', async () => {
+        const { criar } = stubUrl();
+        render(<MinhasOfertas ofertas={[]} onChange={() => {}} posicoes={[posicao]} onImportarPosicoes={() => {}} />);
+        fireEvent.click(screen.getByRole('button', { name: 'Exportar ofertas' }));
+        expect(screen.getByRole('status')).toHaveTextContent(/^1 posição exportada.$/);
+        expect(JSON.parse(await criar.mock.calls[0]![0].text())).toMatchObject({ versao: 2, ofertas: [], posicoes: [posicao] });
+      });
+      it('passar do limite de 50 posições rejeita o arquivo inteiro', async () => {
+        const aoMudar = vi.fn();
+        const aoImportarPosicoes = vi.fn();
+        const muitas = Array.from({ length: 49 }, (_, i) => ({ ...posicao, id: `p${i}` }));
+        render(<MinhasOfertas ofertas={[]} onChange={aoMudar} posicoes={muitas} onImportarPosicoes={aoImportarPosicoes} />);
+        importar(arquivo(exportarDados([], [posicao, posicao], Date.now())));
+        expect(await screen.findByRole('alert')).toHaveTextContent('Com as importadas seriam 51 posições; o limite é 50.');
+        expect(aoMudar).not.toHaveBeenCalled();
+        expect(aoImportarPosicoes).not.toHaveBeenCalled();
+      });
     });
 
     it('arquivo inválido mostra o erro e não muda nada', async () => {
@@ -347,7 +381,7 @@ describe('Catálogo de ofertas', () => {
       expect(aoMudar).not.toHaveBeenCalled();
     });
 
-    it('campo extra no arquivo é rejeitado com a mensagem de importarOfertas', async () => {
+    it('campo extra no arquivo é rejeitado com a mensagem de importarDados', async () => {
       render(<ComEstado />);
       const comExtra = JSON.stringify({ versao: 1, exportadoEm: 'x', ofertas: [{ ...lci, extra: 1 }] });
       importar(arquivo(comExtra));
@@ -358,9 +392,22 @@ describe('Catálogo de ofertas', () => {
       const aoMudar = vi.fn();
       const muitas = Array.from({ length: 29 }, (_, i) => ({ ...cdb, id: `o${i}` }));
       render(<ComEstado inicial={muitas} aoMudar={aoMudar} />);
-      importar(arquivo(exportarOfertas([cdb, lci], Date.now())));
+      importar(arquivo(exportarDados([cdb, lci], [], Date.now())));
       expect(await screen.findByRole('alert')).toHaveTextContent('Com as importadas seriam 31 ofertas; o limite é 30.');
       expect(aoMudar).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('resumoDaTransferencia (o status de exportar e importar)', () => {
+  it.each<[number, number, 'exportad' | 'importad', string]>([
+    [3, 0, 'exportad', '3 ofertas exportadas.'],
+    [1, 0, 'exportad', '1 oferta exportada.'],
+    [0, 2, 'importad', '2 posições importadas.'],
+    [0, 1, 'importad', '1 posição importada.'],
+    [3, 2, 'exportad', '3 ofertas e 2 posições exportadas.'],
+    [1, 1, 'importad', '1 oferta e 1 posição importadas.'],
+  ])('%i ofertas e %i posições (%s): "%s"', (ofertas, posicoes, verbo, esperado) => {
+    expect(resumoDaTransferencia(ofertas, posicoes, verbo)).toBe(esperado);
   });
 });

@@ -3,6 +3,7 @@ import type { Alerta } from '../engine/alertas';
 import type { Horizonte } from '../engine/comparacao';
 import { type DataISO, dataBR } from '../engine/datas';
 import type { OfertaCadastrada } from '../engine/ofertas';
+import type { TetoGlobal } from '../engine/fgc';
 import { regraFGC } from '../engine/regras/fgc';
 import { formatarMoeda, formatarNumero, formatarPercentual } from '../formato';
 import { listar, nomeDoHorizonte, nomeOferta } from './comparacao';
@@ -29,7 +30,7 @@ function noPrazo(horizontes: readonly Horizonte[], data: DataISO): string {
 }
 
 /** "R$ 250 mil", "R$ 1 milhão", "R$ 2 milhões"; outros valores em reais. */
-function reaisRedondos(valor: number): string {
+export function reaisRedondos(valor: number): string {
   if (valor >= 1_000_000 && valor % 1_000_000 === 0) return `R$ ${formatarNumero(valor / 1_000_000)} ${valor === 1_000_000 ? 'milhão' : 'milhões'}`;
   if (valor >= 1_000 && valor % 1_000 === 0) return `R$ ${formatarNumero(valor / 1_000)} mil`;
   return formatarMoeda(valor);
@@ -132,5 +133,42 @@ export function textoDoAlerta(a: Alerta, ofertas: readonly OfertaCadastrada[], h
         termo: 'prazo-minimo',
       };
     }
+    case 'FGC_LIMITE':
+      // Rascunho do M3a: a revisão editorial é das tarefas C2 e C3.
+      return {
+        titulo: 'Acima do limite do FGC',
+        oQue: a.jaAcima
+          ? `Você já tem ${formatarMoeda(a.carteiraNaAplicacao)} no conglomerado ${a.conglomerado}, acima dos ${reaisRedondos(a.limite)} que o FGC cobre. Aplicar mais aqui aumenta a parte sem garantia.`
+          : `Aplicando o valor da comparação em ${nome(ofertas, a.oferta)}, o total no conglomerado ${a.conglomerado} passa de ${reaisRedondos(a.limite)} em ${dataBR(a.data)} e chega a ${formatarMoeda(a.totalNoFim)} em ${dataBR(a.fim)}, ${formatarMoeda(a.excedenteNoFim)} acima do que o FGC cobre.`,
+        porQue: `${textoFGC(a.data)} O limite conta o principal e os rendimentos, e o que passar dele fica sem garantia.`,
+        termo: 'fgc',
+      };
+    case 'FGC_NAO_CALCULADO': {
+      const n = a.carteira.length;
+      const daCarteira = n === 1
+        ? `Não deu para calcular 1 aplicação da sua carteira no conglomerado ${a.conglomerado}, e ela ficou de fora da conta do limite do FGC.`
+        : `Não deu para calcular ${n} aplicações da sua carteira no conglomerado ${a.conglomerado}, e elas ficaram de fora da conta do limite do FGC.`;
+      const daOferta = `Não deu para calcular ${nome(ofertas, a.oferta)} até o fim do prazo, então o app não conferiu o limite do FGC no conglomerado ${a.conglomerado}.`;
+      return {
+        titulo: 'Conta do FGC incompleta',
+        oQue: [a.ofertaForaDaConta ? daOferta : '', n > 0 ? daCarteira : ''].filter(Boolean).join(' '),
+        porQue: 'Falta uma regra ou um dado para alguma data, ou algum campo está inválido. Confira os dados: sem esse cálculo, o alerta do limite pode não aparecer.',
+        termo: 'fgc',
+      };
+    }
   }
+}
+
+/**
+ * O alerta do teto global (spec §3.4), qualitativo de propósito: a janela de 4 anos do teto não é calculada (ver
+ * `tetoGlobalExcedido`), então o texto não dá valor de excedente.
+ */
+export function textoDoTetoGlobal(t: TetoGlobal): TextoAlerta {
+  const teto = reaisRedondos(t.teto);
+  return {
+    titulo: 'Acima do teto global do FGC',
+    oQue: `Somando o que o FGC cobre em cada conglomerado, sua garantia passa de ${teto}. O teto de ${teto} vale para o que o FGC pagar em 4 anos, somando todas as instituições.`,
+    porQue: 'O teto só pesa se mais de uma instituição quebrar nesse período. O app não calcula essa janela, então o alerta avisa do risco sem dizer quanto ficaria sem garantia.',
+    termo: 'fgc',
+  };
 }
