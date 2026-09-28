@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from '@testing-library/preact';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/preact';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resumirTrocas } from '../../../src/conteudo/serie';
 import { paraDia } from '../../../src/engine/datas';
@@ -61,6 +61,24 @@ describe('GraficoValorLiquido', () => {
     expect(dataset(0).borderColor).not.toBe(dataset(1).borderColor);
     expect(dataset(0).pointStyle).not.toBe(dataset(1).pointStyle);
     expect(ultimo().config.options?.scales?.x?.type).toBe('linear');
+  });
+
+  it('legenda em HTML abaixo do canvas, dentro da figura, e não no canvas (no celular ela tomava a área do gráfico)', async () => {
+    montar();
+    await carregou();
+    expect(ultimo().config.options?.plugins?.legend?.display).toBe(false);
+    const legenda = screen.getByRole('list', { name: 'Legenda' });
+    expect(legenda.closest('figure')).toBe(screen.getByRole('figure'));
+    // Depois do canvas no documento.
+    expect(screen.getByRole('img').compareDocumentPosition(legenda) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const itens = within(legenda).getAllByRole('listitem');
+    expect(itens.map((li) => li.textContent)).toEqual(['A: CDB 103% do CDI (Banco X)', 'B: LCI 95% do CDI (Banco Y)']);
+    // O marcador: a cor da série (o mesmo token do canvas) e a forma do ponto, escondido do leitor de tela.
+    const marcas = itens.map((li) => li.querySelector('svg') as SVGElement);
+    expect(marcas[0]).toHaveClass('grafico__marca', 'grafico__marca--1');
+    expect(marcas[1]).toHaveClass('grafico__marca', 'grafico__marca--2');
+    expect(marcas.map((m) => m.getAttribute('data-forma'))).toEqual([dataset(0).pointStyle, dataset(1).pointStyle]);
+    for (const m of marcas) expect(m).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('os trechos não resgatáveis ficam tracejados', async () => {

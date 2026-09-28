@@ -10,6 +10,7 @@ import type { PaletaGrafico } from './cores';
 import { type Anotacoes, type ConfigLinha, configLinhas, limites, linha, linhaVertical } from './config';
 import { diaDoEixo } from './eixo';
 import { AvisoCarregamento } from './AvisoCarregamento';
+import { Legenda } from './Legenda';
 import { useGrafico } from './useGrafico';
 
 export interface PropsGraficoValorLiquido {
@@ -22,6 +23,12 @@ export interface PropsGraficoValorLiquido {
   ofertas: readonly OfertaCadastrada[];
   /** A partir desta data a projeção é premissa do app (cenário projetado); a faixa fica sombreada. */
   inicioPremissa?: DataISO;
+}
+
+/** "A: nome da oferta", o rótulo da série na legenda e no dataset. */
+function rotuloDaSerie(s: Serie, ofertas: readonly OfertaCadastrada[]): string {
+  const o = ofertas[s.ofertaIndice];
+  return o ? `${letraDaOferta(s.ofertaIndice)}: ${nomeOferta(o)}` : letraDaOferta(s.ofertaIndice);
 }
 
 function montarConfig(p: PaletaGrafico, { series, trocas, ofertas, inicioPremissa }: PropsGraficoValorLiquido): ConfigLinha {
@@ -40,10 +47,8 @@ function montarConfig(p: PaletaGrafico, { series, trocas, ofertas, inicioPremiss
   }
   return configLinhas(p, {
     datasets: series.map((s) => {
-      const o = ofertas[s.ofertaIndice];
-      const rotulo = o ? `${letraDaOferta(s.ofertaIndice)}: ${nomeOferta(o)}` : letraDaOferta(s.ofertaIndice);
       const data = s.pontos.map((pt) => ({ x: diaDoEixo(pt.data), y: pt.liquido }));
-      return linha(p, s.ofertaIndice, rotulo, data, (k) => s.pontos[k]?.resgatavel ?? true);
+      return linha(p, s.ofertaIndice, rotuloDaSerie(s, ofertas), data, (k) => s.pontos[k]?.resgatavel ?? true);
     }),
     xMin: diaDoEixo(primeira),
     xMax: diaDoEixo(ultima),
@@ -74,6 +79,7 @@ export function GraficoValorLiquido(props: PropsGraficoValorLiquido) {
         <canvas ref={canvas} role="img" aria-labelledby={idResumo} hidden={estado === 'erro'} />
         <AvisoCarregamento estado={estado} onTentarDeNovo={tentarDeNovo} />
       </div>
+      <Legenda itens={series.map((s) => ({ serie: s.ofertaIndice, texto: rotuloDaSerie(s, ofertas) }))} hidden={estado === 'erro'} />
       <div class="grafico__resumo" id={idResumo}>
         {resumo.map((frase) => <p key={frase}>{frase}</p>)}
       </div>

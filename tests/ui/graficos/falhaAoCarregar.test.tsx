@@ -27,6 +27,8 @@ describe('Chart.js que não carrega', () => {
     expect(avisos).toHaveLength(2);
     for (const figura of screen.getAllByRole('figure')) expect(figura).toHaveAttribute('aria-busy', 'false');
     expect(screen.queryByText('Carregando gráfico…')).toBeNull();
+    // Sem gráfico, sem legenda.
+    expect(screen.queryAllByRole('list', { name: 'Legenda' })).toHaveLength(0);
     expect(screen.getByText(/lidera o tempo todo\.$/)).toBeVisible();
   });
 });

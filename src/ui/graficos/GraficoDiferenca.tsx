@@ -10,6 +10,7 @@ import { type Anotacoes, type ConfigLinha, configLinhas, limites, linha, linhaVe
 import { diferencaEntre, type PontoDiferenca, trechosDaDiferenca } from './diferenca';
 import { diaDoEixo } from './eixo';
 import { AvisoCarregamento } from './AvisoCarregamento';
+import { Legenda } from './Legenda';
 import { useGrafico } from './useGrafico';
 
 export interface PropsGraficoDiferenca {
@@ -22,10 +23,13 @@ export interface PropsGraficoDiferenca {
 
 interface Escolha { a: number; b: number }
 
+/** "A − B": o rótulo da linha, no tooltip e na legenda. */
+const rotuloDaDiferenca = ({ a, b }: Escolha) => `${letraDaOferta(a)} − ${letraDaOferta(b)}`;
+
 function montarConfig(p: PaletaGrafico, { a, b }: Escolha, pontos: readonly PontoDiferenca[], trechos: readonly TrechoDiferenca[]): ConfigLinha {
   const [primeira, ultima] = limites(pontos.map((pt) => pt.data)) ?? ['1970-01-01', '1970-01-01'];
   const [letraA, letraB] = [letraDaOferta(a), letraDaOferta(b)];
-  const rotulo = `${letraA} − ${letraB}`;
+  const rotulo = rotuloDaDiferenca({ a, b });
   const anotacoes: Anotacoes = {
     zero: { type: 'line', yMin: 0, yMax: 0, borderColor: p.marcador, borderWidth: 2 },
   };
@@ -90,6 +94,8 @@ export function GraficoDiferenca({ series, ofertas, prefixo = 'grafico-diferenca
         <canvas ref={canvas} role="img" aria-labelledby={idResumo} hidden={estado === 'erro'} />
         <AvisoCarregamento estado={estado} onTentarDeNovo={tentarDeNovo} />
       </div>
+      {/* A linha tem a cor e a forma da oferta A. */}
+      <Legenda itens={[{ serie: a, texto: rotuloDaDiferenca(escolha) }]} hidden={estado === 'erro'} />
       <div class="grafico__resumo" id={idResumo}>
         <p>{resumo}</p>
       </div>

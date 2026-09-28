@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { paraDia } from '../../../src/engine/datas';
 import type { OfertaCadastrada } from '../../../src/engine/ofertas';
@@ -65,6 +65,19 @@ describe('GraficoDiferenca', () => {
     expect([...a.options].map((o) => o.textContent)).toEqual(['A: CDB 110% do CDI (Banco X)', 'B: CDB 100% do CDI (Banco Y)', 'C: CDB 90% do CDI (Banco Z)']);
     expect([a.value, b.value]).toEqual(['0', '1']);
     expect(a.id).toMatch(/^grafico-diferenca-/);
+  });
+
+  it('legenda em HTML, fora do canvas, com "A − B" e a cor de A; muda com a escolha', async () => {
+    render(<GraficoDiferenca series={SERIES} ofertas={OFERTAS} />);
+    await carregou();
+    expect(ultimo().config.options?.plugins?.legend?.display).toBe(false);
+    const legenda = () => screen.getByRole('list', { name: 'Legenda' });
+    expect(legenda().closest('figure')).toBe(screen.getByRole('figure'));
+    expect(within(legenda()).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['A − B']);
+    expect(legenda().querySelector('svg')).toHaveClass('grafico__marca--1');
+    fireEvent.change(screen.getByLabelText('Comparar'), { target: { value: '2' } });
+    expect(within(legenda()).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['C − B']);
+    expect(legenda().querySelector('svg')).toHaveClass('grafico__marca--3');
   });
 
   it('o seletor B tem nome acessível completo, "Comparar com", e não só "com"', async () => {

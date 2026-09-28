@@ -975,6 +975,44 @@ button:hover {
   max-width: 100%;
 }
 
+/* Legenda em HTML abaixo do canvas: o texto quebra em vez de ser cortado ou tomar a altura do gráfico. */
+.grafico__legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0.5rem 0;
+  padding: 0;
+  list-style: none;
+  color: var(--grafico-texto);
+  font-size: 0.875rem;
+}
+
+/* Sem o gráfico (o Chart.js não carregou), a legenda sai junto. */
+.grafico__legenda[hidden] {
+  display: none;
+}
+
+.grafico__legenda li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Alinhado à primeira linha do texto, quando o nome quebra. */
+.grafico__marca {
+  flex: none;
+  margin-top: 0.3em;
+}
+
+/* A cor de cada série: o mesmo token que o canvas lê (cores.ts). */
+.grafico__marca--1 { color: var(--grafico-1); }
+.grafico__marca--2 { color: var(--grafico-2); }
+.grafico__marca--3 { color: var(--grafico-3); }
+.grafico__marca--4 { color: var(--grafico-4); }
+.grafico__marca--5 { color: var(--grafico-5); }
+
 .grafico__resumo p {
   margin: 0.25rem 0;
   overflow-wrap: anywhere;

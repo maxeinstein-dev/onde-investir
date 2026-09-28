@@ -68,6 +68,9 @@ export const GRAFICO_CARREGAMENTO = {
   tentarDeNovo: 'Tentar de novo',
 } as const;
 
+/** O nome da lista da legenda, abaixo de cada gráfico. */
+export const GRAFICO_LEGENDA = 'Legenda';
+
 /** Textos fixos do gráfico do valor líquido. */
 export const GRAFICO_VALOR = {
   titulo: 'Valor líquido ao longo do tempo',
