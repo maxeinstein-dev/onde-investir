@@ -36,7 +36,13 @@ export interface ConferenciaExtrato {
   calculado: number;
   /** (extrato − calculado) / calculado. */
   diferencaPercentual: number;
+  /** A diferença passa de {@link LIMIAR_EXTRATO_SUSPEITO} e não tem motivo conhecido. */
   suspeita: boolean;
+  /**
+   * Por que a diferença é esperada. MARCACAO_A_MERCADO: Tesouro Prefixado/IPCA+ com extrato antes do vencimento,
+   * em que o extrato mostra o preço de mercado e o app calcula pela curva contratada; nunca é `suspeita`.
+   */
+  motivo?: 'MARCACAO_A_MERCADO';
 }
 
 export interface ValorAtual {
@@ -73,6 +79,8 @@ export function validarPosicao(p: Posicao, hoje: DataISO): void {
   if (p.eventos.length > 0) throw new OfertaInvalidaError('Aportes e resgates ainda não são aceitos');
 }
 
+const ehTesouroComMarcacao = (p: Posicao) => p.produto === 'TESOURO_PREFIXADO' || p.produto === 'TESOURO_IPCA';
+
 /** Bruto e líquido na data (até o vencimento), ignorando o prazo mínimo da LCI/LCA. */
 function calcular(p: Posicao, data: DataISO, cen: Cenario): { data: DataISO; bruto: number; liquido: number; vencida: boolean } {
   if (data < p.dataAplicacao) throw new OfertaInvalidaError('A data precisa ser a da aplicação ou depois');
@@ -86,23 +94,26 @@ function calcular(p: Posicao, data: DataISO, cen: Cenario): { data: DataISO; bru
 /**
  * Valor da posição na data, calculado pelo cenário (com o histórico realizado, ver `cenarioComHistorico`). Depois
  * do vencimento, o valor no vencimento com `vencida`. Com o extrato, confere o calculado na data do extrato, na
- * base informada (padrão: bruto): a diferença passa de {@link LIMIAR_EXTRATO_SUSPEITO} → `suspeita`. O bruto e o
+ * base informada (padrão: bruto): a diferença passa de {@link LIMIAR_EXTRATO_SUSPEITO} → `suspeita`, menos no
+ * Tesouro Prefixado/IPCA+ antes do vencimento, em que a diferença é a marcação a mercado (`motivo`). O bruto e o
  * líquido devolvidos são sempre os calculados; o extrato vem à parte.
  */
 export function valorAtual(p: Posicao, data: DataISO, cen: Cenario): ValorAtual {
   const atual = calcular(p, data, cen);
-  const tesouroNaCurva = (p.produto === 'TESOURO_PREFIXADO' || p.produto === 'TESOURO_IPCA') && p.vencimento !== undefined && atual.data < p.vencimento;
+  const tesouroNaCurva = ehTesouroComMarcacao(p) && p.vencimento !== undefined && atual.data < p.vencimento;
   const resultado: ValorAtual = { ...atual, ...(tesouroNaCurva ? { marcacaoAMercado: true as const } : {}) };
   if (p.valorExtrato === undefined || p.dataExtrato === undefined) return resultado;
   const base = p.baseExtrato ?? 'BRUTO';
   const noExtrato = calcular(p, p.dataExtrato, cen);
   const calculado = base === 'BRUTO' ? noExtrato.bruto : noExtrato.liquido;
   const diferencaPercentual = (p.valorExtrato - calculado) / calculado;
+  const aMercado = ehTesouroComMarcacao(p) && p.vencimento !== undefined && p.dataExtrato < p.vencimento;
   return {
     ...resultado,
     extrato: {
       valor: p.valorExtrato, data: p.dataExtrato, base, calculado, diferencaPercentual,
-      suspeita: Math.abs(diferencaPercentual) > LIMIAR_EXTRATO_SUSPEITO,
+      suspeita: !aMercado && Math.abs(diferencaPercentual) > LIMIAR_EXTRATO_SUSPEITO,
+      ...(aMercado ? { motivo: 'MARCACAO_A_MERCADO' as const } : {}),
     },
   };
 }

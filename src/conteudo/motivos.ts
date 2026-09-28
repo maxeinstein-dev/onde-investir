@@ -1,4 +1,5 @@
 import { decidirVencedor } from '../engine/comparacao';
+import type { ConferenciaExtrato } from '../engine/posicoes';
 import type { Oferta, ResultadoSimulacao, TipoProduto } from '../engine/produtos';
 import { formatarMoeda, formatarPercentual } from '../formato';
 
@@ -63,4 +64,11 @@ export function explicarVencedor(
     linhas.push(`${nv} rende menos antes dos descontos, mas perde menos para IOF, IR e custódia.`);
   }
   return linhas;
+}
+
+/** O aviso da conferência do extrato, quando a diferença tem motivo conhecido; null quando não tem. */
+export function textoDaConferencia(c: Pick<ConferenciaExtrato, 'motivo'>): string | null {
+  return c.motivo === 'MARCACAO_A_MERCADO'
+    ? 'O extrato do Tesouro mostra o preço de mercado, e o app calcula pela curva contratada. Diferenças são normais.'
+    : null;
 }

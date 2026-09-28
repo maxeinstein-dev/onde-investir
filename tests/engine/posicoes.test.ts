@@ -117,6 +117,24 @@ describe('valorAtual', () => {
     expect(v.bruto).toBe(simulado(tp, HOJE).valorBruto);
     expect(valorAtual(tp, '2029-01-01', CEN).marcacaoAMercado).toBeUndefined();
   });
+  it.each([
+    ['Prefixado', { produto: 'TESOURO_PREFIXADO', indexacao: { tipo: 'PRE', taxaAA: 0.13 } }],
+    ['IPCA+', { produto: 'TESOURO_IPCA', indexacao: { tipo: 'IPCA_MAIS', taxaRealAA: 0.07 } }],
+  ] as const)('Tesouro %s com extrato antes do vencimento: nunca suspeita, com o motivo MARCACAO_A_MERCADO', (_, campos) => {
+    const t: Posicao = { ...cdb, ...campos, emissor: 'Tesouro Nacional', conglomerado: 'Tesouro Nacional', vencimento: '2029-01-01' };
+    const calculado = simulado(t, '2026-09-01').valorBruto;
+    const v = valorAtual({ ...t, valorExtrato: calculado * 0.9, dataExtrato: '2026-09-01' }, HOJE, CEN);
+    expect(v.extrato).toMatchObject({ diferencaPercentual: expect.closeTo(-0.1, 12), suspeita: false, motivo: 'MARCACAO_A_MERCADO' });
+    // No vencimento, o extrato volta a ser conferido: preço de mercado e curva coincidem.
+    const bruto = simulado(t, '2029-01-01').valorBruto;
+    const vencido = valorAtual({ ...t, valorExtrato: bruto * 0.9, dataExtrato: '2029-01-01' }, '2029-02-01', CEN);
+    expect(vencido.extrato?.suspeita).toBe(true);
+    expect(vencido.extrato?.motivo).toBeUndefined();
+  });
+  it('CDB com extrato distante não ganha o motivo da marcação a mercado', () => {
+    const calculado = simulado(cdb, '2026-09-01').valorBruto;
+    expect(valorAtual({ ...cdb, valorExtrato: calculado * 0.9, dataExtrato: '2026-09-01' }, HOJE, CEN).extrato?.motivo).toBeUndefined();
+  });
   it('LCI dentro do prazo mínimo tem valor atual', () => {
     const lci: Posicao = { ...cdb, produto: 'LCI', dataAplicacao: '2026-09-01', vencimento: '2027-09-01' };
     expect(valorAtual(lci, HOJE, CEN).bruto).toBe(simulado(lci, HOJE).valorBruto);
