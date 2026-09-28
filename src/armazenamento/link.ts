@@ -202,6 +202,33 @@ export async function lerLimitado(stream: ReadableStream<Uint8Array>, limite: nu
   return bytes;
 }
 
+// --- o link no hash da URL: #comparar/c1.… ---
+
+/** A aba que abre o link; o fragmento vai depois da `/` (ver `useAbaDaUrl`). */
+export const ABA_DO_LINK = 'comparar';
+const PREFIXO_HASH = `#${ABA_DO_LINK}/`;
+
+/** O fragmento do link no hash (`#comparar/c1.…` → `c1.…`), sem validar; null se o hash não trouxer estado. */
+export function lerEstadoDoHash(hash: string = location.hash): string | null {
+  if (!hash.startsWith(PREFIXO_HASH)) return null;
+  const fragmento = hash.slice(PREFIXO_HASH.length);
+  return fragmento === '' ? null : fragmento;
+}
+
+/**
+ * Troca `#comparar/c1.…` por `#comparar` com `replaceState`: o estado sai da barra (e do histórico) sem entrada
+ * nova nem `hashchange`. Sem estado no hash, não mexe na URL.
+ */
+export function limparEstadoDoHash(): void {
+  if (lerEstadoDoHash() === null) return;
+  history.replaceState(history.state, '', `${location.pathname}${location.search}#${ABA_DO_LINK}`);
+}
+
+/** A URL para compartilhar: a página atual, sem a query, com `#comparar/` e o fragmento. */
+export function urlCompartilhavel(fragmento: string): string {
+  return `${location.origin}${location.pathname}${PREFIXO_HASH}${fragmento}`;
+}
+
 // --- API ---
 
 /**

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { CHAVE_COMPARACAO } from '../../src/armazenamento/comparacao';
 import { exportarDados } from '../../src/armazenamento/arquivo';
+import { ABA_DO_LINK, lerEstadoDoHash } from '../../src/armazenamento/link';
 import { CHAVE_OFERTAS } from '../../src/armazenamento/ofertas';
 import { CHAVE_POSICOES } from '../../src/armazenamento/posicoes';
 import { CHAVE_PREFERENCIAS } from '../../src/armazenamento/preferencias';
@@ -94,6 +95,13 @@ describe('App', () => {
     render(<App />);
     expect(aba('Comparar')).toHaveAttribute('aria-selected', 'true');
     expect(location.hash).toBe('#comparar');
+  });
+  it('o link compartilhável (#comparar/c1.…) abre em "Comparar"; o estado fica no hash para o link ler', () => {
+    vi.stubGlobal('fetch', fetchForaDoAr);
+    history.replaceState(null, '', `/#${ABA_DO_LINK}/c1.abc`);
+    render(<App />);
+    expect(aba('Comparar')).toHaveAttribute('aria-selected', 'true');
+    expect(lerEstadoDoHash()).toBe('c1.abc');
   });
   it('clicar em "Catálogo" muda o hash e a aba; #catalogo abre nela', () => {
     vi.stubGlobal('fetch', fetchForaDoAr);
