@@ -22,11 +22,11 @@ const base = { liquidez: 'NO_VENCIMENTO' as const, produto: 'CDB' as const, venc
 const x: OfertaCadastrada = { ...base, id: 'x', emissor: 'Banco X', conglomerado: 'Grupo X', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.1 } };
 const z: OfertaCadastrada = { ...base, id: 'z', emissor: 'Banco Z', conglomerado: 'Grupo Z', indexacao: { tipo: 'POS_CDI', percentualCDI: 1 } };
 
-function Tela({ carteira }: { carteira: ItemFGC[] }) {
+function Tela({ carteira, motivo }: { carteira: ItemFGC[]; motivo?: 'HISTORICO' | 'CARTEIRA' }) {
   const [selecao, setSelecao] = useState(['x', 'z']);
   return (
     <Comparador catalogo={[x, z]} selecao={selecao} onMudarSelecao={setSelecao} onCriarOferta={() => {}} cenario={CEN}
-      descricaoCenario="Cenário de teste." carteira={carteira} />
+      descricaoCenario="Cenário de teste." carteira={carteira} {...(motivo ? { motivoCarteira: motivo } : {})} />
   );
 }
 
@@ -62,14 +62,36 @@ describe('alertas do FGC no bloco de alertas', () => {
     expect(screen.getByRole('table')).toBeInTheDocument();
   });
 
-  it('mudar a carteira invalida o resultado (derivado na renderização)', () => {
-    const item: ItemFGC = { conglomerado: 'Grupo X', produto: 'CDB', brutoEm: () => 300_000 };
-    const { rerender } = render(<Tela carteira={[item]} />);
-    fireEvent.input(screen.getByLabelText('Data da aplicação'), { target: { value: INI } });
-    fireEvent.click(screen.getByRole('button', { name: 'Comparar' }));
-    fireEvent.click(screen.getByRole('button', { name: /pular/i }));
-    expect(screen.getByRole('heading', { name: 'Resultado da comparação' })).toBeInTheDocument();
-    rerender(<Tela carteira={[{ ...item }]} />);
-    expect(screen.queryByRole('heading', { name: 'Resultado da comparação' })).toBeNull();
+  describe('mudar só a carteira recalcula o resultado', () => {
+    const abaixo: ItemFGC = { conglomerado: 'Grupo X', produto: 'CDB', brutoEm: () => 200_000 };
+    const acima: ItemFGC = { conglomerado: 'Grupo X', produto: 'CDB', brutoEm: () => 300_000 };
+    function compararCom(carteira: ItemFGC[], motivo?: 'HISTORICO' | 'CARTEIRA') {
+      const r = render(<Tela carteira={carteira} motivo={motivo} />);
+      fireEvent.input(screen.getByLabelText('Data da aplicação'), { target: { value: INI } });
+      fireEvent.input(screen.getByLabelText('Valor (R$)'), { target: { value: '60000' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Comparar' }));
+      fireEvent.click(screen.getByRole('button', { name: /pular/i }));
+      return r;
+    }
+    const alertas = () => within(screen.getByRole('region', { name: 'Alertas' }));
+
+    it('o resultado fica, com o alerta refeito pela carteira nova, e o status avisa', () => {
+      const { rerender } = compararCom([abaixo], 'CARTEIRA');
+      const titulo = screen.getByRole('heading', { name: 'Resultado da comparação' });
+      expect(alertas().getByRole('heading', { level: 4, name: 'Acima do limite do FGC' }).closest('li')).not.toHaveTextContent('Você já tem');
+      const status = screen.getByRole('status');
+      rerender(<Tela carteira={[acima]} motivo="CARTEIRA" />);
+      expect(screen.getByRole('heading', { name: 'Resultado da comparação' })).toBe(titulo);
+      expect(alertas().getByRole('heading', { level: 4, name: 'Acima do limite do FGC' }).closest('li')).toHaveTextContent('Você já tem');
+      expect(screen.getByRole('status')).toBe(status);
+      expect(status).toHaveTextContent('Resultado atualizado com a carteira.');
+    });
+
+    it('com o histórico novo, o texto do histórico', () => {
+      const { rerender } = compararCom([abaixo], 'HISTORICO');
+      rerender(<Tela carteira={[{ ...abaixo }]} motivo="HISTORICO" />);
+      expect(screen.getByRole('heading', { name: 'Resultado da comparação' })).toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent('Resultado atualizado com o histórico do Banco Central.');
+    });
   });
 });

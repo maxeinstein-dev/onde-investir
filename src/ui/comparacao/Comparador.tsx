@@ -40,7 +40,7 @@ interface Calculo {
   ofertas: readonly OfertaCadastrada[];
   cenario: Cenario;
   entrada: Entrada;
-  /** As posições como itens do FGC: se a carteira mudar, o alerta do FGC deixa de valer. */
+  /** As posições como itens do FGC: se a carteira mudar, o resultado é recalculado com a nova. */
   carteira: readonly ItemFGC[];
   colunas: ColunaHorizonte[];
   linha: { marcos: Marco[] };
@@ -158,14 +158,25 @@ export interface PropsComparador {
   gerarId?: () => string;
   /** As posições da carteira como itens do FGC, para o alerta do limite. Padrão: nenhuma. */
   carteira?: readonly ItemFGC[];
+  /**
+   * Por que a `carteira` mudou da última vez: o histórico do Banco Central chegou, ou a pessoa mudou as posições.
+   * Só muda o aviso do resultado recalculado. Padrão: CARTEIRA.
+   */
+  motivoCarteira?: 'HISTORICO' | 'CARTEIRA';
 }
+
+/** O aviso (no contêiner vivo) do resultado recalculado com a carteira nova. */
+export const RESULTADO_ATUALIZADO = {
+  HISTORICO: 'Resultado atualizado com o histórico do Banco Central.',
+  CARTEIRA: 'Resultado atualizado com a carteira.',
+} as const;
 
 const SEM_CARTEIRA: readonly ItemFGC[] = [];
 
 /** A tela de comparação: de 2 a 5 ofertas lado a lado, com palpite, linha do tempo e equivalências. */
 export function Comparador({
   catalogo, selecao, onMudarSelecao, onCriarOferta, cenario, descricaoCenario, cenarioInvalido = null, gerarId = novoIdOferta,
-  carteira = SEM_CARTEIRA,
+  carteira = SEM_CARTEIRA, motivoCarteira = 'CARTEIRA',
 }: PropsComparador) {
   const [valor, setValor] = useState(10000);
   const [dataAplicacao, setDataAplicacao] = useState<DataISO>(hoje());
@@ -200,9 +211,10 @@ export function Comparador({
 
   // Mudar entradas, ofertas, seleção ou cenário invalida o resultado. Derivado na renderização, e não num efeito:
   // um efeito atrasado mostraria o resultado velho com o dado novo, ou apagaria uma comparação feita logo depois.
+  // A carteira é diferente: ela muda sozinha (o histórico chega depois) e só pesa nos alertas do FGC, então o
+  // resultado é recalculado com ela no efeito abaixo, sem apagar a tela.
   const fase: Fase = faseSalva.tipo !== 'editando'
-    && (faseSalva.cenario !== cenario || faseSalva.carteira !== carteira || !mesmaEntrada(faseSalva.entrada, entrada)
-      || !mesmasOfertas(faseSalva.ofertas, ofertas))
+    && (faseSalva.cenario !== cenario || !mesmaEntrada(faseSalva.entrada, entrada) || !mesmasOfertas(faseSalva.ofertas, ofertas))
     ? EDITANDO
     : faseSalva;
   const erro = erroSalvo !== null && erroSalvo.cenario === cenario && mesmaEntrada(erroSalvo.entrada, entrada) ? erroSalvo.texto : null;
@@ -217,6 +229,20 @@ export function Comparador({
   }, [faseSalva]);
 
   useEffect(() => () => clearTimeout(repetir.current), []);
+
+  // Só a carteira mudou (o histórico chegou ou a pessoa editou as posições): recalcula com as mesmas entradas, o
+  // mesmo cenário e as mesmas ofertas, como ao tirar uma coluna. O palpite não se repete; no resultado, o aviso.
+  useEffect(() => {
+    if (fase.tipo === 'editando' || fase.carteira === carteira) return;
+    focarFase.current = false;
+    try {
+      const c = calcular(fase.ofertas, fase.entrada, fase.cenario, carteira);
+      setFase(fase.tipo === 'palpite' ? { tipo: 'palpite', ...c } : { tipo: 'resultado', palpite: fase.palpite, ...c });
+      if (fase.tipo === 'resultado') anunciar(RESULTADO_ATUALIZADO[motivoCarteira]);
+    } catch {
+      setFase(EDITANDO);
+    }
+  }, [fase, carteira]);
 
   function escreverAnuncio(texto: string) {
     anuncioAtual.current = texto;
@@ -284,7 +310,7 @@ export function Comparador({
     if (fase.tipo === 'resultado' && restantes.length >= 2) {
       try {
         focarFase.current = false;
-        setFase({ tipo: 'resultado', palpite: null, ...calcular(restantes, fase.entrada, fase.cenario, fase.carteira) });
+        setFase({ tipo: 'resultado', palpite: null, ...calcular(restantes, fase.entrada, fase.cenario, carteira) });
       } catch {
         setFase(EDITANDO);
       }

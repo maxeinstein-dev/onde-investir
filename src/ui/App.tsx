@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { adicionar, lerSelecao, salvarSelecao, sincronizarSelecao } from '../armazenamento/comparacao';
 import { armazenamentoLocal } from '../armazenamento/navegador';
 import { lerOfertas, salvarOfertas } from '../armazenamento/ofertas';
@@ -92,11 +92,17 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
     }
   }, [series, ativo.cenario]);
   const dataHoje = hoje();
-  /** As posições como itens do FGC, para o alerta da comparação (o valor é o da comparação). */
-  const carteiraFGC = useMemo(
-    () => posicoes.map((p) => itemFGCDaPosicao(p, dataHoje, daCarteira.cenario)),
-    [posicoes, dataHoje, daCarteira.cenario],
-  );
+  /** As posições da última carteira do FGC: diz se a próxima mudou pelas posições ou pelo histórico. */
+  const posicoesDoFGC = useRef(posicoes);
+  /**
+   * As posições como itens do FGC, para o alerta da comparação (o valor é o da comparação), e o motivo da mudança,
+   * para o aviso do resultado recalculado: com as mesmas posições, foi o histórico que chegou.
+   */
+  const carteiraFGC = useMemo(() => {
+    const motivo = posicoesDoFGC.current === posicoes ? 'HISTORICO' as const : 'CARTEIRA' as const;
+    posicoesDoFGC.current = posicoes;
+    return { itens: posicoes.map((p) => itemFGCDaPosicao(p, dataHoje, daCarteira.cenario)), motivo };
+  }, [posicoes, dataHoje, daCarteira.cenario]);
   const conglomerados = useMemo(
     () => [...new Set([...ofertas, ...posicoes].map((o) => o.conglomerado))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
     [ofertas, posicoes],
@@ -165,7 +171,8 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
         {
           id: 'comparar', rotulo: 'Comparar', conteudo: (
             <Comparador catalogo={ofertas} selecao={selecao} onMudarSelecao={mudarSelecao} onCriarOferta={criarOferta}
-              cenario={ativo.cenario} descricaoCenario={descricaoCenario} cenarioInvalido={cenarioInvalido} carteira={carteiraFGC} />
+              cenario={ativo.cenario} descricaoCenario={descricaoCenario} cenarioInvalido={cenarioInvalido} carteira={carteiraFGC.itens}
+              motivoCarteira={carteiraFGC.motivo} />
           ),
         },
         {

@@ -135,6 +135,8 @@ describe('aba Carteira no App', () => {
     async function comparar(valor: string) {
       render(<App />);
       await waitFor(() => expect(fetchHistorico).toHaveBeenCalled());
+      // Os indicadores terminam de carregar (aqui, sem resposta): o cenário não muda mais depois de comparar.
+      await waitFor(() => expect(screen.queryByText(/Enquanto os indicadores carregam/)).toBeNull());
       const p = painelAtivo();
       fireEvent.input(within(p).getByLabelText('Valor (R$)'), { target: { value: valor } });
       fireEvent.click(within(p).getByRole('button', { name: 'Comparar' }));
@@ -153,6 +155,48 @@ describe('aba Carteira no App', () => {
       expect(fgc).toHaveLength(1);
       expect(fgc[0]).toHaveTextContent('Banco X2');
       expect(fgc[0]).toHaveTextContent('conglomerado grupo x');
+    });
+
+    it('comparar antes de o histórico chegar: quando ele chega, o resultado fica, recalculado, e o status avisa', async () => {
+      let liberar: () => void = () => {};
+      const portao = new Promise<void>((r) => { liberar = r; });
+      vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+        if (HISTORICO.has(url)) await portao;
+        return fetchHistorico(url);
+      }));
+      localStorage.setItem(CHAVE_POSICOES, JSON.stringify([{ ...cdbCdi, valorAplicado: 150_000, dataAplicacao: '2026-01-05' }]));
+      localStorage.setItem(CHAVE_OFERTAS, JSON.stringify([oferta('a', 'Banco X2', 'grupo x'), oferta('b', 'Banco Z', 'Grupo Z')]));
+      localStorage.setItem(CHAVE_COMPARACAO, JSON.stringify(['a', 'b']));
+      const resultado = await comparar('100000');
+      const titulo = resultado.getByRole('heading', { name: 'Resultado da comparação' });
+      const fgcAntes = resultado.getByRole('region', { name: 'Alertas' }).textContent;
+      const status = within(painelAtivo()).getAllByRole('status').find((s) => s.closest('.comparacao')) as HTMLElement;
+      expect(status).toHaveTextContent('');
+      liberar();
+      await waitFor(() => expect(status).toHaveTextContent('Resultado atualizado com o histórico do Banco Central.'));
+      expect(screen.getByRole('heading', { name: 'Resultado da comparação' })).toBe(titulo);
+      // O alerta foi refeito com o valor da carteira pelo histórico realizado.
+      expect(screen.getByRole('region', { name: 'Alertas' }).textContent).not.toBe(fgcAntes);
+      expect(screen.getByRole('region', { name: 'Alertas' })).toHaveTextContent('Acima do limite do FGC');
+    });
+
+    it('uma posição nova na Carteira recalcula o resultado aberto, com o aviso da carteira', async () => {
+      localStorage.setItem(CHAVE_OFERTAS, JSON.stringify([oferta('a', 'Banco X2', 'grupo x'), oferta('b', 'Banco Z', 'Grupo Z')]));
+      localStorage.setItem(CHAVE_COMPARACAO, JSON.stringify(['a', 'b']));
+      const resultado = await comparar('100000');
+      expect(resultado.queryByText('Acima do limite do FGC')).toBeNull();
+      fireEvent.click(aba('Carteira'));
+      const p = painelAtivo();
+      fireEvent.input(within(p).getByLabelText('Emissor'), { target: { value: 'Banco X' } });
+      fireEvent.input(within(p).getByLabelText('Conglomerado'), { target: { value: 'Grupo X' } });
+      fireEvent.input(within(p).getByLabelText('Valor aplicado (R$)'), { target: { value: '200000' } });
+      fireEvent.input(within(p).getByLabelText('Data da aplicação'), { target: { value: '2026-09-01' } });
+      fireEvent.click(within(p).getByRole('button', { name: 'Adicionar posição' }));
+      fireEvent.click(aba('Comparar'));
+      const comparacao = painelAtivo();
+      await waitFor(() => expect(within(comparacao).getAllByRole('status').find((s) => s.closest('.comparacao')))
+        .toHaveTextContent('Resultado atualizado com a carteira.'));
+      expect(within(comparacao).getByRole('region', { name: 'Alertas' })).toHaveTextContent('Acima do limite do FGC');
     });
 
     it('sem posições, o mesmo valor não gera o alerta', async () => {
