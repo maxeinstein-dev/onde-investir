@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { textoDoAlerta } from '../../src/conteudo/alertas';
+import { textoDoAlerta, textoDoTetoGlobal } from '../../src/conteudo/alertas';
 import { GLOSSARIO } from '../../src/conteudo/glossario';
 import { resumirTrocas } from '../../src/conteudo/serie';
 import type { Alerta } from '../../src/engine/alertas';
@@ -256,6 +256,14 @@ describe('textoDoAlerta — FGC_LIMITE (rascunho, revisão no C2/C3)', () => {
     expect(t.porQue).toMatch(/^O FGC cobre até R\$ 250 mil/);
     expect(t.termo).toBe('fgc');
     expect(GLOSSARIO[t.termo]).toBeDefined();
+  });
+});
+
+describe('textoDoTetoGlobal', () => {
+  it('qualitativo: a garantia somada passa de R$ 1 milhão e o teto vale para 4 anos', () => {
+    const t = textoDoTetoGlobal({ garantiaSomada: 1_250_000, teto: 1_000_000, conglomerados: [] });
+    expect(t.oQue).toBe('Somando o que o FGC cobre em cada conglomerado, sua garantia passa de R$ 1 milhão. O teto de R$ 1 milhão vale para o que o FGC pagar em 4 anos, somando todas as instituições.');
+    expect(t.termo).toBe('fgc');
   });
 });
 

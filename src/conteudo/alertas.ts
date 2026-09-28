@@ -3,6 +3,7 @@ import type { Alerta } from '../engine/alertas';
 import type { Horizonte } from '../engine/comparacao';
 import { type DataISO, dataBR } from '../engine/datas';
 import type { OfertaCadastrada } from '../engine/ofertas';
+import type { TetoGlobal } from '../engine/fgc';
 import { regraFGC } from '../engine/regras/fgc';
 import { formatarMoeda, formatarNumero, formatarPercentual } from '../formato';
 import { listar, nomeDoHorizonte, nomeOferta } from './comparacao';
@@ -141,4 +142,18 @@ export function textoDoAlerta(a: Alerta, ofertas: readonly OfertaCadastrada[], h
         termo: 'fgc',
       };
   }
+}
+
+/**
+ * O alerta do teto global (spec §3.4), qualitativo de propósito: a janela de 4 anos do teto não é calculada (ver
+ * `tetoGlobalExcedido`), então o texto não dá valor de excedente.
+ */
+export function textoDoTetoGlobal(t: TetoGlobal): TextoAlerta {
+  const teto = reaisRedondos(t.teto);
+  return {
+    titulo: 'Acima do teto global do FGC',
+    oQue: `Somando o que o FGC cobre em cada conglomerado, sua garantia passa de ${teto}. O teto de ${teto} vale para o que o FGC pagar em 4 anos, somando todas as instituições.`,
+    porQue: 'O teto só pesa se mais de uma instituição quebrar nesse período. O app não calcula essa janela, então o alerta avisa do risco sem dizer quanto ficaria sem garantia.',
+    termo: 'fgc',
+  };
 }

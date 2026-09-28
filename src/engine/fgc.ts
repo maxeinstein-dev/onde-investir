@@ -113,9 +113,29 @@ export function primeiraDataAcimaDoLimite(itens: readonly ItemFGC[], datas: read
   return alertas.sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : a.conglomerado.localeCompare(b.conglomerado)));
 }
 
-/** O total coberto na data passa do teto global do FGC? (Alerta informativo, spec §3.4.) */
-export function tetoGlobalExcedido(itens: readonly ItemFGC[], data: DataISO): { total: number; teto: number } | null {
-  const { totalCoberto } = exposicao(itens, data);
-  const teto = regraFGC(data).tetoGlobal;
-  return totalCoberto > teto ? { total: totalCoberto, teto } : null;
+export interface TetoGlobal {
+  /** Σ min(exposição do conglomerado, limite por conglomerado): o máximo que o FGC pagaria somando todos. */
+  garantiaSomada: number;
+  teto: number;
+  /** Cada conglomerado coberto: o bruto na data e a parte dele que o FGC cobre. */
+  conglomerados: { conglomerado: string; exposicao: number; garantia: number }[];
+}
+
+/**
+ * A garantia somada na data passa do teto global do FGC? (Alerta informativo, spec §3.4.) Conta, em cada
+ * conglomerado, só o que o FGC cobre (até o limite por conglomerado): R$ 1,2 milhão num banco só é R$ 250 mil de
+ * garantia e não chega perto do teto.
+ *
+ * Aproximação deliberada: o teto vale para o que o FGC pagar numa janela de 4 anos a partir do primeiro pagamento
+ * (regulamento, art. 2º, § 3º e § 4º, VIII), e essa janela NÃO é calculada aqui: o app não sabe quando nem quantas
+ * instituições quebrariam. A conta supõe que todas quebrassem na mesma janela, o pior caso, e o texto do alerta
+ * é qualitativo por isso.
+ */
+export function tetoGlobalExcedido(itens: readonly ItemFGC[], data: DataISO): TetoGlobal | null {
+  const regra = regraFGC(data);
+  const conglomerados = [...exposicao(itens, data).porConglomerado].map(([conglomerado, exp]) => ({
+    conglomerado, exposicao: exp, garantia: Math.min(exp, regra.porConglomerado),
+  }));
+  const garantiaSomada = conglomerados.reduce((s, c) => s + c.garantia, 0);
+  return garantiaSomada > regra.tetoGlobal ? { garantiaSomada, teto: regra.tetoGlobal, conglomerados } : null;
 }

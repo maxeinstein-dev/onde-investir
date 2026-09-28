@@ -87,12 +87,27 @@ describe('primeiraDataAcimaDoLimite', () => {
 });
 
 describe('tetoGlobalExcedido', () => {
-  it('soma os conglomerados cobertos e compara com R$ 1 milhão', () => {
+  it('soma o que o FGC cobre em cada conglomerado (até R$ 250 mil cada) e compara com R$ 1 milhão', () => {
     const cinco = ['A', 'B', 'C', 'D', 'E'].map((c) => fixo(`Banco ${c}`, 220_000));
-    expect(tetoGlobalExcedido(cinco, INI)).toEqual({ total: 1_100_000, teto: 1_000_000 });
+    expect(tetoGlobalExcedido(cinco, INI)).toMatchObject({ garantiaSomada: 1_100_000, teto: 1_000_000 });
     expect(tetoGlobalExcedido(cinco.slice(0, 4), INI)).toBeNull();
   });
+  it('um banco só com R$ 1,2 milhão: a garantia é de R$ 250 mil, sem alerta de teto', () => {
+    expect(tetoGlobalExcedido([fixo('Banco A', 1_200_000)], INI)).toBeNull();
+  });
+  it('cinco bancos com R$ 250 mil: a garantia somada é R$ 1,25 milhão, com alerta', () => {
+    const cinco = ['A', 'B', 'C', 'D', 'E'].map((c) => fixo(`Banco ${c}`, 250_000));
+    const t = tetoGlobalExcedido([...cinco, fixo('banco a', 100_000)], INI);
+    expect(t).toEqual({
+      garantiaSomada: 1_250_000, teto: 1_000_000,
+      conglomerados: [
+        { conglomerado: 'Banco A', exposicao: 350_000, garantia: 250_000 },
+        ...['B', 'C', 'D', 'E'].map((c) => ({ conglomerado: `Banco ${c}`, exposicao: 250_000, garantia: 250_000 })),
+      ],
+    });
+  });
   it('o Tesouro não conta para o teto', () => {
-    expect(tetoGlobalExcedido([fixo('Banco A', 900_000), fixo('Tesouro Nacional', 900_000, 'TESOURO_IPCA')], INI)).toBeNull();
+    const quatro = ['A', 'B', 'C', 'D'].map((c) => fixo(`Banco ${c}`, 250_000));
+    expect(tetoGlobalExcedido([...quatro, fixo('Tesouro Nacional', 900_000, 'TESOURO_IPCA')], INI)).toBeNull();
   });
 });
