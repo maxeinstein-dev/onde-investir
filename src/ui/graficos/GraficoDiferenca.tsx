@@ -80,7 +80,8 @@ export function GraficoDiferenca({ series, ofertas, prefixo = 'grafico-diferenca
         </div>
         <div class="campo">
           <label for={`${prefixo}-b`}>{GRAFICO_DIFERENCA.com}</label>
-          <select id={`${prefixo}-b`} value={String(b)} onChange={(e) => escolher('b', Number(e.currentTarget.value))}>{opcoes}</select>
+          {/* O rótulo visível "com" sozinho não diz nada a quem navega pelos campos do formulário. */}
+          <select id={`${prefixo}-b`} aria-label={GRAFICO_DIFERENCA.compararCom} value={String(b)} onChange={(e) => escolher('b', Number(e.currentTarget.value))}>{opcoes}</select>
         </div>
       </div>
       <p class="dica">{GRAFICO_DIFERENCA.explicacao}</p>

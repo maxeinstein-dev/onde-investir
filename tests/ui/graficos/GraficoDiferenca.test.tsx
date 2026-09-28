@@ -67,6 +67,14 @@ describe('GraficoDiferenca', () => {
     expect(a.id).toMatch(/^grafico-diferenca-/);
   });
 
+  it('o seletor B tem nome acessível completo, "Comparar com", e não só "com"', async () => {
+    render(<GraficoDiferenca series={SERIES} ofertas={OFERTAS} />);
+    await carregou();
+    const b = screen.getByRole('combobox', { name: 'Comparar com' }) as HTMLSelectElement;
+    expect(b.value).toBe('1');
+    expect(screen.getByRole('combobox', { name: 'Comparar' })).not.toBe(b);
+  });
+
   it('a linha A − B, com o zero destacado e as trocas de sinal anotadas', async () => {
     render(<GraficoDiferenca series={SERIES} ofertas={OFERTAS} />);
     await carregou();

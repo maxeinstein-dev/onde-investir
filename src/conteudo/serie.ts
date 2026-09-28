@@ -95,6 +95,8 @@ export const GRAFICO_DIFERENCA = {
   titulo: 'Diferença entre duas ofertas',
   comparar: 'Comparar',
   com: 'com',
+  /** O nome acessível do seletor B: contém o rótulo visível "com" (WCAG 2.5.3). */
+  compararCom: 'Comparar com',
   explicacao: 'Acima do zero a primeira oferta está à frente, e abaixo dele, a segunda.',
   referencia: '(valor de referência)',
 } as const;
