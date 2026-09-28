@@ -29,8 +29,9 @@ export interface ResultadoEquivalencia {
   /** % do CDI de uma LCI (isenta) que empata; indisponível se o prazo não cumpre o mínimo legal. */
   isentoPosCDI: Equivalente;
   /**
-   * Regra de bolso do mercado (ver {@link RegraDeBolso}). É null se a origem não for pós-CDI ou se o
-   * equivalente exato do destino estiver indisponível (não faz sentido aproximar o que não existe).
+   * Regra de bolso do mercado (ver {@link RegraDeBolso}). É null se a origem não for pós-CDI, se tiver custo
+   * extra (a regra ignora o custo e daria uma taxa otimista) ou se o equivalente exato do destino estiver
+   * indisponível (não faz sentido aproximar o que não existe).
    */
   regraDeBolso: RegraDeBolso | null;
   /** Alíquota de IR do prazo; null se a regra não estiver cadastrada para a data de resgate. */
@@ -139,7 +140,8 @@ export function calcularEquivalencias(origem: Aplicacao, dataResgate: DataISO, c
 
   const ix = origem.indexacao;
   let regraDeBolso: RegraDeBolso | null = null;
-  if (ix.tipo === 'POS_CDI' && aliquota !== null) {
+  const semCusto = !((origem.custoExtraAA ?? 0) > 0);
+  if (ix.tipo === 'POS_CDI' && aliquota !== null && semCusto) {
     if (ehIsentoIR(origem.produto)) {
       if (tributadoPosCDI.disponivel) regraDeBolso = { destino: 'TRIBUTADO', taxa: ix.percentualCDI / (1 - aliquota) };
     } else if (isentoPosCDI.disponivel) {
