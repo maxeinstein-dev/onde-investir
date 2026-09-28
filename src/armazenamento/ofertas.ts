@@ -30,6 +30,8 @@ const camposOferta = {
   conglomerado: z.string().max(LIMITE_TEXTO),
   vencimento: DataIso.optional(),
   liquidez: z.enum(['DIARIA', 'NO_VENCIMENTO']),
+  // A faixa (0 a 5% a.a.) fica com validarOfertaCadastrada, que dá a mensagem.
+  custoExtraAA: z.number().optional(),
 };
 
 const EsquemaOferta = z.strictObject({ id: z.string().min(1).max(LIMITE_TEXTO), ...camposOferta });

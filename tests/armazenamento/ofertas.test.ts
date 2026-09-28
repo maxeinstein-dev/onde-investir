@@ -41,6 +41,12 @@ describe('lerOfertas / salvarOfertas', () => {
     expect(arm.dados.has('rende:ofertas:v1')).toBe(true);
     expect(lerOfertas(arm)).toEqual([cdb, tesouro, poupanca]);
   });
+  it('custo extra sobrevive à ida e volta; fora de 0 a 5% a oferta é descartada', () => {
+    const arm = memoria();
+    const comCusto: OfertaCadastrada = { ...cdb, id: 'k', custoExtraAA: 0.005 };
+    salvarOfertas(arm, [comCusto, { ...cdb, id: 'l', custoExtraAA: 0.06 }, { ...cdb, id: 'm', custoExtraAA: -0.01 }]);
+    expect(lerOfertas(arm)).toEqual([comCusto]);
+  });
   it('sem nada salvo: lista vazia', () => {
     expect(lerOfertas(memoria())).toEqual([]);
   });
@@ -82,6 +88,13 @@ describe('importarOfertas', () => {
     expect(r.ofertas.map(semId)).toEqual([cdb, tesouro, poupanca].map(semId));
     expect(r.ofertas.map((o) => o.id).every((id) => id.startsWith('novo-'))).toBe(true);
     expect(new Set(r.ofertas.map((o) => o.id)).size).toBe(3);
+  });
+  it('custo extra sobrevive à exportação e à importação; acima de 5% rejeita', () => {
+    const comCusto: OfertaCadastrada = { ...cdb, custoExtraAA: 0.005 };
+    const r = importarOfertas(exportarOfertas([comCusto], Date.now()), gerarId);
+    expect(r.ok && r.ofertas[0]?.custoExtraAA).toBe(0.005);
+    expect(importarOfertas(arquivo([{ ...cdb, custoExtraAA: 0.06 }]), gerarId)).toEqual({ ok: false, erro: expect.stringMatching(/oferta 1.*custo extra/i) });
+    expect(importarOfertas(arquivo([{ ...cdb, custoExtraAA: '0.5' }]), gerarId).ok).toBe(false);
   });
   it('aceita ofertas sem id (os ids são sempre novos)', () => {
     const r = importarOfertas(arquivo([semId(cdb)]), gerarId);
