@@ -30,9 +30,9 @@ export const RENDA_VARIAVEL = definirLicao({
     {
       titulo: 'Impostos na renda variável',
       texto: [
-        `Dividendos de FII são isentos de IR para pessoa física, com condições: o fundo precisa ter pelo menos ${REGRAS.rendaVariavel.minimoCotistasFII} cotistas, e o cotista não pode ter ${REGRAS.rendaVariavel.participacaoMaximaFII} ou mais das cotas (${link('Lei 14.754/2023', FONTES.fonteFII)}).`,
-        `Vender ações no mercado à vista até ${REGRAS.rendaVariavel.limiteVendaAcoes} por mês é isento de IR sobre o ganho. Só vale para ações: FII, ETF e day trade ficam de fora (${link('Lei 11.033/2004', FONTES.fonteVendaAcoes)}).`,
-        `Vender cotas de FII é sempre tributado a ${REGRAS.rendaVariavel.aliquotaVendaFII}, sem nenhuma isenção por valor — ao contrário das ações.`,
+        `Dividendos de FII são isentos de IR para pessoa física, mas com condições. O fundo precisa ter pelo menos ${REGRAS.rendaVariavel.minimoCotistasFII} cotistas, e o cotista não pode ter ${REGRAS.rendaVariavel.participacaoMaximaFII} ou mais das cotas (${link('Lei 14.754/2023', FONTES.fonteFII)}).`,
+        `Vender ações no mercado à vista até ${REGRAS.rendaVariavel.limiteVendaAcoes} por mês é isento de IR sobre o ganho. Só vale para ações, e não para FII, ETF ou day trade (${link('Lei 11.033/2004', FONTES.fonteVendaAcoes)}).`,
+        `Vender cotas de FII é sempre tributado a ${REGRAS.rendaVariavel.aliquotaVendaFII}, sem nenhuma isenção por valor. É diferente das ações.`,
       ].join('\n\n'),
     },
     {
