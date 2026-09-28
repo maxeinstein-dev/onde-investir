@@ -24,7 +24,7 @@ export interface IndicadoresCarregados {
   focusDefasado: boolean;
 }
 
-const TIMEOUT_PADRAO_MS = 10_000;
+export const TIMEOUT_PADRAO_MS = 10_000;
 const BRT_MS = -3 * 3_600_000;
 
 // Esquemas do domínio (o que vai para o cache), não do JSON cru.
@@ -45,7 +45,7 @@ interface FocusCarregado { focus: DadosFocus; defasado: boolean }
 const EsquemaReunioes = z.array(z.object({ id: z.string().regex(/^R[1-8]\/\d{4}$/), anuncio: DataIso, estimada: z.boolean() })).min(1);
 
 /** Uma requisição com timeout: aborta o sinal e rejeita mesmo que `buscar` ignore o sinal. */
-async function obterJson(buscar: Buscar, url: string, timeoutMs: number): Promise<unknown> {
+export async function obterJson(buscar: Buscar, url: string, timeoutMs: number): Promise<unknown> {
   const controle = new AbortController();
   let relogio: ReturnType<typeof setTimeout> | undefined;
   const estouro = new Promise<never>((_, rejeitar) => {
