@@ -165,3 +165,35 @@ describe('sugerir — COM_DATA', () => {
     expect(f?.fgc).toEqual({ conglomerado: 'Banco X', excedente: 10000 }); // 210000 + 50000 − 250000
   });
 });
+
+describe('sugerir — SEM_OBJETIVO', () => {
+  it('até 1 ano: 100% pós-fixado', () => {
+    const fatias = sugerir({ tipo: 'SEM_OBJETIVO', horizonteAnos: 1 }, ctx());
+    expect(fatias).toEqual([{ produto: 'CDB', indexacaoTipo: 'POS_CDI', percentual: 1, motivo: 'SEM_OBJETIVO_POS', garantia: 'FGC', valor: null, ofertaCatalogo: undefined, fgc: undefined }]);
+  });
+  it('de 1 a 5 anos: metade pós, metade prefixado', () => {
+    const fatias = sugerir({ tipo: 'SEM_OBJETIVO', horizonteAnos: 3 }, ctx());
+    expect(fatias.map((f) => [f.motivo, f.percentual])).toEqual([['SEM_OBJETIVO_POS', 0.5], ['SEM_OBJETIVO_PRE', 0.5]]);
+  });
+  it('acima de 5 anos: entra o IPCA+ na proporção da tabela de longo prazo', () => {
+    const fatias = sugerir({ tipo: 'SEM_OBJETIVO', horizonteAnos: 12 }, ctx());
+    expect(fatias.map((f) => [f.produto, f.motivo, f.percentual])).toEqual([
+      ['TESOURO_IPCA', 'SEM_OBJETIVO_IPCA', 0.7], ['CDB', 'SEM_OBJETIVO_POS', 0.3],
+    ]);
+  });
+  it('toda fatia soma 100%, em qualquer faixa', () => {
+    for (const horizonteAnos of [1, 3, 5, 6, 12, 25]) {
+      const fatias = sugerir({ tipo: 'SEM_OBJETIVO', horizonteAnos }, ctx());
+      expect(fatias.reduce((s, f) => s + f.percentual, 0)).toBeCloseTo(1, 10);
+    }
+  });
+});
+
+describe('sugerir — dispatcher completo', () => {
+  it('os 4 tipos de objetivo funcionam', () => {
+    expect(sugerir({ tipo: 'RESERVA', gastoMensal: 1000, rendaEstavel: true }, ctx()).length).toBeGreaterThan(0);
+    expect(sugerir({ tipo: 'COM_DATA', valorAlvo: 1000, data: '2030-01-01' }, ctx()).length).toBeGreaterThan(0);
+    expect(sugerir({ tipo: 'LONGO_PRAZO', horizonteAnos: 10 }, ctx()).length).toBeGreaterThan(0);
+    expect(sugerir({ tipo: 'SEM_OBJETIVO', horizonteAnos: 10 }, ctx()).length).toBeGreaterThan(0);
+  });
+});

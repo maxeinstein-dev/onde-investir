@@ -156,11 +156,30 @@ function sugerirComData(o: Extract<Objetivo, { tipo: 'COM_DATA' }>, ctx: Context
   );
 }
 
+function sugerirSemObjetivo(o: Extract<Objetivo, { tipo: 'SEM_OBJETIVO' }>, ctx: ContextoSugestao): Fatia[] {
+  let base: Fatia[];
+  if (o.horizonteAnos <= 1) {
+    base = [{ produto: 'CDB', indexacaoTipo: 'POS_CDI', percentual: 1, motivo: 'SEM_OBJETIVO_POS', garantia: 'FGC', valor: null }];
+  } else if (o.horizonteAnos <= 5) {
+    base = [
+      { produto: 'CDB', indexacaoTipo: 'POS_CDI', percentual: 0.5, motivo: 'SEM_OBJETIVO_POS', garantia: 'FGC', valor: null },
+      { produto: 'CDB', indexacaoTipo: 'PRE', percentual: 0.5, motivo: 'SEM_OBJETIVO_PRE', garantia: 'FGC', valor: null },
+    ];
+  } else {
+    const faixa = faixaLongoPrazo(o.horizonteAnos);
+    base = [
+      { produto: 'TESOURO_IPCA', indexacaoTipo: 'IPCA_MAIS', percentual: faixa.ipca, motivo: 'SEM_OBJETIVO_IPCA', garantia: 'TESOURO_NACIONAL', valor: null },
+      { produto: 'CDB', indexacaoTipo: 'POS_CDI', percentual: faixa.pos, motivo: 'SEM_OBJETIVO_POS', garantia: 'FGC', valor: null },
+    ];
+  }
+  return casarComCatalogo(base, ctx.catalogo, ctx.carteira, ctx.hoje);
+}
+
 export function sugerir(objetivo: Objetivo, ctx: ContextoSugestao): Fatia[] {
   switch (objetivo.tipo) {
     case 'RESERVA': return sugerirReserva(objetivo, ctx);
     case 'COM_DATA': return sugerirComData(objetivo, ctx);
     case 'LONGO_PRAZO': return sugerirLongoPrazo(objetivo, ctx);
-    default: throw new Error(`Objetivo "${objetivo.tipo}" ainda não implementado`);
+    case 'SEM_OBJETIVO': return sugerirSemObjetivo(objetivo, ctx);
   }
 }
