@@ -89,6 +89,8 @@ function excedenteFGC(conglomerado: string, valorFatia: number, carteira: readon
     .filter((i) => coberto(i.produto) && normalizarConglomerado(i.conglomerado) === chave)
     .reduce((soma, i) => soma + i.brutoEm(hoje), 0);
   const total = jaTem + valorFatia;
+  // ">" e não ">=": o limite do FGC precisa ser ULTRAPASSADO, não só atingido. Exatamente R$ 250 mil
+  // ainda está coberto, sem excedente.
   return total > limite ? { conglomerado, excedente: total - limite } : undefined;
 }
 

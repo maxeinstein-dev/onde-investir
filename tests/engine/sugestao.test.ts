@@ -110,6 +110,12 @@ describe('casarComCatalogo', () => {
     expect(f1?.fgc).toEqual({ conglomerado: 'Banco X', excedente: 50000 }); // 150000 + 150000 − 250000
     expect(f2?.fgc).toEqual({ conglomerado: 'Banco X', excedente: 50000 });
   });
+  it('exatamente no limite do FGC (carteira + fatia = 250000): sem aviso, a regra é ">", não ">="', () => {
+    const catalogo = [catalogoBase()];
+    const carteira = [carteiraItem('Banco X', 230000)];
+    const [f] = casarComCatalogo([fatiaBase({ valor: 20000 })], catalogo, carteira, HOJE);
+    expect(f?.fgc).toBeUndefined();
+  });
 });
 
 const ctx = (over: Partial<ContextoSugestao> = {}): ContextoSugestao => ({ catalogo: [], carteira: [], hoje: HOJE, ...over });
