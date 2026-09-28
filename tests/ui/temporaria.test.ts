@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import type { EstadoCompartilhado } from '../../src/armazenamento/link';
 import { LIMITE_OFERTAS } from '../../src/armazenamento/ofertas';
 import { CASOS_CLASSICOS } from '../../src/conteudo/casos';
 import { LICOES } from '../../src/conteudo/licoes';
 import { montarExperimente, type Experimente } from '../../src/conteudo/licoes/tipos';
 import type { OfertaCadastrada } from '../../src/engine/ofertas';
+import { PREMISSAS_PADRAO } from '../../src/engine/projecao';
 import {
-  avisoDoCenario, salvarNoCatalogo, temporariaDoExperimente, textoDoBanner,
+  avisoDoCenario, salvarNoCatalogo, temporariaDoExperimente, temporariaDoLink, textoDoBanner,
 } from '../../src/ui/comparacao/temporaria';
 import { INI } from '../engine/cenarioPadrao';
 
@@ -100,5 +102,26 @@ describe('salvar as ofertas da comparação temporária no catálogo', () => {
     const cabe = Array.from({ length: LIMITE_OFERTAS - t.ofertas.length }, (_, i) => oferta(`o${i}`));
     const ok = salvarNoCatalogo(cabe, t, sequencia());
     expect(ok.ok && ok.catalogo.length).toBe(LIMITE_OFERTAS);
+  });
+});
+
+describe('comparação temporária de um link', () => {
+  const estado: EstadoCompartilhado = {
+    versao: 1,
+    ofertas: [
+      { produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.1 }, emissor: 'A', conglomerado: 'A', liquidez: 'DIARIA' },
+      { produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' }, emissor: 'B', conglomerado: 'B', liquidez: 'DIARIA' },
+    ],
+    valor: 1234, dataAplicacao: INI, suaData: '2027-01-04', regra: { tipo: 'MESMA_TAXA' },
+    cenario: { escolha: 'CAEM', premissas: PREMISSAS_PADRAO, manual: { cdi: 10, selicMeta: 10.1, ipca: 4, tr: 0 } },
+  };
+  it('as ofertas ganham ids locais; valor, datas, regra e o cenário inteiro vêm do link', () => {
+    const t = temporariaDoLink(estado, sequencia());
+    expect(t.origem).toEqual({ tipo: 'link' });
+    expect(t.ofertas.map(semId)).toEqual(estado.ofertas);
+    expect(t.selecao).toEqual(['id-1', 'id-2']);
+    expect(t.inicial).toEqual({ valor: 1234, dataAplicacao: INI, suaData: '2027-01-04', regra: { tipo: 'MESMA_TAXA' } });
+    expect(t.cenario).toEqual(estado.cenario);
+    expect(t.pergunta).toBeUndefined();
   });
 });

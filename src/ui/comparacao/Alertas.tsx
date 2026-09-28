@@ -1,8 +1,10 @@
 import { textoDoAlerta } from '../../conteudo/alertas';
+import type { IdLicao } from '../../conteudo/licoes/tipos';
 import { GLOSSARIO } from '../../conteudo/glossario';
 import { chaveDoAlerta, type Alerta } from '../../engine/alertas';
 import type { Horizonte } from '../../engine/comparacao';
 import type { OfertaCadastrada } from '../../engine/ofertas';
+import { LinkLicao } from '../aprender/LinkLicao';
 import { Termo } from '../Termo';
 
 export interface PropsAlertas {
@@ -12,13 +14,15 @@ export interface PropsAlertas {
   horizontes: readonly Horizonte[];
   /** Prefixo dos ids. */
   prefixo?: string;
+  /** "Ver lição": abre a lição do alerta na trilha Aprender. */
+  onVerLicao?: (id: IdLicao) => void;
 }
 
 /**
  * Os alertas que ensinam, em cartões: o que acontece, por quê e o termo do glossário. Não interrompem: sem
  * role="alert" e sem foco automático, porque aparecem junto com o resultado, que já recebe o foco.
  */
-export function Alertas({ alertas, ofertas, horizontes, prefixo = 'alertas' }: PropsAlertas) {
+export function Alertas({ alertas, ofertas, horizontes, prefixo = 'alertas', onVerLicao }: PropsAlertas) {
   if (alertas.length === 0) return null;
   const idTitulo = `${prefixo}-titulo`;
   return (
@@ -35,7 +39,10 @@ export function Alertas({ alertas, ofertas, horizontes, prefixo = 'alertas' }: P
               <h4 class="alerta__titulo">{t.titulo}</h4>
               <p>{t.oQue}</p>
               <p class="alerta__porque">{t.porQue}</p>
-              <Termo id={t.termo}>Saiba mais{' '}<span class="visualmente-oculto">sobre {GLOSSARIO[t.termo].termo}</span></Termo>
+              <div class="alerta__acoes">
+                <Termo id={t.termo}>Saiba mais{' '}<span class="visualmente-oculto">sobre {GLOSSARIO[t.termo].termo}</span></Termo>
+                <LinkLicao licao={t.licao} onVerLicao={onVerLicao} />
+              </div>
             </li>
           );
         })}

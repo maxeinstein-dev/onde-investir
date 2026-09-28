@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { textoDoAlerta } from '../../src/conteudo/alertas';
+import { licaoPorId } from '../../src/conteudo/licoes';
 import type { Alerta } from '../../src/engine/alertas';
 import { horizontesPadrao } from '../../src/engine/comparacao';
 import type { OfertaCadastrada } from '../../src/engine/ofertas';
@@ -36,6 +37,20 @@ describe('Alertas', () => {
     expect(porQue).toHaveTextContent(espacos(t.porQue));
     expect(within(primeiro).getByRole('button', { name: 'Saiba mais sobre Liquidez' })).toBeInTheDocument();
     expect(within(itens[1] as HTMLElement).getByRole('button', { name: 'Saiba mais sobre IOF' })).toBeInTheDocument();
+  });
+
+  it('cada alerta tem "Ver lição", que leva à lição do tipo do alerta', () => {
+    const onVerLicao = vi.fn();
+    render(<Alertas alertas={ALERTAS} ofertas={OFERTAS} horizontes={HORIZONTES} onVerLicao={onVerLicao} />);
+    const itens = within(screen.getByRole('list')).getAllByRole('listitem');
+    ALERTAS.forEach((a, i) => {
+      const { licao } = textoDoAlerta(a, OFERTAS, HORIZONTES);
+      const titulo = licaoPorId(licao)?.titulo ?? '';
+      const link = within(itens[i] as HTMLElement).getByRole('link', { name: `Ver lição: ${titulo}` });
+      expect(link).toHaveAttribute('href', `#aprender/${licao}`);
+      fireEvent.click(link);
+      expect(onVerLicao).toHaveBeenLastCalledWith(licao);
+    });
   });
 
   it('não interrompe: nada de role="alert", de foco automático nem de tabindex', () => {

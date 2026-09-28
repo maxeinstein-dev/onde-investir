@@ -155,10 +155,6 @@ function deBase64Url(texto: string): Uint8Array | null {
 const temCompressao = () => typeof CompressionStream === 'function';
 const temDescompressao = () => typeof DecompressionStream === 'function';
 
-async function comprimir(bytes: Uint8Array): Promise<Uint8Array> {
-  const saida = new Blob([bytes as BlobPart]).stream().pipeThrough(new CompressionStream('deflate-raw'));
-  return new Uint8Array(await new Response(saida).arrayBuffer());
-}
 
 /** Os bytes aos pedaços, um pedaço por leitura (sem adiantar): quem lê controla quanto entra no descompressor. */
 function aosPedacos(bytes: Uint8Array, tamanho: number): ReadableStream<BufferSource> {
@@ -200,6 +196,12 @@ export async function lerLimitado(stream: ReadableStream<Uint8Array>, limite: nu
     pos += p.byteLength;
   }
   return bytes;
+}
+
+/** Sem `Blob.stream()` (o jsdom não tem): os bytes entram no compressor pelo mesmo leitor aos pedaços. */
+async function comprimir(bytes: Uint8Array): Promise<Uint8Array> {
+  const saida = aosPedacos(bytes, PEDACO_ENTRADA).pipeThrough(new CompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(saida).arrayBuffer());
 }
 
 // --- o link no hash da URL: #comparar/c1.… ---

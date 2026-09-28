@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { adicionar, lerSelecao, salvarSelecao, sincronizarSelecao } from '../armazenamento/comparacao';
+import { decodificar, type EstadoCompartilhado, lerEstadoDoHash, limparEstadoDoHash } from '../armazenamento/link';
 import { armazenamentoLocal } from '../armazenamento/navegador';
 import { lerOfertas, salvarOfertas } from '../armazenamento/ofertas';
 import { lerPosicoes, salvarPosicoes } from '../armazenamento/posicoes';
 import { lerPreferencias, salvarPreferencias, type PreferenciasCenario } from '../armazenamento/preferencias';
 import {
-  contarVisita, lerProgresso, marcarConcluida, type Progresso, registrarPalpite, salvarProgresso,
+  contarVisita, dispensarDica, lerProgresso, marcarConcluida, type Progresso, registrarPalpite, salvarProgresso,
 } from '../armazenamento/progresso';
 import { explicarCenario } from '../conteudo/comparacao';
 import { licaoPorId } from '../conteudo/licoes';
@@ -17,12 +18,14 @@ import type { OfertaCadastrada } from '../engine/ofertas';
 import { itemFGCDaPosicao, type Posicao } from '../engine/posicoes';
 import { Abas, useAbaDaUrl } from './Abas';
 import { ABA_APRENDER, Aprender } from './aprender/Aprender';
+import { VoceSabia } from './aprender/VoceSabia';
 import { Carteira } from './carteira/Carteira';
 import { BannerTemporaria, ID_BANNER_TEMPORARIA } from './comparacao/BannerTemporaria';
 import { Comparador, ID_TITULO_COMPARADOR } from './comparacao/Comparador';
 import { idColuna } from './comparacao/TabelaComparacao';
 import {
-  avisoDoCenario, type ComparacaoTemporaria, type OrigemTemporaria, salvarNoCatalogo, temporariaDoExperimente, textoDoBanner,
+  avisoDoCenario, type ComparacaoTemporaria, type OrigemTemporaria, salvarNoCatalogo, temporariaDoExperimente, temporariaDoLink,
+  textoDoBanner,
 } from './comparacao/temporaria';
 import { MinhasOfertas, novoIdOferta } from './ofertas/MinhasOfertas';
 import { hoje } from './hoje';
@@ -32,6 +35,7 @@ import { SEM_INDICADORES, useIndicadores } from './useIndicadores';
 
 const CARREGANDO = 'Enquanto os indicadores carregam, vale o cenário manual.';
 const FALHA_AO_GRAVAR = 'Não deu para salvar neste navegador. Exporte suas ofertas para não perdê-las.';
+const LINK_INVALIDO = 'Este link de comparação não pôde ser aberto.';
 
 const ABAS = ['comparar', 'catalogo', 'carteira', ABA_APRENDER] as const;
 /** As abas do M2 ("Comparar ofertas" e "Duelo rápido") viraram a tela única de comparação. */
@@ -59,6 +63,12 @@ function licaoDoHash(): IdLicao | null {
   if (!location.hash.startsWith(prefixo)) return null;
   const id = location.hash.slice(prefixo.length) as IdLicao;
   return licaoPorId(id) ? id : null;
+}
+
+/** O cenário que vai no link: o em uso de fato (o manual, se o pedido caiu nele por falta de dados). */
+function useCenarioDoLink(p: PreferenciasCenario, a: CenarioAtivo): EstadoCompartilhado['cenario'] {
+  const escolha = a.projetado === null ? 'MANUAL' : p.escolha;
+  return useMemo(() => ({ escolha, premissas: p.premissas, manual: p.manual }), [escolha, p.premissas, p.manual]);
 }
 
 /** A mensagem de salvar no catálogo vale para a comparação temporária em que apareceu. */
@@ -89,6 +99,8 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
   /** A comparação do "Experimente", de um caso clássico ou de um link: só em memória. */
   const [temporaria, setTemporaria] = useState<ComparacaoTemporaria | null>(null);
   const [mensagemSalva, setMensagem] = useState<MensagemTemporaria | null>(null);
+  /** O motivo de um link que não abriu; null sem erro. */
+  const [erroLink, setErroLink] = useState<string | null>(null);
 
   /** O primeiro erro de um rascunho do painel; enquanto houver, o botão Comparar fica desabilitado. */
   const [cenarioInvalido, setCenarioInvalido] = useState<string | null>(null);
@@ -126,6 +138,8 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
     [ofertasTemporarias, ofertas],
   );
   const mensagemTemporaria = mensagemSalva !== null && mensagemSalva.chave === temporaria?.chave ? mensagemSalva : null;
+  const cenarioDoLink = useCenarioDoLink(preferencias, ativo);
+  const cenarioDoLinkTemporaria = useCenarioDoLink(prefsTemporaria, ativoTemporaria);
 
   // O histórico do Banco Central, uma vez quando há posições, desde a aplicação mais antiga.
   const desde = posicoes.reduce<string | null>((min, p) => (min === null || p.dataAplicacao < min ? p.dataAplicacao : min), null);
@@ -169,6 +183,33 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
   // A visita contada ao carregar vai para o storage uma vez. Sem storage, o progresso vale só nesta visita.
   useEffect(() => { salvarProgresso(armazenamento, progresso); }, []);
 
+  // O link compartilhável (#comparar/c1.…): ao carregar e quando só o hash muda (o link colado na mesma aba). O
+  // estado sai da barra na hora (replaceState) e fica só em memória; link inválido não carrega nada.
+  useEffect(() => {
+    let ativo = true;
+    const abrirDoHash = () => {
+      const fragmento = lerEstadoDoHash();
+      if (fragmento === null) return;
+      limparEstadoDoHash();
+      void decodificar(fragmento).then((r) => {
+        if (!ativo) return;
+        if (!r.ok) {
+          setTemporaria(null);
+          setErroLink(r.erro);
+          irPara('comparar');
+          return;
+        }
+        abrirTemporaria(temporariaDoLink(r.estado, novoIdOferta));
+      });
+    };
+    abrirDoHash();
+    window.addEventListener('hashchange', abrirDoHash);
+    return () => {
+      ativo = false;
+      window.removeEventListener('hashchange', abrirDoHash);
+    };
+  }, []);
+
   // O voltar do navegador (ou um link #aprender/…) troca a lição; hash de outra aba não fecha a lição aberta.
   useEffect(() => {
     const aoMudarHash = () => {
@@ -202,6 +243,7 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
 
   /** Abre a comparação temporária na aba Comparar, com o foco no aviso dela. */
   function abrirTemporaria(t: ComparacaoTemporaria) {
+    setErroLink(null);
     setTemporaria(t);
     irPara('comparar');
     setFoco(ID_BANNER_TEMPORARIA);
@@ -212,6 +254,7 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
   }
 
   function voltarParaMinha() {
+    setErroLink(null);
     setTemporaria(null);
     setFoco(ID_TITULO_COMPARADOR);
   }
@@ -230,6 +273,10 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
     setMensagem({ texto, erro: false, chave: temporaria.chave });
     // O botão de salvar some: o foco vai para o aviso da temporária.
     setFoco(ID_BANNER_TEMPORARIA);
+  }
+
+  function dispensar(id: string) {
+    mudarProgresso(dispensarDica(progresso, id));
   }
 
   function mudarSelecaoTemporaria(ids: readonly string[]) {
@@ -288,6 +335,8 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
 
       {falhouAoGravar && <p role="alert" class="erro">{FALHA_AO_GRAVAR}</p>}
 
+      <VoceSabia indiceVisita={progresso.visitas - 1} onVerLicao={abrirLicao} />
+
       <PainelIndicadores indicadores={indicadores} preferencias={preferencias} ativo={ativo} explicacao={explicacao}
         onChange={mudarPreferencias} onCenarioInvalido={setCenarioInvalido} />
 
@@ -295,6 +344,12 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
         {
           id: 'comparar', rotulo: 'Comparar', conteudo: (
             <>
+              {erroLink !== null && (
+                <div class="link-invalido">
+                  <p role="alert" class="erro">{LINK_INVALIDO}</p>
+                  <p class="dica">{erroLink}</p>
+                </div>
+              )}
               {temporaria && (
                 <BannerTemporaria texto={textoDoBanner(temporaria.origem, temporaria.selecao.length)} aviso={avisoTemporaria}
                   salvas={temporaria.salvas} mensagem={mensagemTemporaria} onSalvar={salvarTemporaria} onVoltar={voltarParaMinha} />
@@ -306,11 +361,13 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
                   onMudarSelecao={mudarSelecaoTemporaria} onCriarOferta={criarOferta} inicial={temporaria.inicial}
                   pergunta={temporaria.pergunta} cenario={ativoTemporaria.cenario} descricaoCenario={descricaoTemporaria}
                   cenarioInvalido={pedido?.premissas ? null : cenarioInvalido}
-                  carteira={carteiraFGC.itens} motivoCarteira={carteiraFGC.motivo} onPalpite={registrar} />
+                  carteira={carteiraFGC.itens} motivoCarteira={carteiraFGC.motivo} onPalpite={registrar} onVerLicao={abrirLicao}
+                  dicasDispensadas={progresso.dicasDispensadas} onDispensarDica={dispensar} cenarioDoLink={cenarioDoLinkTemporaria} />
               ) : (
                 <Comparador key="minha" catalogo={ofertas} selecao={selecao} onMudarSelecao={mudarSelecao} onCriarOferta={criarOferta}
                   cenario={ativo.cenario} descricaoCenario={descricaoCenario} cenarioInvalido={cenarioInvalido} carteira={carteiraFGC.itens}
-                  motivoCarteira={carteiraFGC.motivo} onPalpite={registrar} />
+                  motivoCarteira={carteiraFGC.motivo} onPalpite={registrar} onVerLicao={abrirLicao}
+                  dicasDispensadas={progresso.dicasDispensadas} onDispensarDica={dispensar} cenarioDoLink={cenarioDoLink} />
               )}
             </>
           ),

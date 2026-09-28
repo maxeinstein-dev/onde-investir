@@ -1241,3 +1241,92 @@ button:hover {
   display: block;
   background: var(--fundo);
 }
+
+/* "Ver lição": dos alertas, das dicas e do "Você sabia?". */
+.alerta__acoes,
+.dica-contextual__acoes,
+.voce-sabia__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+}
+
+/* "Você sabia?": um cartão pequeno no topo da página. */
+.voce-sabia {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  background: var(--sucesso-fundo);
+  border-left: 4px solid var(--sucesso);
+  border-radius: var(--raio);
+  overflow-wrap: anywhere;
+}
+
+.pagina .voce-sabia__titulo {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.voce-sabia p {
+  margin: 0 0 0.35rem;
+}
+
+.voce-sabia p:last-child {
+  margin: 0;
+}
+
+/* Dicas contextuais, acima do resultado. */
+.dicas {
+  margin: 1.5rem 0 0;
+}
+
+.dicas__lista {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dica-contextual {
+  padding: 0.75rem 1rem;
+  background: var(--fundo-suave);
+  border-left: 4px solid var(--primaria);
+  border-radius: var(--raio);
+  overflow-wrap: anywhere;
+}
+
+.dica-contextual p {
+  margin: 0 0 0.35rem;
+}
+
+.dica-contextual p:last-child {
+  margin: 0;
+}
+
+/* Compartilhar a comparação: o botão, e o campo com o link quando não dá para copiar. */
+.compartilhar {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  justify-items: start;
+}
+
+.compartilhar__campo {
+  width: 100%;
+  max-width: 40rem;
+}
+
+.compartilhar__campo input {
+  width: 100%;
+  min-width: 0;
+}
+
+.compartilhar .dica {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.link-invalido {
+  margin: 0 0 1.25rem;
+}

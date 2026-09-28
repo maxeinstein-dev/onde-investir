@@ -7,14 +7,14 @@ import { LICOES, licaoPorId } from '../../conteudo/licoes';
 import type { CasoClassico, IdLicao, Licao } from '../../conteudo/licoes/tipos';
 import { MarkdownRestrito } from '../MarkdownRestrito';
 import { Termo } from '../Termo';
+import { hashDaLicao } from './LinkLicao';
+
+export { ABA_APRENDER } from './LinkLicao';
 
 const PREFIXO = 'aprender';
 export const ID_TITULO_APRENDER = `${PREFIXO}-titulo`;
 const ID_TITULO_LICAO = `${PREFIXO}-licao-titulo`;
 const idLinkDaLicao = (id: IdLicao) => `${PREFIXO}-link-${id}`;
-/** O hash de uma lição (`#aprender/fgc`) e do índice (`#aprender`): a aba é o prefixo antes da `/` (ver Abas). */
-export const ABA_APRENDER = 'aprender';
-export const hashDaLicao = (id: IdLicao | null) => (id === null ? `#${ABA_APRENDER}` : `#${ABA_APRENDER}/${id}`);
 
 const LINK_MD = /\[([^\]]+)\]\(([^)\s]+)\)/g;
 

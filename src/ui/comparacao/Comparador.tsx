@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { adicionar, remover } from '../../armazenamento/comparacao';
 import { armazenamentoLocal } from '../../armazenamento/navegador';
 import { lerPalpitesLigados, salvarPalpitesLigados } from '../../armazenamento/preferencias';
+import type { EstadoCompartilhado } from '../../armazenamento/link';
 import { AVISO_CENARIO_INVALIDO, descreverProjecao, nomeDoHorizonte, nomeOferta } from '../../conteudo/comparacao';
+import { dicasPara } from '../../conteudo/dicas';
+import type { IdLicao } from '../../conteudo/licoes/tipos';
 import { descreverOferta } from '../../conteudo/motivos';
 import { gerarAlertas, LIMIAR_QUASE_EMPATE, type Alerta } from '../../engine/alertas';
 import { ehDiaUtil } from '../../engine/calendario';
@@ -26,6 +29,8 @@ import { PalpiteAntesDeVer } from '../PalpiteAntesDeVer';
 import { Termo } from '../Termo';
 import { AdicionarOferta, ID_BOTAO_ADICIONAR } from './AdicionarOferta';
 import { Alertas } from './Alertas';
+import { Compartilhar } from './Compartilhar';
+import { Dicas } from './Dicas';
 import { LinhaDoTempo } from './LinhaDoTempo';
 import { PorQueLidera } from './PorQueLidera';
 import { idColuna, TabelaComparacao } from './TabelaComparacao';
@@ -171,6 +176,14 @@ export interface PropsComparador {
   pergunta?: string;
   /** Cada palpite respondido, para a taxa de acerto. Empate e horizonte sem líder não contam. */
   onPalpite?: (acertou: boolean) => void;
+  /** "Ver lição" dos alertas e das dicas. */
+  onVerLicao?: (id: IdLicao) => void;
+  /** As dicas contextuais que a pessoa já dispensou. */
+  dicasDispensadas?: readonly string[];
+  /** "Dispensar" numa dica: quem chama grava. */
+  onDispensarDica?: (id: string) => void;
+  /** O cenário em uso, para o link compartilhável; sem ele, o resultado não tem o botão de compartilhar. */
+  cenarioDoLink?: EstadoCompartilhado['cenario'];
 }
 
 /** O valor, as datas e a regra com que a comparação abre. */
@@ -183,11 +196,27 @@ export const RESULTADO_ATUALIZADO = {
 } as const;
 
 const SEM_CARTEIRA: readonly ItemFGC[] = [];
+const NENHUMA: readonly string[] = [];
+
+/** O estado do link: as ofertas sem os ids locais, as entradas do cálculo e o cenário. */
+function estadoDoLink(c: Calculo, cenario: EstadoCompartilhado['cenario']): EstadoCompartilhado {
+  const { valor, dataAplicacao, suaData } = c.entrada;
+  return {
+    versao: 1,
+    ofertas: c.ofertas.map((o) => {
+      const copia: Partial<OfertaCadastrada> = { ...o };
+      delete copia.id;
+      return copia as Omit<OfertaCadastrada, 'id'>;
+    }),
+    valor, dataAplicacao, ...(suaData.trim() === '' ? {} : { suaData }), regra: c.regra, cenario,
+  };
+}
 
 /** A tela de comparação: de 2 a 5 ofertas lado a lado, com palpite, linha do tempo e equivalências. */
 export function Comparador({
   catalogo, selecao, onMudarSelecao, onCriarOferta, cenario, descricaoCenario, cenarioInvalido = null, gerarId = novoIdOferta,
-  carteira = SEM_CARTEIRA, motivoCarteira = 'CARTEIRA', inicial, pergunta, onPalpite,
+  carteira = SEM_CARTEIRA, motivoCarteira = 'CARTEIRA', inicial, pergunta, onPalpite, onVerLicao,
+  dicasDispensadas = NENHUMA, onDispensarDica, cenarioDoLink,
 }: PropsComparador) {
   const [valor, setValor] = useState(inicial?.valor ?? 10000);
   const [dataAplicacao, setDataAplicacao] = useState<DataISO>(() => inicial?.dataAplicacao ?? hoje());
@@ -341,6 +370,23 @@ export function Comparador({
 
   const nomes = (fase.tipo === 'editando' ? ofertas : fase.ofertas).map(nomeOferta);
   const resultado = fase.tipo === 'resultado' ? fase : null;
+  const temCarteira = carteira.length > 0;
+  const dicas = useMemo(
+    () => (resultado === null ? [] : dicasPara(
+      { ofertasNaComparacao: resultado.ofertas, alertas: resultado.alertas, temCarteira }, new Set(dicasDispensadas),
+    )),
+    [resultado, temCarteira, dicasDispensadas],
+  );
+
+  /** A dica sai (quem chama grava); o foco vai para as dicas que ficam, ou para o título do resultado. */
+  function dispensar(id: string) {
+    onDispensarDica?.(id);
+    const ficam = resultado !== null && dicasPara(
+      { ofertasNaComparacao: resultado.ofertas, alertas: resultado.alertas, temCarteira }, new Set([...dicasDispensadas, id]),
+    ).length > 0;
+    anunciar('Dica dispensada.');
+    setFoco(ficam ? `${PREFIXO}-dicas-titulo` : `${PREFIXO}-resultado-titulo`);
+  }
 
   const tabela = ofertas.length > 0 && (
     <TabelaComparacao ofertas={ofertas} colunas={resultado?.colunas ?? []} dataAplicacao={dataAplicacao} onRemover={tirar} />
@@ -413,6 +459,9 @@ export function Comparador({
           onEscolher={(i) => escolherPalpite(fase, i)} onPular={pularPalpites} />
       )}
 
+      {resultado && (
+        <Dicas dicas={dicas} prefixo={`${PREFIXO}-dicas`} onVerLicao={onVerLicao} onDispensar={onDispensarDica && dispensar} />
+      )}
       {resultado ? (
         <section class="resultado" aria-labelledby={`${PREFIXO}-resultado-titulo`}>
           <h2 id={`${PREFIXO}-resultado-titulo`} ref={tituloResultado} tabIndex={-1}>Resultado da comparação</h2>
@@ -423,8 +472,10 @@ export function Comparador({
           <p class="dica">
             <Termo id="reinvestimento">Reinvestimento</Termo>: {descreverRegra(resultado.regra)} O IR recomeça na reaplicação.
           </p>
+          {cenarioDoLink && <Compartilhar estado={estadoDoLink(resultado, cenarioDoLink)} prefixo={`${PREFIXO}-compartilhar`} />}
           {tabela}
-          <Alertas alertas={resultado.alertas} ofertas={resultado.ofertas} horizontes={resultado.colunas} prefixo={`${PREFIXO}-alertas`} />
+          <Alertas alertas={resultado.alertas} ofertas={resultado.ofertas} horizontes={resultado.colunas} prefixo={`${PREFIXO}-alertas`}
+            onVerLicao={onVerLicao} />
           <PorQueLidera ofertas={resultado.ofertas} colunas={resultado.colunas} data={liderData} onData={setLiderData} />
           <details open class="graficos">
             <summary>Gráficos</summary>

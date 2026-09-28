@@ -1,5 +1,6 @@
 // A comparação temporária (plano M3c, C1 e C2): a do "Experimente", a de um caso clássico ou a de um link aberto.
 // Fica só em memória: não mexe na seleção salva nem no catálogo, e o cenário dela não muda as preferências.
+import type { EstadoCompartilhado } from '../../armazenamento/link';
 import { LIMITE_OFERTAS } from '../../armazenamento/ofertas';
 import type { ExperimenteMontado } from '../../conteudo/licoes/tipos';
 import type { EscolhaCenario, ValoresManuais } from '../../dados/cenarios';
@@ -39,6 +40,16 @@ export function temporariaDoExperimente(
     inicial: { valor: m.valor, dataAplicacao: m.dataAplicacao, regra: m.regra, ...(m.suaData === undefined ? {} : { suaData: m.suaData }) },
     ...(m.cenario === undefined ? {} : { cenario: { escolha: m.cenario } }),
     ...(m.pergunta === undefined ? {} : { pergunta: m.pergunta }),
+  };
+}
+
+/** A comparação de um link já validado: tudo vem dele, inclusive o cenário inteiro (escolha, premissas e manual). */
+export function temporariaDoLink(e: EstadoCompartilhado, gerarId: () => string): ComparacaoTemporaria {
+  const ofertas = e.ofertas.map((o) => ({ ...o, id: gerarId() }));
+  return {
+    chave: novaChave(), origem: { tipo: 'link' }, ofertas, selecao: ofertas.map((o) => o.id), salvas: false,
+    inicial: { valor: e.valor, dataAplicacao: e.dataAplicacao, regra: e.regra, ...(e.suaData === undefined ? {} : { suaData: e.suaData }) },
+    cenario: e.cenario,
   };
 }
 

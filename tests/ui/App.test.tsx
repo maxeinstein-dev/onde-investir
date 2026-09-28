@@ -96,12 +96,15 @@ describe('App', () => {
     expect(aba('Comparar')).toHaveAttribute('aria-selected', 'true');
     expect(location.hash).toBe('#comparar');
   });
-  it('o link compartilhável (#comparar/c1.…) abre em "Comparar"; o estado fica no hash para o link ler', () => {
+  it('o link compartilhável (#comparar/c1.…) abre em "Comparar", e o estado sai da barra', async () => {
     vi.stubGlobal('fetch', fetchForaDoAr);
     history.replaceState(null, '', `/#${ABA_DO_LINK}/c1.abc`);
     render(<App />);
     expect(aba('Comparar')).toHaveAttribute('aria-selected', 'true');
-    expect(lerEstadoDoHash()).toBe('c1.abc');
+    expect(lerEstadoDoHash()).toBeNull();
+    expect(location.hash).toBe('#comparar');
+    // "c1.abc" não é um link de verdade: o aviso aparece e nada é carregado (ver AppLink.test).
+    expect(await screen.findByText('Este link de comparação não pôde ser aberto.')).toBeInTheDocument();
   });
   it('clicar em "Catálogo" muda o hash e a aba; #catalogo abre nela', () => {
     vi.stubGlobal('fetch', fetchForaDoAr);

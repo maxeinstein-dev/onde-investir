@@ -173,7 +173,7 @@ describe('App: comparação temporária do "Experimente"', () => {
     abrirNaTrilha(comExperimente);
     fireEvent.click(screen.getByRole('button', { name: 'Experimente' }));
     fireEvent.click(within(painelAtivo()).getByRole('button', { name: 'Comparar' }));
-    const palpite = screen.getByRole('heading', { level: 2, name: /\?$/ }).closest('section') as HTMLElement;
+    const palpite = within(painelAtivo()).getByRole('heading', { level: 2, name: /\?$/ }).closest('section') as HTMLElement;
     fireEvent.click(within(palpite).getAllByRole('button', { name: /^[A-E]: / })[0] as HTMLElement);
     const feedback = (document.querySelector('.feedback') as HTMLElement).textContent ?? '';
     const esperado = feedback === 'Você acertou.' ? { acertos: 1, total: 1 }
