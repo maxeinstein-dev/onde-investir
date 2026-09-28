@@ -39,9 +39,11 @@ export type ExposicaoCarteira =
 
 export interface ResumoCarteira {
   linhas: LinhaPosicao[];
-  /** Soma das posições calculadas. */
+  /** Soma das posições calculadas que ainda não venceram. */
   total: { bruto: number; liquido: number };
   naoCalculadas: Posicao[];
+  /** As posições calculadas que já venceram: ficam fora do total e da exposição ao FGC. */
+  vencidas: Posicao[];
   fgc: ExposicaoCarteira;
 }
 
@@ -101,18 +103,21 @@ function exposicaoDaCarteira(calculadas: readonly { posicao: Posicao; valor: Val
 /**
  * O valor de hoje de cada posição, pelo cenário (com o histórico, ver `cenarioComHistorico`), o total e a
  * exposição ao FGC. Uma posição que não pode ser calculada (regra não cadastrada ou dado inválido) fica de fora
- * do total e do FGC, com o motivo; as outras seguem.
+ * do total e do FGC, com o motivo; as outras seguem. Uma posição vencida (hoje depois do vencimento; o próprio dia
+ * ainda conta) tem a linha, com o valor no vencimento, mas fica fora do total e do FGC: o dinheiro já saiu dela.
  */
 export function resumirCarteira(posicoes: readonly Posicao[], hoje: DataISO, cen: Cenario): ResumoCarteira {
   const linhas = posicoes.map((p) => calcularLinha(p, hoje, cen));
   const calculadas = linhas.flatMap((l) => ('valor' in l ? [l] : []));
+  const ativas = calculadas.filter((l) => !l.valor.vencida);
   return {
     linhas,
     total: {
-      bruto: calculadas.reduce((s, l) => s + l.valor.bruto, 0),
-      liquido: calculadas.reduce((s, l) => s + l.valor.liquido, 0),
+      bruto: ativas.reduce((s, l) => s + l.valor.bruto, 0),
+      liquido: ativas.reduce((s, l) => s + l.valor.liquido, 0),
     },
     naoCalculadas: linhas.flatMap((l) => ('erro' in l ? [l.posicao] : [])),
-    fgc: exposicaoDaCarteira(calculadas, hoje, cen),
+    vencidas: calculadas.flatMap((l) => (l.valor.vencida ? [l.posicao] : [])),
+    fgc: exposicaoDaCarteira(ativas, hoje, cen),
   };
 }

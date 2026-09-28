@@ -3,8 +3,11 @@ import { type DataISO, deDia, paraDia } from './datas';
 import type { TipoProduto } from './produtos';
 import { regraFGC } from './regras/fgc';
 
-/** Uma aplicação (posição ou oferta) contada no limite do FGC, pelo valor bruto (principal + rendimentos) em cada data. */
-export interface ItemFGC { conglomerado: string; produto: TipoProduto; brutoEm(data: DataISO): number }
+/**
+ * Uma aplicação (posição ou oferta) contada no limite do FGC, pelo valor bruto (principal + rendimentos) em cada data.
+ * `vencimento`, se houver, é o último dia em que o item conta: depois dele, `brutoEm` é zero (o dinheiro saiu).
+ */
+export interface ItemFGC { conglomerado: string; produto: TipoProduto; vencimento?: DataISO; brutoEm(data: DataISO): number }
 
 export interface AlertaFGC {
   /** O nome como apareceu no primeiro item do conglomerado. */
@@ -65,7 +68,8 @@ export function exposicao(itens: readonly ItemFGC[], data: DataISO): { porConglo
 
 /**
  * O primeiro dia em (abaixo, acima] com o total acima do limite, por busca binária. Supõe o total não decrescente
- * no intervalo, o que vale com rendimentos não negativos; com IPCA negativo num mês, acha um dia em que o total
+ * no intervalo, o que vale com rendimentos não negativos e sem vencimento de item dentro dele (os vencimentos entram
+ * nas datas conferidas, ver {@link primeiraDataAcimaDoLimite}); com IPCA negativo num mês, acha um dia em que o total
  * cruza o limite, perto do primeiro. A busca dia a dia custaria uma simulação inteira por dia de um intervalo que
  * pode ter anos.
  */
@@ -86,15 +90,21 @@ function primeiroDiaAcima(itens: readonly ItemFGC[], abaixo: DataISO, acima: Dat
  * Entre as `datas` (hoje, vencimentos, horizontes), acha a primeira acima do limite e, entre ela e a anterior,
  * o dia exato. Um alerta por conglomerado, em ordem de data e de nome. Além do cruzamento, o alerta traz o total e o
  * excedente no fim (a última das `datas`), que mostram quanto fica de fato sem garantia.
+ *
+ * O vencimento de um item do grupo entre a primeira e a última das `datas` também é conferido: depois dele o total
+ * cai, e sem essa data a busca binária poderia pular um cruzamento de antes do vencimento.
  */
 export function primeiraDataAcimaDoLimite(itens: readonly ItemFGC[], datas: readonly DataISO[]): AlertaFGC[] {
   const ordenadas = [...new Set(datas)].sort();
+  const inicio = ordenadas[0];
   const fim = ordenadas.at(-1);
   const alertas: AlertaFGC[] = [];
-  if (fim === undefined) return alertas;
+  if (inicio === undefined || fim === undefined) return alertas;
   for (const { nome, itens: doGrupo } of agrupar(itens).values()) {
+    const vencimentos = doGrupo.flatMap((i) => (i.vencimento !== undefined && i.vencimento > inicio && i.vencimento < fim ? [i.vencimento] : []));
+    const conferidas = vencimentos.length === 0 ? ordenadas : [...new Set([...ordenadas, ...vencimentos])].sort();
     let anterior: DataISO | undefined;
-    for (const d of ordenadas) {
+    for (const d of conferidas) {
       if (somaEm(doGrupo, d) <= regraFGC(d).porConglomerado) {
         anterior = d;
         continue;

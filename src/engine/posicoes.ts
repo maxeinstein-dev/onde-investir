@@ -131,7 +131,8 @@ export const JANELA_EXTRATO_FGC_DIAS = 30;
  * e projeta daí para a frente, ou seja, a partir da data do extrato o calculado é multiplicado por
  * `extrato / calculado na data do extrato` (na base do extrato; no extrato líquido, a proporção do líquido vale
  * para o bruto, uma aproximação). Com extrato mais antigo, ou sem extrato, vale o calculado. Antes da aplicação,
- * zero; depois do vencimento, o valor no vencimento. Os erros de `simular` sobem (a conta do FGC trata).
+ * zero; no dia do vencimento, o valor no vencimento; depois dele, zero: o dinheiro saiu da posição (se foi
+ * reaplicado, é outra posição). Os erros de `simular` sobem (a conta do FGC trata).
  */
 export function itemFGCDaPosicao(p: Posicao, hoje: DataISO, cen: Cenario): ItemFGC {
   const recente = p.valorExtrato !== undefined && p.dataExtrato !== undefined && p.dataExtrato <= hoje
@@ -146,8 +147,9 @@ export function itemFGCDaPosicao(p: Posicao, hoje: DataISO, cen: Cenario): ItemF
   };
   return {
     conglomerado: p.conglomerado, produto: p.produto,
+    ...(p.vencimento === undefined ? {} : { vencimento: p.vencimento }),
     brutoEm: (data) => {
-      if (data < p.dataAplicacao) return 0;
+      if (data < p.dataAplicacao || (p.vencimento !== undefined && data > p.vencimento)) return 0;
       const bruto = calcular(p, data, cen).bruto;
       return recente && data >= (p.dataExtrato as DataISO) ? bruto * doExtrato() : bruto;
     },

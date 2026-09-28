@@ -42,7 +42,7 @@ describe('resumirCarteira', () => {
   });
 
   it('exposição por conglomerado (nome normalizado), com o valor de hoje e o do vencimento mais distante', () => {
-    const a = cdb('a', 'Banco X', 100_000, '2027-01-04');
+    const a = cdb('a', 'Banco X', 100_000, '2028-01-03');
     const b = cdb('b', 'banco  x', 100_000, '2029-01-02');
     const c = cdb('c', 'Outro', 10_000, '2027-01-04');
     const r = resumirCarteira([a, b, c], HOJE, CEN);
@@ -51,12 +51,13 @@ describe('resumirCarteira', () => {
     expect(x?.nome).toBe('Banco X');
     expect(x?.hoje).toBeCloseTo(valorAtual(a, HOJE, CEN).bruto + valorAtual(b, HOJE, CEN).bruto, 6);
     expect(x?.fim?.data).toBe('2029-01-02');
-    expect(x?.fim?.valor).toBeCloseTo(valorAtual(a, '2029-01-02', CEN).bruto + valorAtual(b, '2029-01-02', CEN).bruto, 6);
+    // No vencimento mais distante, a que venceu antes já não conta.
+    expect(x?.fim?.valor).toBeCloseTo(valorAtual(b, '2029-01-02', CEN).bruto, 6);
     expect(x?.limite).toBe(250_000);
-    // R$ 200 mil a 13,65% a.a. passam de R$ 250 mil antes de 2029: o alerta traz a data do cruzamento.
+    // R$ 200 mil a 13,65% a.a. passam de R$ 250 mil antes de 2028: o alerta traz a data do cruzamento.
     expect(x?.alerta?.data).toBeDefined();
     expect((x?.alerta?.data ?? '') > HOJE).toBe(true);
-    expect((x?.alerta?.data ?? '9') < '2029-01-02').toBe(true);
+    expect((x?.alerta?.data ?? '9') < '2028-01-03').toBe(true);
     expect(outro?.nome).toBe('Outro');
     expect(outro?.alerta).toBeUndefined();
   });
@@ -79,6 +80,39 @@ describe('resumirCarteira', () => {
     if (!um.fgc.ok) throw new Error('FGC deveria ter sido calculado');
     expect(um.fgc.garantiaSomada).toBe(250_000);
     expect(um.fgc.tetoGlobal).toBeNull();
+  });
+
+  describe('posições vencidas', () => {
+    const vencida = (id: string, conglomerado: string, valorAplicado: number, produto: Posicao['produto'] = 'CDB'): Posicao => ({
+      ...cdb(id, conglomerado, valorAplicado, '2026-09-01'), produto, dataAplicacao: '2024-09-02',
+    });
+
+    it('ficam fora do total, com a linha e o valor no vencimento', () => {
+      const ativa = cdb('a', 'Grupo A', 10_000, '2028-01-03');
+      const v = vencida('v', 'Grupo A', 50_000);
+      const r = resumirCarteira([ativa, v], HOJE, CEN);
+      expect(r.linhas[1]).toEqual({ posicao: v, valor: valorAtual(v, HOJE, CEN) });
+      expect(r.total.bruto).toBeCloseTo(valorAtual(ativa, HOJE, CEN).bruto, 8);
+      expect(r.total.liquido).toBeCloseTo(valorAtual(ativa, HOJE, CEN).liquido, 8);
+      expect(r.vencidas).toEqual([v]);
+    });
+
+    it('LCA de R$ 300 mil vencida: fora da exposição, sem barra estourada e sem alerta', () => {
+      const r = resumirCarteira([vencida('v', 'Grupo A', 300_000, 'LCA')], HOJE, CEN);
+      if (!r.fgc.ok) throw new Error('FGC deveria ter sido calculado');
+      expect(r.fgc.conglomerados).toEqual([]);
+      expect(r.fgc.garantiaSomada).toBe(0);
+    });
+
+    it('fora do "no vencimento mais distante" e do valor de hoje do conglomerado', () => {
+      const ativa = cdb('a', 'Grupo A', 100_000, '2027-01-04');
+      const r = resumirCarteira([ativa, vencida('v', 'grupo a', 200_000)], HOJE, CEN);
+      if (!r.fgc.ok) throw new Error('FGC deveria ter sido calculado');
+      const [g] = r.fgc.conglomerados;
+      expect(g?.hoje).toBeCloseTo(valorAtual(ativa, HOJE, CEN).bruto, 6);
+      expect(g?.fim).toEqual({ data: '2027-01-04', valor: valorAtual(ativa, '2027-01-04', CEN).bruto });
+      expect(g?.alerta).toBeUndefined();
+    });
   });
 
   it('carteira já acima do limite hoje: o alerta é de hoje', () => {

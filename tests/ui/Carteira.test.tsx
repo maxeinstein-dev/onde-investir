@@ -183,12 +183,23 @@ describe('aba Carteira', () => {
       expect(c).not.toHaveTextContent('A diferença passa de 1%');
     });
 
-    it('posição vencida: "Venceu em" e o valor no vencimento', () => {
-      const vencida: Posicao = { ...cdb, dataAplicacao: '2025-01-06', vencimento: '2026-01-05' };
-      render(<Tela inicial={[vencida]} />);
+    it('posição vencida: no grupo "Vencidas", com "Venceu em", o valor no vencimento e fora do total', () => {
+      const vencida: Posicao = { ...cdb, id: 'p-v', emissor: 'Banco V', dataAplicacao: '2025-01-06', vencimento: '2026-01-05' };
+      render(<Tela inicial={[cdb, vencida]} />);
       const v = valorAtual(vencida, HOJE, CEN);
-      expect(cartao(/CDB/)).toHaveTextContent('Venceu em 05/01/2026');
-      expect(cartao(/CDB/)).toHaveTextContent(`No vencimento: ${moeda(v.bruto)} bruto`);
+      const grupo = screen.getByRole('region', { name: 'Vencidas' });
+      const c = within(grupo).getByRole('article', { name: /Banco V/ });
+      expect(c).toHaveTextContent('Venceu em 05/01/2026. Se o dinheiro foi reaplicado, cadastre a nova posição.');
+      expect(c).toHaveTextContent(`No vencimento: ${moeda(v.bruto)} bruto`);
+      expect(within(grupo).queryByRole('article', { name: /Banco A/ })).toBeNull();
+      expect(screen.getByRole('list', { name: 'Posições cadastradas' })).toHaveTextContent('Banco A');
+      const total = screen.getByRole('region', { name: 'Total da carteira' });
+      expect(total).toHaveTextContent(`${moeda(valorAtual(cdb, HOJE, CEN).bruto)} bruto`);
+    });
+
+    it('sem vencidas, sem o grupo', () => {
+      render(<Tela inicial={[cdb]} />);
+      expect(screen.queryByRole('region', { name: 'Vencidas' })).toBeNull();
     });
 
     it('posição não calculada: o motivo, fora do total', () => {
@@ -217,7 +228,7 @@ describe('aba Carteira', () => {
   });
 
   describe('exposição ao FGC', () => {
-    const a1: Posicao = { ...cdb, valorAplicado: 100_000, vencimento: '2027-01-04' };
+    const a1: Posicao = { ...cdb, valorAplicado: 100_000, vencimento: '2028-01-03' };
     const a2: Posicao = { ...cdb, id: 'p-a2', emissor: 'Banco A2', conglomerado: 'grupo  a', valorAplicado: 100_000, vencimento: '2029-01-02' };
     const tesouro: Posicao = {
       ...cdb, id: 'p-t', produto: 'TESOURO_SELIC', indexacao: { tipo: 'SELIC' }, emissor: 'Tesouro Nacional',
@@ -234,9 +245,19 @@ describe('aba Carteira', () => {
       expect(barra).toHaveAttribute('max', '250000');
       expect(Number(barra.getAttribute('value'))).toBeCloseTo(hoje, 2);
       expect(fgc).toHaveTextContent(`Grupo A: ${moeda(hoje)} hoje, de R$ 250 mil`);
-      const fim = valorAtual(a1, '2029-01-02', CEN).bruto + valorAtual(a2, '2029-01-02', CEN).bruto;
+      // A que vence antes não conta no vencimento mais distante.
+      const fim = valorAtual(a2, '2029-01-02', CEN).bruto;
       expect(fgc).toHaveTextContent(`No vencimento mais distante (02/01/2029): ${moeda(fim)}`);
       expect(fgc.querySelectorAll('meter')).toHaveLength(1);
+    });
+
+    it('LCA de R$ 300 mil vencida: nenhuma barra, nenhum alerta', () => {
+      const lca: Posicao = { ...cdb, produto: 'LCA', valorAplicado: 300_000, dataAplicacao: '2024-09-02', vencimento: '2026-09-01' };
+      render(<Tela inicial={[lca]} />);
+      const fgc = screen.getByRole('region', { name: /Exposição ao FGC/ });
+      expect(fgc.querySelectorAll('meter')).toHaveLength(0);
+      expect(fgc).not.toHaveTextContent('passa do limite');
+      expect(fgc).toHaveTextContent('Nenhuma posição com a garantia do FGC.');
     });
 
     it('o alerta quando passa do limite, com a data', () => {

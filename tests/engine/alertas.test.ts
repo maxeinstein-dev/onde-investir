@@ -5,6 +5,7 @@ import { somarDias } from '../../src/engine/datas';
 import { OfertaInvalidaError, RegraNaoEncontradaError } from '../../src/engine/erros';
 import { projetar, type OfertaCadastrada, type Projecao } from '../../src/engine/ofertas';
 import { primeiraDataAcimaDoLimite, type ItemFGC } from '../../src/engine/fgc';
+import { itemFGCDaPosicao, type Posicao } from '../../src/engine/posicoes';
 import { simular, type ResultadoSimulacao } from '../../src/engine/produtos';
 import { CEN, INI } from './cenarioPadrao';
 
@@ -386,6 +387,34 @@ describe('FGC_LIMITE', () => {
   });
   it('valor da comparação inválido lança', () => {
     expect(() => gerarAlertas([cdbVenc2031], [], LIMIAR_QUASE_EMPATE, undefined, contexto([], 0))).toThrow(RangeError);
+  });
+
+  describe('posição vencida da carteira', () => {
+    const posicao = (p: Partial<Posicao>): Posicao => ({
+      id: 'p', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1 }, emissor: 'Banco B', conglomerado: 'B',
+      liquidez: 'NO_VENCIMENTO', valorAplicado: 200_000, dataAplicacao: '2024-09-02', vencimento: '2026-09-01', eventos: [], ...p,
+    });
+
+    it('vencida de R$ 200 mil + oferta nova de R$ 60 mil no mesmo conglomerado: sem FGC_LIMITE', () => {
+      const vencida = itemFGCDaPosicao(posicao({}), INI, CEN);
+      expect(doTipo(comFGC([cdbVenc2031], [vencida], 60_000), 'FGC_LIMITE')).toEqual([]);
+    });
+
+    it('LCA de R$ 300 mil vencida: não conta como "já acima"', () => {
+      const lca = itemFGCDaPosicao(posicao({ produto: 'LCA', valorAplicado: 300_000 }), INI, CEN);
+      const fgc = doTipo(comFGC([cdbVenc2031], [lca], 10_000), 'FGC_LIMITE');
+      expect(fgc).toEqual([]);
+      expect(fgc.some((a) => a.jaAcima)).toBe(false);
+    });
+
+    it('uma posição que vence entre dois horizontes: o cruzamento de antes do vencimento não se perde na busca', () => {
+      // 240 mil de 01/04/2027 até o vencimento em 01/06/2027; depois, 235 mil a partir de 01/08/2027. O primeiro dia
+      // acima do limite é 01/04/2027, entre os horizontes de 6 meses e de 1 ano.
+      const curta: ItemFGC = { conglomerado: 'B', produto: 'CDB', vencimento: '2027-06-01', brutoEm: (d) => (d >= '2027-04-01' && d <= '2027-06-01' ? 240_000 : 0) };
+      const tardia: ItemFGC = { conglomerado: 'B', produto: 'CDB', brutoEm: (d) => (d >= '2027-08-01' ? 235_000 : 0) };
+      const [a] = doTipo(comFGC([cdbVenc2031], [curta, tardia], 20_000), 'FGC_LIMITE');
+      expect(a?.data).toBe('2027-04-01');
+    });
   });
 });
 

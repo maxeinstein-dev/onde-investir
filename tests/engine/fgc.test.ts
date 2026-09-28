@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { deDia, paraDia, type DataISO } from '../../src/engine/datas';
 import { coberto, exposicao, type ItemFGC, normalizarConglomerado, primeiraDataAcimaDoLimite, tetoGlobalExcedido } from '../../src/engine/fgc';
+import { itemFGCDaPosicao, type Posicao } from '../../src/engine/posicoes';
 import { simular, type TipoProduto } from '../../src/engine/produtos';
 import { CEN, INI } from './cenarioPadrao';
 
@@ -83,6 +84,20 @@ describe('primeiraDataAcimaDoLimite', () => {
   });
   it('sem datas, sem alerta', () => {
     expect(primeiraDataAcimaDoLimite([fixo('Banco X', 300_000)], [])).toEqual([]);
+  });
+  it('posições que vencem: o limite passado antes do vencimento dá o dia exato, e no fim a vencida não conta', () => {
+    const posicao = (id: string, valorAplicado: number, vencimento: DataISO): Posicao => ({
+      id, produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1 }, emissor: 'Banco X', conglomerado: 'Banco X',
+      liquidez: 'NO_VENCIMENTO', valorAplicado, dataAplicacao: INI, vencimento, eventos: [],
+    });
+    const itens = [itemFGCDaPosicao(posicao('a', 120_000, '2027-09-28'), INI, CEN), itemFGCDaPosicao(posicao('b', 125_000, '2028-09-28'), INI, CEN)];
+    const [a, ...resto] = primeiraDataAcimaDoLimite(itens, [INI, '2027-09-28', '2028-09-28']);
+    const esperado = primeiroDiaAcima(itens, INI, '2027-09-28') as DataISO;
+    expect(esperado > INI && esperado < '2027-09-28').toBe(true);
+    expect(resto).toEqual([]);
+    expect(a?.data).toBe(esperado);
+    // No fim, só a que ainda não venceu.
+    expect(a?.totalNoFim).toBe(itens[1]?.brutoEm('2028-09-28'));
   });
 });
 

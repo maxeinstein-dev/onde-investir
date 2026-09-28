@@ -183,11 +183,20 @@ describe('itemFGCDaPosicao (o bruto da posição na conta do FGC)', () => {
     const item = itemFGCDaPosicao({ ...cdb, valorExtrato: r.valorLiquido * 0.99, dataExtrato, baseExtrato: 'LIQUIDO' }, HOJE, CEN);
     expect(item.brutoEm(HOJE)).toBeCloseTo(simulado(cdb, HOJE).valorBruto * 0.99, 8);
   });
-  it('antes da aplicação: zero; no dia da aplicação: o aplicado; depois do vencimento: o do vencimento', () => {
+  it('antes da aplicação: zero; no dia da aplicação: o aplicado; no vencimento: o do vencimento; depois: zero', () => {
     const item = itemFGCDaPosicao(cdb, HOJE, CEN);
+    expect(item.vencimento).toBe('2027-09-29');
     expect(item.brutoEm('2025-01-01')).toBe(0);
     expect(item.brutoEm(APLICADO_EM)).toBe(10000);
-    expect(item.brutoEm('2028-01-01')).toBe(simulado(cdb, '2027-09-29').valorBruto);
+    expect(item.brutoEm('2027-09-29')).toBe(simulado(cdb, '2027-09-29').valorBruto);
+    expect(item.brutoEm('2027-09-30')).toBe(0);
+    expect(item.brutoEm('2028-01-01')).toBe(0);
+  });
+  it('vencida com extrato recente: zero depois do vencimento também', () => {
+    const vencida: Posicao = { ...cdb, vencimento: '2026-09-01', valorExtrato: 11_000, dataExtrato: '2026-09-01' };
+    const item = itemFGCDaPosicao(vencida, HOJE, CEN);
+    expect(item.brutoEm('2026-09-01')).toBeCloseTo(11_000, 8);
+    expect(item.brutoEm(HOJE)).toBe(0);
   });
   it('o extrato não substitui o valor atual: valorAtual continua o calculado', () => {
     const p = comExtrato(somarDias(HOJE, -10));

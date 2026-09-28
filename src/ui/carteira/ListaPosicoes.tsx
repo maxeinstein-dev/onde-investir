@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { CURVA_CONTRATADA, EXTRATO_SUSPEITO, textoDoExtrato } from '../../conteudo/carteira';
+import { CURVA_CONTRATADA, EXTRATO_SUSPEITO, textoDaVencida, textoDoExtrato } from '../../conteudo/carteira';
 import { nomeOferta } from '../../conteudo/comparacao';
 import { textoDaConferencia } from '../../conteudo/motivos';
 import { dataBR } from '../../engine/datas';
@@ -23,7 +23,7 @@ function Valor({ linha }: { linha: LinhaPosicao }) {
   const motivo = extrato ? textoDaConferencia(extrato) : null;
   return (
     <>
-      {valor.vencida && <p class="cartao__detalhe">Venceu em {dataBR(valor.data)}</p>}
+      {valor.vencida && <p class="cartao__detalhe">{textoDaVencida(valor.data)}</p>}
       <p class="posicao__valor">{quando}: {formatarMoeda(valor.bruto)} bruto, {formatarMoeda(valor.liquido)} líquido</p>
       {valor.marcacaoAMercado && <p class="dica">{CURVA_CONTRATADA}</p>}
       {extrato && <p class="cartao__detalhe">{textoDoExtrato(extrato)}</p>}
@@ -33,7 +33,10 @@ function Valor({ linha }: { linha: LinhaPosicao }) {
   );
 }
 
-function Cartao({ linha, indice, onEditar, onRemover }: { linha: LinhaPosicao; indice: number; onEditar: () => void; onRemover: () => void }) {
+interface PropsCartao { linha: LinhaPosicao; indice: number; nivel: 3 | 4; onEditar: () => void; onRemover: () => void }
+
+function Cartao({ linha, indice, nivel, onEditar, onRemover }: PropsCartao) {
+  const Titulo = nivel === 3 ? 'h3' : 'h4';
   const [confirmando, setConfirmando] = useState(false);
   const botaoConfirmar = useRef<HTMLButtonElement>(null);
   const idTitulo = idTituloPosicao(indice);
@@ -46,7 +49,7 @@ function Cartao({ linha, indice, onEditar, onRemover }: { linha: LinhaPosicao; i
   return (
     <li>
       <article class="cartao cartao--posicao" aria-labelledby={idTitulo}>
-        <h3 id={idTitulo} tabIndex={-1}>{nomeOferta(p)}</h3>
+        <Titulo id={idTitulo} tabIndex={-1}>{nomeOferta(p)}</Titulo>
         <p class="cartao__detalhe">Conglomerado: {p.conglomerado}</p>
         <p class="cartao__detalhe">Aplicado em {dataBR(p.dataAplicacao)}: {formatarMoeda(p.valorAplicado)}</p>
         <Valor linha={linha} />
@@ -67,12 +70,30 @@ function Cartao({ linha, indice, onEditar, onRemover }: { linha: LinhaPosicao; i
   );
 }
 
+const ehVencida = (l: LinhaPosicao) => 'valor' in l && l.valor.vencida;
+const ID_VENCIDAS = 'posicoes-vencidas-titulo';
+
+/**
+ * As posições em cartões: as que ainda valem na lista principal e as vencidas num grupo à parte. O índice do cartão
+ * (e o id do título) é o da posição na lista completa, para o foco depois de salvar ou remover.
+ */
 export function ListaPosicoes({ linhas, onEditar, onRemover }: PropsListaPosicoes) {
+  const comIndice = linhas.map((linha, indice) => ({ linha, indice }));
+  const ativas = comIndice.filter((x) => !ehVencida(x.linha));
+  const vencidas = comIndice.filter((x) => ehVencida(x.linha));
+  const cartao = ({ linha, indice }: { linha: LinhaPosicao; indice: number }, nivel: 3 | 4) => (
+    <Cartao key={linha.posicao.id} linha={linha} indice={indice} nivel={nivel}
+      onEditar={() => onEditar(linha.posicao.id)} onRemover={() => onRemover(linha.posicao.id)} />
+  );
   return (
-    <ul class="lista-ofertas" aria-label="Posições cadastradas">
-      {linhas.map((l, i) => (
-        <Cartao key={l.posicao.id} linha={l} indice={i} onEditar={() => onEditar(l.posicao.id)} onRemover={() => onRemover(l.posicao.id)} />
-      ))}
-    </ul>
+    <>
+      {ativas.length > 0 && <ul class="lista-ofertas" aria-label="Posições cadastradas">{ativas.map((x) => cartao(x, 3))}</ul>}
+      {vencidas.length > 0 && (
+        <section class="carteira__vencidas" aria-labelledby={ID_VENCIDAS}>
+          <h3 id={ID_VENCIDAS}>Vencidas</h3>
+          <ul class="lista-ofertas" aria-label="Posições vencidas">{vencidas.map((x) => cartao(x, 4))}</ul>
+        </section>
+      )}
+    </>
   );
 }

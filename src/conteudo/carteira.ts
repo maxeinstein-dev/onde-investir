@@ -59,6 +59,10 @@ export function textoDoExtrato(e: ConferenciaExtrato): string {
   return `Extrato de ${dataBR(e.data)} (${base}): ${formatarMoeda(e.valor)}. O app calcula ${formatarMoeda(e.calculado)} nessa data, uma diferença de ${comSinal(e.diferencaPercentual)}.`;
 }
 
+/** A posição vencida: fica fora do total e do FGC, e a reaplicação é outra posição. */
+export const textoDaVencida = (vencimento: string) =>
+  `Venceu em ${dataBR(vencimento)}. Se o dinheiro foi reaplicado, cadastre a nova posição.`;
+
 /** O alerta de um conglomerado da carteira acima do limite: hoje, ou a data do cruzamento. */
 export function textoDoLimiteNaCarteira(a: AlertaFGC, hoje: string): string {
   if (a.data === hoje) {
