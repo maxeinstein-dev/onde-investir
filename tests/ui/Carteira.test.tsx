@@ -92,6 +92,20 @@ describe('aba Carteira', () => {
       expect(screen.getByLabelText('Data da aplicação')).toHaveValue('');
     });
 
+    it('cadastrar confirma "Posição adicionada." num contêiner vivo permanente e leva o foco ao cartão novo', () => {
+      render(<Tela inicial={[cdb]} />);
+      const confirmacao = screen.getAllByRole('status').find((s) => s.classList.contains('carteira__confirmacao')) as HTMLElement;
+      expect(confirmacao).toHaveTextContent('');
+      preencher('Emissor', 'Banco B');
+      preencher('Conglomerado', 'Grupo B');
+      preencher('Valor aplicado (R$)', '15000');
+      preencher('Data da aplicação', '2026-02-02');
+      adicionar();
+      expect(confirmacao).toHaveTextContent('Posição adicionada.');
+      expect(screen.getAllByRole('status')).toContain(confirmacao);
+      expect(screen.getByRole('heading', { level: 3, name: /Banco B/ })).toHaveFocus();
+    });
+
     it.each([
       ['sem o valor aplicado', {}, 'Preencha o valor aplicado.'],
       ['sem a data da aplicação', { valor: '1000' }, 'Informe a data da aplicação.'],
@@ -313,7 +327,7 @@ describe('aba Carteira', () => {
   });
 
   describe('histórico do Banco Central', () => {
-    const status = () => screen.getByRole('status');
+    const status = () => screen.getAllByRole('status')[0] as HTMLElement;
     const carregado = (c: Partial<HistoricoCarregado>): EstadoHistorico => ({
       fase: 'pronto',
       carregado: { series: null, status: 'REDE', faltando: [], limitado: false, inicio: '2026-01-01', ...c } as HistoricoCarregado,

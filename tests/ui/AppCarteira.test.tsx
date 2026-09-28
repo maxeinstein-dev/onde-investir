@@ -95,10 +95,10 @@ describe('aba Carteira no App', () => {
     localStorage.setItem(CHAVE_POSICOES, JSON.stringify([cdbCdi]));
     history.replaceState(null, '', '/#carteira');
     render(<App />);
-    const status = within(painelAtivo()).getByRole('status');
+    const status = within(painelAtivo()).getAllByRole('status')[0] as HTMLElement;
     expect(status).toHaveTextContent('Buscando o histórico do Banco Central…');
     await waitFor(() => expect(status).toHaveTextContent('Valores calculados com o histórico do Banco Central até 25/09/2026.'));
-    expect(within(painelAtivo()).getByRole('status')).toBe(status);
+    expect(within(painelAtivo()).getAllByRole('status')[0]).toBe(status);
     expect(chamadasDoHistorico().sort()).toEqual([...SERIES_HISTORICO.map((s) => urlSgsAno(s, 2025)), ...SERIES_HISTORICO.map((s) => urlSgsAno(s, 2026))].sort());
     // Hoje é domingo, 27/09/2026: o último dia útil com CDI é sexta, 25/09, e todo o período está realizado.
     const bruto = 10_000 * fatorRealizado('2025-01-02', '2026-09-27');
@@ -122,7 +122,7 @@ describe('aba Carteira no App', () => {
     localStorage.setItem(CHAVE_POSICOES, JSON.stringify([cdbCdi]));
     history.replaceState(null, '', '/#carteira');
     render(<App />);
-    const status = within(painelAtivo()).getByRole('status');
+    const status = within(painelAtivo()).getAllByRole('status')[0] as HTMLElement;
     await waitFor(() => expect(status).toHaveTextContent('Não deu para buscar o histórico do Banco Central. Os valores saem pelo cenário.'));
     expect(screen.getByRole('article', { name: /CDB 100% do CDI/ })).toHaveTextContent(/Hoje: R\$ [\d.]+,\d\d bruto/);
   });

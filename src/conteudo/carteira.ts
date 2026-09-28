@@ -8,6 +8,7 @@ import type { EstadoHistorico } from '../ui/useHistorico';
 
 export const SEM_POSICOES = 'Cadastre as aplicações que você já tem para ver quanto valem hoje e quanto está coberto pelo FGC.';
 export const BUSCANDO_HISTORICO = 'Buscando o histórico do Banco Central…';
+export const POSICAO_ADICIONADA = 'Posição adicionada.';
 export const DICA_EXTRATO = 'O extrato serve para conferir o valor calculado. Se for de até 30 dias atrás, a exposição ao FGC parte dele.';
 export const EXTRATO_SUSPEITO = 'A diferença passa de 1%. Confira a taxa e a data digitadas.';
 export const CURVA_CONTRATADA = 'Valor pela taxa contratada. Vendido antes do vencimento, sai pelo preço de mercado.';

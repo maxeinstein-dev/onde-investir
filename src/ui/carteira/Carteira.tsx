@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { LIMITE_POSICOES, novoIdPosicao } from '../../armazenamento/posicoes';
-import { DICA_EXPORTAR, SEM_POSICOES, textoDoHistorico } from '../../conteudo/carteira';
+import { DICA_EXPORTAR, POSICAO_ADICIONADA, SEM_POSICOES, textoDoHistorico } from '../../conteudo/carteira';
 import type { Cenario } from '../../engine/indexadores';
 import type { Posicao } from '../../engine/posicoes';
 import { formatarMoeda } from '../../formato';
@@ -30,6 +30,8 @@ export interface PropsCarteira {
 }
 
 const PREFIXO = 'carteira';
+/** Tempo com a confirmação vazia antes de reescrever a mesma mensagem, para o leitor de tela anunciar de novo. */
+const ESPERA_REPETIR_MS = 100;
 
 /** A aba Carteira: as posições que a pessoa já tem, quanto valem hoje e quanto está coberto pelo FGC (spec §5.3). */
 export function Carteira({
@@ -55,10 +57,33 @@ export function Carteira({
     (cartao ?? reserva)?.focus();
   }, [foco]);
 
+  /** A confirmação do cadastro, num contêiner vivo permanente: só o texto muda, e o leitor de tela anuncia. */
+  const [confirmacao, setConfirmacao] = useState('');
+  const repetir = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(repetir.current), []);
+
+  function confirmar(texto: string) {
+    clearTimeout(repetir.current);
+    if (texto === '' || texto !== confirmacao) {
+      setConfirmacao(texto);
+      return;
+    }
+    // A mesma mensagem de novo (outro cadastro): limpa e reescreve, senão o contêiner vivo não muda.
+    setConfirmacao('');
+    repetir.current = setTimeout(() => setConfirmacao(texto), ESPERA_REPETIR_MS);
+  }
+
   function salvar(p: Posicao) {
     const indice = posicoes.findIndex((x) => x.id === p.id);
     onChange(indice >= 0 ? posicoes.map((x) => (x.id === p.id ? p : x)) : [...posicoes, p]);
-    if (indice >= 0) setFoco({ cartao: indice, reserva: 'formulario' });
+    if (indice >= 0) {
+      setFoco({ cartao: indice, reserva: 'formulario' });
+      confirmar('');
+    } else {
+      // A posição nova entra no fim da lista: o foco vai para o cartão dela.
+      setFoco({ cartao: posicoes.length, reserva: 'formulario' });
+      confirmar(POSICAO_ADICIONADA);
+    }
     setEditando(null);
   }
 
@@ -67,6 +92,8 @@ export function Carteira({
     const restantes = posicoes.filter((p) => p.id !== id);
     onChange(restantes);
     setFoco({ cartao: indice < restantes.length ? indice : -1, reserva: 'lista' });
+    // A confirmação do último cadastro deixa de valer.
+    confirmar('');
     if (editando === id) setEditando(null);
   }
 
@@ -99,6 +126,7 @@ export function Carteira({
         <FormPosicao key={emEdicao?.id ?? 'nova'} inicial={emEdicao} conglomerados={conglomerados} gerarId={gerarId}
           onSalvar={salvar} onCancelar={() => setEditando(null)} />
       )}
+      <p role="status" class="dica carteira__confirmacao">{confirmacao}</p>
       {posicoes.length > 0 && <p class="dica">{DICA_EXPORTAR}</p>}
     </section>
   );
