@@ -5,6 +5,7 @@ import { resumirTrocas } from '../../src/conteudo/serie';
 import type { Alerta } from '../../src/engine/alertas';
 import { horizontesPadrao } from '../../src/engine/comparacao';
 import type { OfertaCadastrada } from '../../src/engine/ofertas';
+import type { Oferta } from '../../src/engine/produtos';
 import { INI } from '../engine/cenarioPadrao';
 
 /** R$ com espaço comum ou NBSP. */
@@ -19,6 +20,8 @@ const lciNoVencimento: OfertaCadastrada = { ...base, id: '4', produto: 'LCI', in
 const lciDiaria: OfertaCadastrada = { ...lciNoVencimento, id: '5', liquidez: 'DIARIA' };
 const ofertas = [cdbNoVencimento, cdbDiario, tesouroSelic, lciNoVencimento, lciDiaria];
 const horizontes = horizontesPadrao(INI, '2028-01-15');
+const CDB_103: Oferta = { produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 } };
+const CDB_100: Oferta = { produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1 } };
 
 describe('textoDoAlerta', () => {
   it('QUASE_EMPATE com liquidez', () => {
@@ -55,12 +58,27 @@ describe('textoDoAlerta', () => {
   });
 
   it('IR_REINICIA', () => {
-    const a: Alerta = { tipo: 'IR_REINICIA', oferta: 0, data: '2027-09-28', aliquotaNova: 0.175, aliquotaSemReaplicar: 0.15 };
+    const a: Alerta = {
+      tipo: 'IR_REINICIA', oferta: 0, data: '2027-09-28', horizonte: '2028-09-28', reinvestimento: CDB_103, etapa1Isenta: false,
+      aliquotaNova: 0.175, aliquotaSemReaplicar: 0.15, custo: 42.1,
+    };
     const t = textoDoAlerta(a, ofertas, horizontes);
     expect(t.titulo).toBe('O IR recomeça na reaplicação');
-    expect(t.oQue).toBe('Na reaplicação de CDB 103% do CDI (Banco B) em 28/09/2027, o IR volta para 17,5%. Sem reaplicar, seria 15%.');
+    expect(t.oQue).toMatch(re(String.raw`Em 2 anos, a reaplicação de CDB 103% do CDI \(Banco B\) \(a partir de 28/09/2027\) paga 17,5% de IR, em vez de 15% se o dinheiro tivesse ficado aplicado desde o início: ${R}42,10 a mais\.`));
     expect(t.porQue).toMatch(/recomeça/);
     expect(t.termo).toBe('ir-regressivo');
+  });
+
+  it('IR_REINICIA com a original isenta: passa a pagar IR', () => {
+    const a: Alerta = {
+      tipo: 'IR_REINICIA', oferta: 3, data: '2029-09-28', horizonte: '2031-09-28', reinvestimento: CDB_100, etapa1Isenta: true,
+      aliquotaNova: 0.175, aliquotaSemReaplicar: 0, custo: 250,
+    };
+    const t = textoDoAlerta(a, ofertas, horizontes);
+    expect(t.titulo).toBe('A reaplicação passa a pagar IR');
+    expect(t.oQue).toMatch(re(String.raw`LCI 90% do CDI \(Banco B\) é isenta, mas ao vencer em 28/09/2029 o dinheiro vai para CDB 100% do CDI, que paga IR: ${R}250,00 até 5 anos\.`));
+    expect(t.porQue).toMatch(/isentas/);
+    expect(t.termo).toBe('reinvestimento');
   });
 
   it('IOF', () => {
@@ -113,7 +131,8 @@ describe('textoDoAlerta', () => {
     const todos: Alerta[] = [
       { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0], alternativa: 1, diferenca: 1, diferencaPercentual: 0.001, vantagem: 'LIQUIDEZ' },
       { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0], alternativa: 2, diferenca: 1, diferencaPercentual: 0.001, vantagem: 'GARANTIA' },
-      { tipo: 'IR_REINICIA', oferta: 0, data: '2027-09-28', aliquotaNova: 0.2, aliquotaSemReaplicar: 0.15 },
+      { tipo: 'IR_REINICIA', oferta: 0, data: '2027-09-28', horizonte: '2028-09-28', reinvestimento: CDB_103, etapa1Isenta: false, aliquotaNova: 0.2, aliquotaSemReaplicar: 0.15, custo: 1 },
+      { tipo: 'IR_REINICIA', oferta: 3, data: '2029-09-28', horizonte: '2031-09-28', reinvestimento: CDB_100, etapa1Isenta: true, aliquotaNova: 0.175, aliquotaSemReaplicar: 0, custo: 1 },
       { tipo: 'IOF', oferta: 0, horizonte: '2027-09-28', iof: 1 },
       { tipo: 'PRAZO_INCOMPATIVEL', oferta: 3, horizonte: '2031-09-28', disponivelEm: '2029-09-28' },
       { tipo: 'PRAZO_INCOMPATIVEL', oferta: 4, horizonte: '2031-09-28', disponivelEm: '2027-03-28' },

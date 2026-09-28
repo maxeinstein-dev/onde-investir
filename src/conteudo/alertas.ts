@@ -5,6 +5,7 @@ import { type DataISO, dataBR } from '../engine/datas';
 import type { OfertaCadastrada } from '../engine/ofertas';
 import { formatarMoeda, formatarPercentual } from '../formato';
 import { listar, nomeDoHorizonte, nomeOferta } from './comparacao';
+import { descreverOferta } from './motivos';
 import type { IdTermo } from './glossario';
 
 export interface TextoAlerta { titulo: string; oQue: string; porQue: string; termo: IdTermo }
@@ -48,9 +49,17 @@ export function textoDoAlerta(a: Alerta, ofertas: readonly OfertaCadastrada[], h
         };
     }
     case 'IR_REINICIA':
+      if (a.etapa1Isenta) {
+        return {
+          titulo: 'A reaplicação passa a pagar IR',
+          oQue: `${nome(ofertas, a.oferta)} é isenta, mas ao vencer em ${dataBR(a.data)} o dinheiro vai para ${descreverOferta(a.reinvestimento)}, que paga IR: ${formatarMoeda(a.custo)} até ${prazo(horizontes, a.horizonte)}.`,
+          porQue: 'LCI e LCA são isentas de IR para pessoa física. No vencimento, o dinheiro vai para a oferta de reinvestimento, e o rendimento dela paga IR se ela não for isenta.',
+          termo: 'reinvestimento',
+        };
+      }
       return {
         titulo: 'O IR recomeça na reaplicação',
-        oQue: `Na reaplicação de ${nome(ofertas, a.oferta)} em ${dataBR(a.data)}, o IR volta para ${formatarPercentual(a.aliquotaNova)}. Sem reaplicar, seria ${formatarPercentual(a.aliquotaSemReaplicar)}.`,
+        oQue: `Em ${prazo(horizontes, a.horizonte)}, a reaplicação de ${nome(ofertas, a.oferta)} (a partir de ${dataBR(a.data)}) paga ${formatarPercentual(a.aliquotaNova)} de IR, em vez de ${formatarPercentual(a.aliquotaSemReaplicar)} se o dinheiro tivesse ficado aplicado desde o início: ${formatarMoeda(a.custo)} a mais.`,
         porQue: 'O IR regressivo conta o prazo de cada aplicação. Quando o dinheiro é reaplicado, a contagem recomeça e a alíquota volta a subir.',
         termo: 'ir-regressivo',
       };

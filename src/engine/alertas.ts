@@ -2,6 +2,7 @@
 import type { ColunaHorizonte } from './comparacao';
 import { type DataISO, diasCorridos } from './datas';
 import type { OfertaCadastrada, Projecao } from './ofertas';
+import type { Oferta } from './produtos';
 import { garantiaDe } from './produtos';
 import { dataMinimaResgate } from './regras/prazoMinimo';
 import { aliquotaIR } from './regras/ir';
@@ -15,7 +16,21 @@ export type Alerta =
     lideres: number[];
     alternativa: number; diferenca: number; diferencaPercentual: number; vantagem: 'LIQUIDEZ' | 'GARANTIA';
   }
-  | { tipo: 'IR_REINICIA'; oferta: number; data: DataISO; aliquotaNova: number; aliquotaSemReaplicar: number }
+  | {
+    tipo: 'IR_REINICIA'; oferta: number;
+    /** O vencimento, quando o dinheiro é reaplicado. */
+    data: DataISO;
+    horizonte: DataISO;
+    /** Onde o dinheiro é reaplicado. */
+    reinvestimento: Oferta;
+    /** A oferta original é isenta (LCI/LCA) e a reaplicação é tributada: passa a pagar IR. */
+    etapa1Isenta: boolean;
+    aliquotaNova: number;
+    /** A alíquota pelos dias totais desde a aplicação original; 0 quando a original é isenta. */
+    aliquotaSemReaplicar: number;
+    /** R$: o IR da etapa 2 menos o que ela pagaria com `aliquotaSemReaplicar`. */
+    custo: number;
+  }
   | { tipo: 'IOF'; oferta: number; horizonte: DataISO; iof: number }
   | {
     tipo: 'PRAZO_INCOMPATIVEL'; oferta: number; horizonte: DataISO; disponivelEm?: DataISO;
@@ -93,13 +108,26 @@ function quaseEmpates(ofertas: readonly OfertaCadastrada[], c: ColunaHorizonte, 
   });
 }
 
+/** Abaixo de um centavo não há o que alertar. */
+const PISO_REAIS = 0.01;
+
+/**
+ * A reaplicação tributada paga mais IR do que o dinheiro pagaria se tivesse ficado aplicado desde o início: a
+ * alíquota recomeça (a dos dias totais seria menor) ou a original era isenta e a reaplicação não é.
+ */
 function irReinicia(p: Projecao, oferta: number, horizonte: DataISO): Alerta[] {
   if (!disponivel(p) || !p.reinvestimento) return [];
   const [etapa1, etapa2] = p.etapas;
   if (!etapa1 || !etapa2 || etapa2.isentoIR) return [];
-  const aliquotaSemReaplicar = aliquotaIR(diasCorridos(etapa1.aplicacao.dataAplicacao, horizonte), horizonte);
-  if (!(etapa2.aliquotaIR > aliquotaSemReaplicar)) return [];
-  return [{ tipo: 'IR_REINICIA', oferta, data: p.reinvestimento.data, aliquotaNova: etapa2.aliquotaIR, aliquotaSemReaplicar }];
+  const etapa1Isenta = etapa1.isentoIR;
+  const aliquotaSemReaplicar = etapa1Isenta ? 0 : aliquotaIR(diasCorridos(etapa1.aplicacao.dataAplicacao, horizonte), horizonte);
+  const base = Math.max(0, etapa2.rendimentoBruto - etapa2.iof - etapa2.custodia);
+  const custo = etapa2.ir - base * aliquotaSemReaplicar;
+  if (!(custo >= PISO_REAIS)) return [];
+  return [{
+    tipo: 'IR_REINICIA', oferta, data: p.reinvestimento.data, horizonte, reinvestimento: p.reinvestimento.oferta, etapa1Isenta,
+    aliquotaNova: etapa2.aliquotaIR, aliquotaSemReaplicar, custo,
+  }];
 }
 
 function iof(p: Projecao, oferta: number, horizonte: DataISO): Alerta[] {
@@ -126,7 +154,8 @@ const chave = (a: Alerta) => `${a.tipo}:${ofertaDoAlerta(a)}`;
  * dentro do tipo, pela oferta.
  * - QUASE_EMPATE: outra oferta disponível fica a menos de `limiar` do líder (relativo ao líquido do líder) e
  *   tem liquidez diária sem marcação a mercado enquanto o líder não tem, ou garantia do Tesouro contra FGC.
- * - IR_REINICIA: a reaplicação é tributada com alíquota maior que a dos dias totais desde a aplicação.
+ * - IR_REINICIA: a reaplicação é tributada com alíquota maior que a dos dias totais desde a aplicação, ou a
+ *   original é isenta e a reaplicação não (etapa1Isenta); o custo é o IR a mais, em R$.
  * - IOF: a etapa final paga IOF.
  * - PRAZO_INCOMPATIVEL: indisponível no prazo da pessoa: a `dataUsuario`, quando há coluna nessa data (mesmo que
  *   seja um horizonte padrão), senão o horizonte mais distante. Na data do usuário, a marcação a mercado também

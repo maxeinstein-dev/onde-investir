@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { gerarAlertas, LIMIAR_QUASE_EMPATE, resgataQuandoQuiser, type Alerta } from '../../src/engine/alertas';
 import { horizontesPadrao, tabelaPorHorizonte } from '../../src/engine/comparacao';
-import type { OfertaCadastrada, Projecao } from '../../src/engine/ofertas';
+import { somarDias } from '../../src/engine/datas';
+import { projetar, type OfertaCadastrada, type Projecao } from '../../src/engine/ofertas';
+import type { ResultadoSimulacao } from '../../src/engine/produtos';
 import { CEN, INI } from './cenarioPadrao';
 
 const b = { emissor: 'B', conglomerado: 'B' };
@@ -116,14 +118,49 @@ describe('resgataQuandoQuiser', () => {
 });
 
 describe('IR_REINICIA', () => {
+  const CDB_103 = { produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 } };
+  /** A etapa 2 (a reaplicação) da projeção na data. */
+  const etapa2 = (o: OfertaCadastrada, data: string): ResultadoSimulacao => {
+    const p = projetar(o, 10000, INI, data, CEN);
+    if (p.estado !== 'DISPONIVEL' || !p.etapas[1]) throw new Error('sem reaplicação');
+    return p.etapas[1];
+  };
+  const baseIR = (e: ResultadoSimulacao) => Math.max(0, e.rendimentoBruto - e.iof - e.custodia);
   const cdb2027: OfertaCadastrada = { ...b, id: 'c', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 }, vencimento: '2027-09-28', liquidez: 'NO_VENCIMENTO' };
 
   it('reaplicação tributada com alíquota maior que a de quem não reaplica: no horizonte mais distante em que vale', () => {
     // Em 2 anos: a etapa 2 tem 366 dias (17,5%); sem reaplicar seriam 731 dias (15%).
     // Em 3 e 5 anos a etapa 2 passa de 720 dias e as duas alíquotas são 15%: não há alerta.
-    expect(doTipo(alertas([cdb2027]), 'IR_REINICIA')).toEqual([
-      { tipo: 'IR_REINICIA', oferta: 0, data: '2027-09-28', aliquotaNova: 0.175, aliquotaSemReaplicar: 0.15 },
-    ]);
+    const e2 = etapa2(cdb2027, '2028-09-28');
+    expect(doTipo(alertas([cdb2027]), 'IR_REINICIA')).toEqual([{
+      tipo: 'IR_REINICIA', oferta: 0, data: '2027-09-28', horizonte: '2028-09-28', reinvestimento: CDB_103, etapa1Isenta: false,
+      aliquotaNova: 0.175, aliquotaSemReaplicar: 0.15, custo: e2.ir - baseIR(e2) * 0.15,
+    }]);
+  });
+
+  it('CDB que vence em 20 dias, horizonte de 2 anos: o custo é o IR a mais da etapa 2 (17,5% em vez de 15%)', () => {
+    const curto: OfertaCadastrada = { ...cdb2027, vencimento: somarDias(INI, 20) };
+    const e2 = etapa2(curto, '2028-09-28');
+    expect(e2.diasCorridos).toBe(711);
+    const [a, ...resto] = doTipo(alertas([curto]), 'IR_REINICIA');
+    expect(resto).toEqual([]);
+    expect(a).toEqual({
+      tipo: 'IR_REINICIA', oferta: 0, data: somarDias(INI, 20), horizonte: '2028-09-28', reinvestimento: CDB_103, etapa1Isenta: false,
+      aliquotaNova: 0.175, aliquotaSemReaplicar: 0.15, custo: e2.ir - baseIR(e2) * 0.15,
+    });
+    expect(a?.custo).toBeCloseTo(baseIR(e2) * 0.025, 6);
+    expect(a?.custo).toBeGreaterThan(10);
+  });
+
+  it('LCI prefixada de 1 ano reaplicada em CDB: passa a pagar IR (etapa 1 isenta), o custo é todo o IR da etapa 2', () => {
+    const lciPre: OfertaCadastrada = { ...cdb2027, produto: 'LCI', indexacao: { tipo: 'PRE', taxaAA: 0.12 } };
+    const e2 = etapa2(lciPre, '2031-09-28');
+    expect(doTipo(alertas([lciPre]), 'IR_REINICIA')).toEqual([{
+      tipo: 'IR_REINICIA', oferta: 0, data: '2027-09-28', horizonte: '2031-09-28',
+      reinvestimento: { produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1 } }, etapa1Isenta: true,
+      aliquotaNova: 0.15, aliquotaSemReaplicar: 0, custo: e2.ir,
+    }]);
+    expect(e2.ir).toBeGreaterThan(0);
   });
 
   it('reaplicação isenta (LCI reaplicada em LCI) não gera alerta', () => {
