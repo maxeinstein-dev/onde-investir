@@ -79,6 +79,29 @@ describe('Abas', () => {
     expect(aba('Duelo rápido')).toHaveAttribute('aria-selected', 'true');
     expect(location.hash).toBe('#duelo');
   });
+  it('hash com estado (#aba/…): o prefixo antes da / é a aba, e o estado fica no hash', () => {
+    history.replaceState(null, '', '/#duelo/c1.abc_-9');
+    render(<Abas rotulo="Seções" abas={ABAS} />);
+    expect(aba('Duelo rápido')).toHaveAttribute('aria-selected', 'true');
+    expect(location.hash).toBe('#duelo/c1.abc_-9');
+  });
+  it('hashchange para #aba/… troca a aba', () => {
+    render(<Abas rotulo="Seções" abas={ABAS} />);
+    history.replaceState(null, '', '/#duelo/j1.xyz');
+    fireEvent(window, new HashChangeEvent('hashchange'));
+    expect(aba('Duelo rápido')).toHaveAttribute('aria-selected', 'true');
+  });
+  it('prefixo desconhecido com / abre a primeira', () => {
+    history.replaceState(null, '', '/#outra/c1.abc');
+    render(<Abas rotulo="Seções" abas={ABAS} />);
+    expect(aba('Comparar ofertas')).toHaveAttribute('aria-selected', 'true');
+  });
+  it('apelido com estado: troca só o prefixo e mantém o estado', () => {
+    history.replaceState(null, '', '/#antiga/c1.abc');
+    render(<Abas rotulo="Seções" abas={ABAS} apelidos={{ antiga: 'duelo' }} />);
+    expect(aba('Duelo rápido')).toHaveAttribute('aria-selected', 'true');
+    expect(location.hash).toBe('#duelo/c1.abc');
+  });
   it('controlada: quem usa o useAbaDaUrl troca a aba por fora, e o hash acompanha', () => {
     function Controlada() {
       const [ativa, ativar] = useAbaDaUrl(['ofertas', 'duelo']);

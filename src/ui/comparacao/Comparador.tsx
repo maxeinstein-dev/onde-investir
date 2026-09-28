@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { adicionar, remover } from '../../armazenamento/comparacao';
 import { armazenamentoLocal } from '../../armazenamento/navegador';
 import { lerPalpitesLigados, salvarPalpitesLigados } from '../../armazenamento/preferencias';
-import { AVISO_CENARIO_INVALIDO, descreverProjecao, nomeDoHorizonte, nomeOferta } from '../../conteudo/comparacao';
+import type { EstadoCompartilhado } from '../../armazenamento/link';
+import { AVISO_CENARIO_INVALIDO, descreverProjecao, nomeDoHorizonte, nomeOferta, nomesDistintos } from '../../conteudo/comparacao';
+import { dicasPara } from '../../conteudo/dicas';
+import type { IdLicao } from '../../conteudo/licoes/tipos';
 import { descreverOferta } from '../../conteudo/motivos';
 import { gerarAlertas, LIMIAR_QUASE_EMPATE, type Alerta } from '../../engine/alertas';
 import { ehDiaUtil } from '../../engine/calendario';
@@ -26,6 +29,8 @@ import { PalpiteAntesDeVer } from '../PalpiteAntesDeVer';
 import { Termo } from '../Termo';
 import { AdicionarOferta, ID_BOTAO_ADICIONAR } from './AdicionarOferta';
 import { Alertas } from './Alertas';
+import { Compartilhar } from './Compartilhar';
+import { Dicas } from './Dicas';
 import { LinhaDoTempo } from './LinhaDoTempo';
 import { PorQueLidera } from './PorQueLidera';
 import { idColuna, TabelaComparacao } from './TabelaComparacao';
@@ -62,6 +67,8 @@ const EDITANDO: Fase = { tipo: 'editando' };
 /** Liderança mais curta que isto, em dias, é transitória: o gráfico e o resumo a fundem no trecho vizinho. */
 const DURACAO_MINIMA_LIDERANCA = 30;
 const PREFIXO = 'comparador';
+/** O título da tela: recebe o foco na volta da comparação temporária. */
+export const ID_TITULO_COMPARADOR = `${PREFIXO}-titulo`;
 const VAZIO = 'Adicione pelo menos duas ofertas para comparar (até 5).';
 /** Tempo com o anúncio vazio antes de reescrever a mesma mensagem, para o leitor de tela anunciar de novo. */
 const ESPERA_REPETIR_MS = 100;
@@ -163,7 +170,24 @@ export interface PropsComparador {
    * Só muda o aviso do resultado recalculado. Padrão: CARTEIRA.
    */
   motivoCarteira?: 'HISTORICO' | 'CARTEIRA';
+  /** As entradas com que o formulário abre (a comparação temporária da lição ou do link). Só valem na montagem. */
+  inicial?: EntradaInicial;
+  /** A pergunta do palpite (a da lição); padrão: "Qual lidera em …?". */
+  pergunta?: string;
+  /** Cada palpite respondido, para a taxa de acerto. Empate e horizonte sem líder não contam. */
+  onPalpite?: (acertou: boolean) => void;
+  /** "Ver lição" dos alertas e das dicas. */
+  onVerLicao?: (id: IdLicao) => void;
+  /** As dicas contextuais que a pessoa já dispensou. */
+  dicasDispensadas?: readonly string[];
+  /** "Dispensar" numa dica: quem chama grava. */
+  onDispensarDica?: (id: string) => void;
+  /** O cenário em uso, para o link compartilhável; sem ele, o resultado não tem o botão de compartilhar. */
+  cenarioDoLink?: EstadoCompartilhado['cenario'];
 }
+
+/** O valor, as datas e a regra com que a comparação abre. */
+export interface EntradaInicial { valor: number; dataAplicacao: DataISO; suaData?: DataISO; regra: RegraReinvestimento }
 
 /** O aviso (no contêiner vivo) do resultado recalculado com a carteira nova. */
 export const RESULTADO_ATUALIZADO = {
@@ -172,17 +196,33 @@ export const RESULTADO_ATUALIZADO = {
 } as const;
 
 const SEM_CARTEIRA: readonly ItemFGC[] = [];
+const NENHUMA: readonly string[] = [];
+
+/** O estado do link: as ofertas sem os ids locais, as entradas do cálculo e o cenário. */
+function estadoDoLink(c: Calculo, cenario: EstadoCompartilhado['cenario']): EstadoCompartilhado {
+  const { valor, dataAplicacao, suaData } = c.entrada;
+  return {
+    versao: 1,
+    ofertas: c.ofertas.map((o) => {
+      const copia: Partial<OfertaCadastrada> = { ...o };
+      delete copia.id;
+      return copia as Omit<OfertaCadastrada, 'id'>;
+    }),
+    valor, dataAplicacao, ...(suaData.trim() === '' ? {} : { suaData }), regra: c.regra, cenario,
+  };
+}
 
 /** A tela de comparação: de 2 a 5 ofertas lado a lado, com palpite, linha do tempo e equivalências. */
 export function Comparador({
   catalogo, selecao, onMudarSelecao, onCriarOferta, cenario, descricaoCenario, cenarioInvalido = null, gerarId = novoIdOferta,
-  carteira = SEM_CARTEIRA, motivoCarteira = 'CARTEIRA',
+  carteira = SEM_CARTEIRA, motivoCarteira = 'CARTEIRA', inicial, pergunta, onPalpite, onVerLicao,
+  dicasDispensadas = NENHUMA, onDispensarDica, cenarioDoLink,
 }: PropsComparador) {
-  const [valor, setValor] = useState(10000);
-  const [dataAplicacao, setDataAplicacao] = useState<DataISO>(hoje());
-  const [suaData, setSuaData] = useState<DataISO>('');
-  const [tipoRegra, setTipoRegra] = useState<TipoRegra>('PADRAO');
-  const [taxaFixa, setTaxaFixa] = useState(12);
+  const [valor, setValor] = useState(inicial?.valor ?? 10000);
+  const [dataAplicacao, setDataAplicacao] = useState<DataISO>(() => inicial?.dataAplicacao ?? hoje());
+  const [suaData, setSuaData] = useState<DataISO>(inicial?.suaData ?? '');
+  const [tipoRegra, setTipoRegra] = useState<TipoRegra>(inicial?.regra.tipo ?? 'PADRAO');
+  const [taxaFixa, setTaxaFixa] = useState(inicial?.regra.tipo === 'TAXA_FIXA' ? inicial.regra.taxaAA * 100 : 12);
   const [faseSalva, setFase] = useState<Fase>(EDITANDO);
   /** O erro vale para as entradas e o cenário em que apareceu. */
   const [erroSalvo, setErroSalvo] = useState<{ texto: string; entrada: Entrada; cenario: Cenario } | null>(null);
@@ -293,6 +333,13 @@ export function Comparador({
     }
   }
 
+  /** O palpite vira resultado; com um líder só, conta na taxa de acerto (empate não conta). */
+  function escolherPalpite(f: Extract<Fase, { tipo: 'palpite' }>, i: number) {
+    setFase({ ...f, tipo: 'resultado', palpite: i });
+    const lideres = f.colunas.at(-1)?.lideres ?? [];
+    if (lideres.length === 1) onPalpite?.(lideres[0] === i);
+  }
+
   function pularPalpites() {
     salvarPalpitesLigados(armazenamentoLocal(), false);
     setPalpitesLigados(false);
@@ -304,7 +351,7 @@ export function Comparador({
     const saiu = ofertas[indice];
     const restantes = ofertas.filter((o) => o.id !== id);
     onMudarSelecao(remover(selecao, id));
-    if (saiu) anunciar(`${nomeOferta(saiu)} saiu da comparação.`);
+    if (saiu) anunciar(`${nomesDistintos(ofertas)[indice] ?? nomeOferta(saiu)} saiu da comparação.`);
     // Com o resultado aberto e ainda duas ou mais, recalcula na hora, sem repetir o palpite. Nos outros casos a
     // fase volta a EDITANDO: se a mesma oferta voltasse, o resultado antigo reapareceria sem recalcular.
     if (fase.tipo === 'resultado' && restantes.length >= 2) {
@@ -321,16 +368,33 @@ export function Comparador({
     setFoco(restantes.length === 0 ? ID_BOTAO_ADICIONAR : idColuna(Math.min(Math.max(indice, 0), restantes.length - 1)));
   }
 
-  const nomes = (fase.tipo === 'editando' ? ofertas : fase.ofertas).map(nomeOferta);
+  const nomes = nomesDistintos(fase.tipo === 'editando' ? ofertas : fase.ofertas);
   const resultado = fase.tipo === 'resultado' ? fase : null;
+  const temCarteira = carteira.length > 0;
+  const dicas = useMemo(
+    () => (resultado === null ? [] : dicasPara(
+      { ofertasNaComparacao: resultado.ofertas, alertas: resultado.alertas, temCarteira }, new Set(dicasDispensadas),
+    )),
+    [resultado, temCarteira, dicasDispensadas],
+  );
+
+  /** A dica sai (quem chama grava); o foco vai para as dicas que ficam, ou para o título do resultado. */
+  function dispensar(id: string) {
+    onDispensarDica?.(id);
+    const ficam = resultado !== null && dicasPara(
+      { ofertasNaComparacao: resultado.ofertas, alertas: resultado.alertas, temCarteira }, new Set([...dicasDispensadas, id]),
+    ).length > 0;
+    anunciar('Dica dispensada.');
+    setFoco(ficam ? `${PREFIXO}-dicas-titulo` : `${PREFIXO}-resultado-titulo`);
+  }
 
   const tabela = ofertas.length > 0 && (
     <TabelaComparacao ofertas={ofertas} colunas={resultado?.colunas ?? []} dataAplicacao={dataAplicacao} onRemover={tirar} />
   );
 
   return (
-    <section class="comparacao" aria-labelledby={`${PREFIXO}-titulo`}>
-      <h2 id={`${PREFIXO}-titulo`}>Comparar</h2>
+    <section class="comparacao" aria-labelledby={ID_TITULO_COMPARADOR}>
+      <h2 id={ID_TITULO_COMPARADOR} tabIndex={-1}>Comparar</h2>
       <p class="dica">Cenário: {descricaoCenario}</p>
       <form onSubmit={comparar} class="formulario" noValidate>
         <fieldset class="aplicacao">
@@ -391,10 +455,13 @@ export function Comparador({
 
       {fase.tipo === 'palpite' && (
         <PalpiteAntesDeVer id={`${PREFIXO}-palpite`} refTitulo={tituloPalpite} opcoes={nomes}
-          pergunta={`Qual lidera em ${fase.colunas.at(-1) ? nomeDoHorizonte(fase.colunas.at(-1) as ColunaHorizonte) : 'seu horizonte'}?`}
-          onEscolher={(i) => setFase({ ...fase, tipo: 'resultado', palpite: i })} onPular={pularPalpites} />
+          pergunta={pergunta ?? `Qual lidera em ${fase.colunas.at(-1) ? nomeDoHorizonte(fase.colunas.at(-1) as ColunaHorizonte) : 'seu horizonte'}?`}
+          onEscolher={(i) => escolherPalpite(fase, i)} onPular={pularPalpites} />
       )}
 
+      {resultado && (
+        <Dicas dicas={dicas} prefixo={`${PREFIXO}-dicas`} onVerLicao={onVerLicao} onDispensar={onDispensarDica && dispensar} />
+      )}
       {resultado ? (
         <section class="resultado" aria-labelledby={`${PREFIXO}-resultado-titulo`}>
           <h2 id={`${PREFIXO}-resultado-titulo`} ref={tituloResultado} tabIndex={-1}>Resultado da comparação</h2>
@@ -405,8 +472,10 @@ export function Comparador({
           <p class="dica">
             <Termo id="reinvestimento">Reinvestimento</Termo>: {descreverRegra(resultado.regra)} O IR recomeça na reaplicação.
           </p>
+          {cenarioDoLink && <Compartilhar estado={estadoDoLink(resultado, cenarioDoLink)} prefixo={`${PREFIXO}-compartilhar`} />}
           {tabela}
-          <Alertas alertas={resultado.alertas} ofertas={resultado.ofertas} horizontes={resultado.colunas} prefixo={`${PREFIXO}-alertas`} />
+          <Alertas alertas={resultado.alertas} ofertas={resultado.ofertas} horizontes={resultado.colunas} prefixo={`${PREFIXO}-alertas`}
+            onVerLicao={onVerLicao} />
           <PorQueLidera ofertas={resultado.ofertas} colunas={resultado.colunas} data={liderData} onData={setLiderData} />
           <details open class="graficos">
             <summary>Gráficos</summary>
@@ -454,10 +523,11 @@ function EquivalenciasDaComparacao({ calculo, eqId, eqData, onOferta, onData }: 
   const padrao = colunas.filter((c) => c.projecoes[indice]?.estado === 'DISPONIVEL').at(-1) ?? colunas.at(-1);
   const coluna = colunas.find((c) => c.data === eqData) ?? padrao;
   const projecao = coluna?.projecoes[indice];
+  const nomes = useMemo(() => nomesDistintos(ofertas), [ofertas]);
 
   const conteudo = useMemo(() => {
     if (!oferta || !coluna || !projecao) return null;
-    const origem = nomeOferta(oferta);
+    const origem = nomes[indice] ?? nomeOferta(oferta);
     if (projecao.estado !== 'DISPONIVEL') return <EquivalenciasIndisponiveis origem={origem} motivo={descreverProjecao(projecao)} />;
     try {
       const eq = calcularEquivalencias(aplicacaoDe(oferta, entrada.valor, entrada.dataAplicacao), coluna.data, cenario);
@@ -468,7 +538,7 @@ function EquivalenciasDaComparacao({ calculo, eqId, eqData, onOferta, onData }: 
     } catch (err) {
       return <EquivalenciasIndisponiveis origem={origem} motivo={err instanceof Error ? `${err.message.replace(/\.$/, '')}.` : String(err)} />;
     }
-  }, [oferta, coluna, projecao, entrada, cenario]);
+  }, [oferta, coluna, projecao, entrada, cenario, nomes, indice]);
 
   if (!oferta || !coluna) return null;
   return (
@@ -477,7 +547,7 @@ function EquivalenciasDaComparacao({ calculo, eqId, eqData, onOferta, onData }: 
         <div class="campo">
           <label for={`${PREFIXO}-eq-oferta`}>Calcular equivalências para</label>
           <select id={`${PREFIXO}-eq-oferta`} value={oferta.id} onChange={(e) => onOferta(e.currentTarget.value)}>
-            {ofertas.map((o, i) => <option key={o.id} value={o.id}>{letraDaOferta(i)}: {nomeOferta(o)}</option>)}
+            {ofertas.map((o, i) => <option key={o.id} value={o.id}>{letraDaOferta(i)}: {nomes[i]}</option>)}
           </select>
         </div>
         <div class="campo">

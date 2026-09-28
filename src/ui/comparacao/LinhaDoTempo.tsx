@@ -1,4 +1,4 @@
-import { concluirLinhaDoTempo, descreverProjecao, nomeOferta } from '../../conteudo/comparacao';
+import { concluirLinhaDoTempo, descreverProjecao, nomesDistintos } from '../../conteudo/comparacao';
 import type { ColunaHorizonte, Marco } from '../../engine/comparacao';
 import { dataBR } from '../../engine/datas';
 import type { OfertaCadastrada, Projecao } from '../../engine/ofertas';
@@ -15,8 +15,8 @@ export interface PropsLinhaDoTempo {
 type Disponivel = Extract<Projecao, { estado: 'DISPONIVEL' }>;
 
 const rotulo = (ofertas: readonly OfertaCadastrada[], i: number): string => {
-  const o = ofertas[i];
-  return o ? `${letraDaOferta(i)}: ${nomeOferta(o)}` : letraDaOferta(i);
+  const nome = nomesDistintos(ofertas)[i];
+  return nome === undefined ? letraDaOferta(i) : `${letraDaOferta(i)}: ${nome}`;
 };
 
 function MarcoDaLinha({ ofertas, m }: { ofertas: readonly OfertaCadastrada[]; m: Marco }) {

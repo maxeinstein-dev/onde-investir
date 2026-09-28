@@ -1,5 +1,5 @@
 import { useId, useMemo, useRef, useState } from 'preact/hooks';
-import { nomeOferta } from '../../conteudo/comparacao';
+import { nomesDistintos } from '../../conteudo/comparacao';
 import { GRAFICO_DIFERENCA, resumirDiferenca, rotuloDaTrocaDeSinal, type TrechoDiferenca } from '../../conteudo/serie';
 import type { OfertaCadastrada } from '../../engine/ofertas';
 import type { Serie } from '../../engine/serie';
@@ -60,7 +60,8 @@ export function GraficoDiferenca({ series, ofertas, prefixo = 'grafico-diferenca
   const serieB = series[b];
   const pontos = useMemo(() => (serieA && serieB ? diferencaEntre(serieA, serieB) : []), [serieA, serieB]);
   const trechos = useMemo(() => trechosDaDiferenca(pontos), [pontos]);
-  const nome = (i: number) => (ofertas[i] ? nomeOferta(ofertas[i]) : letraDaOferta(i));
+  const nomes = nomesDistintos(ofertas);
+  const nome = (i: number) => nomes[i] ?? letraDaOferta(i);
   const resumo = resumirDiferenca(trechos, nome(a), nome(b));
   const canvas = useRef<HTMLCanvasElement>(null);
   const idResumo = useId();
@@ -74,7 +75,7 @@ export function GraficoDiferenca({ series, ofertas, prefixo = 'grafico-diferenca
     else setEscolha(i === a ? { a: b, b: i } : { a, b: i });
   }
 
-  const opcoes = ofertas.slice(0, n).map((o, i) => <option key={o.id} value={String(i)}>{letraDaOferta(i)}: {nomeOferta(o)}</option>);
+  const opcoes = ofertas.slice(0, n).map((o, i) => <option key={o.id} value={String(i)}>{letraDaOferta(i)}: {nome(i)}</option>);
   return (
     <figure class="grafico" aria-busy={estado === 'carregando' ? 'true' : 'false'}>
       <figcaption class="grafico__titulo">{GRAFICO_DIFERENCA.titulo}</figcaption>

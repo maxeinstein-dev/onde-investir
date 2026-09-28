@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { CHAVE_COMPARACAO } from '../../src/armazenamento/comparacao';
 import { exportarDados } from '../../src/armazenamento/arquivo';
+import { ABA_DO_LINK, lerEstadoDoHash } from '../../src/armazenamento/link';
 import { CHAVE_OFERTAS } from '../../src/armazenamento/ofertas';
 import { CHAVE_POSICOES } from '../../src/armazenamento/posicoes';
 import { CHAVE_PREFERENCIAS } from '../../src/armazenamento/preferencias';
@@ -79,12 +80,12 @@ const nomesDasColunas = () => colunas().map((c) => c.querySelector('.tabela-comp
 const salvas = (chave: string) => JSON.parse(localStorage.getItem(chave) ?? 'null');
 
 describe('App', () => {
-  it('abre em "Comparar", com três abas', () => {
+  it('abre em "Comparar", com quatro abas', () => {
     vi.stubGlobal('fetch', fetchForaDoAr);
     render(<App />);
     expect(screen.getByRole('heading', { level: 1, name: 'Rende' })).toBeInTheDocument();
-    expect(screen.getByText(/não é recomendação de investimento/)).toBeInTheDocument();
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Comparar', 'Catálogo', 'Carteira']);
+    expect(within(document.querySelector('header') as HTMLElement).getByText(/não é recomendação de investimento/)).toBeInTheDocument();
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Comparar', 'Catálogo', 'Carteira', 'Aprender']);
     expect(aba('Comparar')).toHaveAttribute('aria-selected', 'true');
     expect(within(painelAtivo()).getByRole('heading', { level: 2, name: 'Comparar' })).toBeInTheDocument();
   });
@@ -94,6 +95,16 @@ describe('App', () => {
     render(<App />);
     expect(aba('Comparar')).toHaveAttribute('aria-selected', 'true');
     expect(location.hash).toBe('#comparar');
+  });
+  it('o link compartilhável (#comparar/c1.…) abre em "Comparar", e o estado sai da barra', async () => {
+    vi.stubGlobal('fetch', fetchForaDoAr);
+    history.replaceState(null, '', `/#${ABA_DO_LINK}/c1.abc`);
+    render(<App />);
+    expect(aba('Comparar')).toHaveAttribute('aria-selected', 'true');
+    expect(lerEstadoDoHash()).toBeNull();
+    expect(location.hash).toBe('#comparar');
+    // "c1.abc" não é um link de verdade: o aviso aparece e nada é carregado (ver AppLink.test).
+    expect(await screen.findByText('Este link de comparação não pôde ser aberto.')).toBeInTheDocument();
   });
   it('clicar em "Catálogo" muda o hash e a aba; #catalogo abre nela', () => {
     vi.stubGlobal('fetch', fetchForaDoAr);

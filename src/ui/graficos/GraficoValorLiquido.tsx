@@ -1,5 +1,5 @@
 import { useId, useMemo, useRef } from 'preact/hooks';
-import { nomeOferta } from '../../conteudo/comparacao';
+import { nomesDistintos } from '../../conteudo/comparacao';
 import { GRAFICO_VALOR, motivoSemResgate, resumirTrocas, rotuloDaTroca } from '../../conteudo/serie';
 import type { DataISO } from '../../engine/datas';
 import type { OfertaCadastrada } from '../../engine/ofertas';
@@ -27,8 +27,8 @@ export interface PropsGraficoValorLiquido {
 
 /** "A: nome da oferta", o rótulo da série na legenda e no dataset. */
 function rotuloDaSerie(s: Serie, ofertas: readonly OfertaCadastrada[]): string {
-  const o = ofertas[s.ofertaIndice];
-  return o ? `${letraDaOferta(s.ofertaIndice)}: ${nomeOferta(o)}` : letraDaOferta(s.ofertaIndice);
+  const nome = nomesDistintos(ofertas)[s.ofertaIndice];
+  return nome === undefined ? letraDaOferta(s.ofertaIndice) : `${letraDaOferta(s.ofertaIndice)}: ${nome}`;
 }
 
 function montarConfig(p: PaletaGrafico, { series, trocas, ofertas, inicioPremissa }: PropsGraficoValorLiquido): ConfigLinha {

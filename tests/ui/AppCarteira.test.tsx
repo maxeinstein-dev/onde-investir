@@ -80,7 +80,7 @@ describe('aba Carteira no App', () => {
   it('fica em #carteira, depois de Comparar e Catálogo', () => {
     history.replaceState(null, '', '/#carteira');
     render(<App />);
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Comparar', 'Catálogo', 'Carteira']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Comparar', 'Catálogo', 'Carteira', 'Aprender']);
     expect(aba('Carteira')).toHaveAttribute('aria-selected', 'true');
     expect(within(painelAtivo()).getByRole('heading', { level: 2, name: 'Carteira' })).toBeInTheDocument();
   });

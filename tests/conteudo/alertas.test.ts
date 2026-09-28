@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { textoDoAlerta, textoDoTetoGlobal } from '../../src/conteudo/alertas';
+import { LICAO_DO_ALERTA, textoDoAlerta, textoDoTetoGlobal } from '../../src/conteudo/alertas';
+import { LICOES } from '../../src/conteudo/licoes';
 import { GLOSSARIO } from '../../src/conteudo/glossario';
 import { resumirTrocas } from '../../src/conteudo/serie';
 import type { Alerta } from '../../src/engine/alertas';
@@ -18,6 +19,7 @@ const cdbDiario: OfertaCadastrada = { ...base, id: '2', produto: 'CDB', indexaca
 const tesouroSelic: OfertaCadastrada = { ...base, id: '3', produto: 'TESOURO_SELIC', indexacao: { tipo: 'SELIC' }, vencimento: '2032-03-01', liquidez: 'DIARIA' };
 const lciNoVencimento: OfertaCadastrada = { ...base, id: '4', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.9 }, vencimento: '2029-09-28', liquidez: 'NO_VENCIMENTO' };
 const lciDiaria: OfertaCadastrada = { ...lciNoVencimento, id: '5', liquidez: 'DIARIA' };
+// As duas LCIs dividem o nome e o vencimento: nos textos, cada uma ganha o vencimento e a letra (nomesDistintos).
 const ofertas = [cdbNoVencimento, cdbDiario, tesouroSelic, lciNoVencimento, lciDiaria];
 const horizontes = horizontesPadrao(INI, '2028-01-15');
 const CDB_103: Oferta = { produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 } };
@@ -45,7 +47,7 @@ describe('textoDoAlerta', () => {
     expect(textoDoAlerta(empate, ofertas, horizontes).oQue)
       .toBe('CDB 102,8% do CDI (Banco B) rende o mesmo que CDB 103% do CDI (Banco B) em 5 anos e dá para resgatar a qualquer momento.');
     const dois: Alerta = { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0, 3], alternativa: 1, diferenca: 1, diferencaPercentual: 0.0001, vantagem: 'LIQUIDEZ' };
-    expect(textoDoAlerta(dois, ofertas, horizontes).oQue).toMatch(/a menos que CDB 103% do CDI \(Banco B\) e LCI 90% do CDI \(Banco B\) em 5 anos/);
+    expect(textoDoAlerta(dois, ofertas, horizontes).oQue).toMatch(/a menos que CDB 103% do CDI \(Banco B\) e LCI 90% do CDI \(Banco B\) · vence em 28\/09\/2029 · D em 5 anos/);
   });
 
   it('QUASE_EMPATE com garantia do Tesouro', () => {
@@ -77,7 +79,7 @@ describe('textoDoAlerta', () => {
     };
     const t = textoDoAlerta(a, ofertas, horizontes);
     expect(t.titulo).toBe('A reaplicação passa a pagar IR');
-    expect(t.oQue).toMatch(re(String.raw`LCI 90% do CDI \(Banco B\) é isenta, mas ao vencer em 28/09/2029 o dinheiro vai para CDB 100% do CDI, que paga IR: ${R}250,00 no prazo de 5 anos\.`));
+    expect(t.oQue).toMatch(re(String.raw`LCI 90% do CDI \(Banco B\) · vence em 28/09/2029 · D é isenta, mas ao vencer em 28/09/2029 o dinheiro vai para CDB 100% do CDI, que paga IR: ${R}250,00 no prazo de 5 anos\.`));
     expect(t.porQue).toMatch(/isentas/);
     expect(t.termo).toBe('reinvestimento');
   });
@@ -88,7 +90,7 @@ describe('textoDoAlerta', () => {
       aliquotaNova: 0.225, aliquotaSemReaplicar: 0, custo: 12.5,
     };
     expect(textoDoAlerta(a, ofertas, horizontes).oQue)
-      .toMatch(re(String.raw`LCI 90% do CDI \(Banco B\) é isenta, mas ao vencer em 01/06/2027 o dinheiro vai para CDB 100% do CDI, que paga IR: ${R}12,50 até 15/01/2028\.`));
+      .toMatch(re(String.raw`LCI 90% do CDI \(Banco B\) · vence em 28/09/2029 · D é isenta, mas ao vencer em 01/06/2027 o dinheiro vai para CDB 100% do CDI, que paga IR: ${R}12,50 até 15/01/2028\.`));
   });
 
   it('IOF', () => {
@@ -104,14 +106,14 @@ describe('textoDoAlerta', () => {
     const a: Alerta = { tipo: 'PRAZO_INCOMPATIVEL', oferta: 3, horizonte: '2028-01-15', disponivelEm: '2029-09-28' };
     const t = textoDoAlerta(a, ofertas, horizontes);
     expect(t.titulo).toBe('Prazo incompatível');
-    expect(t.oQue).toBe('Não dá para resgatar LCI 90% do CDI (Banco B) em 15/01/2028 (sua data). Só no vencimento (28/09/2029).');
+    expect(t.oQue).toBe('Não dá para resgatar LCI 90% do CDI (Banco B) · vence em 28/09/2029 · D em 15/01/2028 (sua data). Só no vencimento (28/09/2029).');
     expect(t.termo).toBe('liquidez');
   });
 
   it('PRAZO_INCOMPATIVEL: prazo mínimo legal', () => {
     const a: Alerta = { tipo: 'PRAZO_INCOMPATIVEL', oferta: 4, horizonte: '2031-09-28', disponivelEm: '2027-03-28' };
     const t = textoDoAlerta(a, ofertas, horizontes);
-    expect(t.oQue).toBe('Não dá para resgatar LCI 90% do CDI (Banco B) em 5 anos: o resgate só é possível a partir de 28/03/2027.');
+    expect(t.oQue).toBe('Não dá para resgatar LCI 90% do CDI (Banco B) · vence em 28/09/2029 · E em 5 anos: o resgate só é possível a partir de 28/03/2027.');
     expect(t.termo).toBe('prazo-minimo');
   });
 
@@ -128,7 +130,7 @@ describe('textoDoAlerta', () => {
   it('PRAZO_INCOMPATIVEL sem data de liberação', () => {
     const a: Alerta = { tipo: 'PRAZO_INCOMPATIVEL', oferta: 3, horizonte: '2031-09-28' };
     const t = textoDoAlerta(a, ofertas, horizontes);
-    expect(t.oQue).toBe('Não dá para resgatar LCI 90% do CDI (Banco B) em 5 anos.');
+    expect(t.oQue).toBe('Não dá para resgatar LCI 90% do CDI (Banco B) · vence em 28/09/2029 · D em 5 anos.');
     expect(t.termo).toBe('liquidez');
   });
 
@@ -292,6 +294,41 @@ describe('textoDoTetoGlobal', () => {
     const t = textoDoTetoGlobal({ garantiaSomada: 1_250_000, teto: 1_000_000, conglomerados: [] });
     expect(t.oQue).toBe('Somando o que o FGC cobre em cada conglomerado, sua garantia passa de R$ 1 milhão. O teto de R$ 1 milhão vale para o que o FGC pagar em 4 anos, somando todas as instituições.');
     expect(t.termo).toBe('fgc');
+  });
+});
+
+describe('alerta → lição (M3c, A4)', () => {
+  const idsDeLicao = new Set(LICOES.map((l) => l.id));
+  it('todo tipo de alerta tem uma lição existente', () => {
+    const tipos: Record<Alerta['tipo'], true> = {
+      QUASE_EMPATE: true, IR_REINICIA: true, IOF: true, PRAZO_INCOMPATIVEL: true, FGC_LIMITE: true, FGC_NAO_CALCULADO: true,
+    };
+    expect(Object.keys(LICAO_DO_ALERTA).sort()).toEqual(Object.keys(tipos).sort());
+    for (const licao of Object.values(LICAO_DO_ALERTA)) expect(idsDeLicao.has(licao)).toBe(true);
+  });
+  it('o texto de cada alerta leva a lição correspondente', () => {
+    const prefixado: OfertaCadastrada = { ...base, id: '9', produto: 'TESOURO_PREFIXADO', indexacao: { tipo: 'PRE', taxaAA: 0.13 }, vencimento: '2033-01-01', liquidez: 'DIARIA' };
+    const lista = [...ofertas, prefixado];
+    const casos: [Alerta, string][] = [
+      [{ tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0], alternativa: 1, diferenca: 1, diferencaPercentual: 0.001, vantagem: 'LIQUIDEZ' }, 'liquidez'],
+      [{ tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 1, lideres: [1], alternativa: 2, diferenca: 1, diferencaPercentual: 0.001, vantagem: 'GARANTIA' }, 'fgc'],
+      [{ tipo: 'IR_REINICIA', oferta: 0, data: '2027-09-28', horizonte: '2028-09-28', reinvestimento: CDB_103, etapa1Isenta: false, aliquotaNova: 0.2, aliquotaSemReaplicar: 0.15, custo: 1 }, 'reaplicacao'],
+      [{ tipo: 'IR_REINICIA', oferta: 3, data: '2029-09-28', horizonte: '2031-09-28', reinvestimento: CDB_100, etapa1Isenta: true, aliquotaNova: 0.175, aliquotaSemReaplicar: 0, custo: 1 }, 'reaplicacao'],
+      [{ tipo: 'IOF', oferta: 0, horizonte: '2027-09-28', iof: 1, etapa: 1, dias: 20 }, 'impostos'],
+      [{ tipo: 'PRAZO_INCOMPATIVEL', oferta: 3, horizonte: '2031-09-28', disponivelEm: '2029-09-28' }, 'liquidez'],
+      [{ tipo: 'PRAZO_INCOMPATIVEL', oferta: 4, horizonte: '2031-09-28', disponivelEm: '2027-03-28' }, 'liquidez'],
+      [{ tipo: 'PRAZO_INCOMPATIVEL', oferta: 3, horizonte: '2031-09-28' }, 'liquidez'],
+      [{ tipo: 'PRAZO_INCOMPATIVEL', oferta: 5, horizonte: '2028-01-15', disponivelEm: '2033-01-01', motivo: 'MARCACAO_A_MERCADO' }, 'marcacao-mercado'],
+      [{
+        tipo: 'FGC_LIMITE', oferta: 0, conglomerado: 'B', data: '2027-07-29', total: 250_010.5, limite: 250_000, excedente: 10.5,
+        fim: '2031-09-28', totalNoFim: 281_800.25, excedenteNoFim: 31_800.25, jaAcima: false, carteiraNaAplicacao: 200_000,
+      }, 'fgc'],
+      [{ tipo: 'FGC_NAO_CALCULADO', oferta: 0, conglomerado: 'B', carteira: [1], ofertaForaDaConta: false }, 'fgc'],
+    ];
+    for (const [a, licao] of casos) expect(textoDoAlerta(a, lista, horizontes).licao, `${a.tipo}`).toBe(licao);
+  });
+  it('o teto global leva à lição do FGC', () => {
+    expect(textoDoTetoGlobal({ garantiaSomada: 1_250_000, teto: 1_000_000, conglomerados: [] }).licao).toBe('fgc');
   });
 });
 
