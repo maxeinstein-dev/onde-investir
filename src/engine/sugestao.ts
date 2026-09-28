@@ -99,18 +99,30 @@ export interface OpcoesCasamento {
 
 /**
  * Preenche `ofertaCatalogo` (a primeira compatível) e `fgc` (quando há oferta casada, garantia FGC, valor
- * definido e a soma com a carteira do mesmo conglomerado passa do limite) em cada fatia.
+ * definido e a soma com a carteira do mesmo conglomerado — MAIS outras fatias do mesmo lote já casadas no
+ * mesmo conglomerado — passa do limite) em cada fatia.
+ *
+ * Feito em duas passadas: primeiro casa todas as fatias com o catálogo (sem calcular `fgc`), depois calcula
+ * o excedente de cada uma somando a carteira e as OUTRAS fatias já casadas no mesmo conglomerado. Assim
+ * nenhuma fatia soma com ela mesma.
  */
 export function casarComCatalogo(
   fatias: readonly Fatia[], catalogo: readonly OfertaCadastrada[], carteira: readonly ItemFGC[], hoje: DataISO,
   opcoes: OpcoesCasamento = {},
 ): Fatia[] {
-  return fatias.map((f) => {
-    const ofertaCatalogo = primeiraCompativel(catalogo, f.produto, f.indexacaoTipo, opcoes.liquidezDiaria ?? false);
-    const fgc = f.garantia === 'FGC' && f.valor !== null && ofertaCatalogo
-      ? excedenteFGC(ofertaCatalogo.conglomerado, f.valor, carteira, hoje)
-      : undefined;
-    return { ...f, ofertaCatalogo, fgc };
+  const casadas = fatias.map((f) => ({
+    ...f,
+    ofertaCatalogo: primeiraCompativel(catalogo, f.produto, f.indexacaoTipo, opcoes.liquidezDiaria ?? false),
+  }));
+  return casadas.map((f, i) => {
+    if (f.garantia !== 'FGC' || f.valor === null || !f.ofertaCatalogo) return { ...f, fgc: undefined };
+    const chave = normalizarConglomerado(f.ofertaCatalogo.conglomerado);
+    const outrasFatias = casadas
+      .filter((outra, j) => j !== i && outra.garantia === 'FGC' && outra.valor !== null
+        && outra.ofertaCatalogo && normalizarConglomerado(outra.ofertaCatalogo.conglomerado) === chave)
+      .reduce((soma, outra) => soma + (outra.valor as number), 0);
+    const fgc = excedenteFGC(f.ofertaCatalogo.conglomerado, f.valor + outrasFatias, carteira, hoje);
+    return { ...f, fgc };
   });
 }
 

@@ -98,6 +98,18 @@ describe('casarComCatalogo', () => {
     const [f] = casarComCatalogo([fatiaBase({ valor: null })], catalogo, carteira, HOJE);
     expect(f?.fgc).toBeUndefined();
   });
+  it('soma também com outras fatias FGC do mesmo objetivo casadas no mesmo conglomerado', () => {
+    // Duas fatias do mesmo lote, cada uma casando com uma oferta do mesmo conglomerado (Banco X).
+    // Sozinha, nenhuma passa do limite (150000 e 150000, sem carteira); juntas (300000) passam.
+    const catalogo = [catalogoBase({ id: 'a', conglomerado: 'Banco X' })];
+    const fatias = [
+      fatiaBase({ produto: 'CDB', valor: 150000 }),
+      fatiaBase({ produto: 'CDB', valor: 150000 }),
+    ];
+    const [f1, f2] = casarComCatalogo(fatias, catalogo, [], HOJE);
+    expect(f1?.fgc).toEqual({ conglomerado: 'Banco X', excedente: 50000 }); // 150000 + 150000 − 250000
+    expect(f2?.fgc).toEqual({ conglomerado: 'Banco X', excedente: 50000 });
+  });
 });
 
 const ctx = (over: Partial<ContextoSugestao> = {}): ContextoSugestao => ({ catalogo: [], carteira: [], hoje: HOJE, ...over });
