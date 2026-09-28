@@ -5,8 +5,10 @@
 import { type DataISO, ehDataValida } from './datas';
 import { OfertaInvalidaError } from './erros';
 import type { ItemFGC } from './fgc';
+import { coberto, normalizarConglomerado } from './fgc';
 import type { OfertaCadastrada } from './ofertas';
 import type { TipoIndexacao, TipoProduto } from './produtos';
+import { regraFGC } from './regras/fgc';
 import { MULTIPLICADOR_RESERVA } from './regras/sugestao';
 
 export type Objetivo =
@@ -70,4 +72,44 @@ export function validarObjetivo(o: Objetivo, hoje: DataISO): void {
       }
       break;
   }
+}
+
+function primeiraCompativel(
+  catalogo: readonly OfertaCadastrada[], produto: TipoProduto, indexacaoTipo: TipoIndexacao, liquidezDiaria: boolean,
+): OfertaCadastrada | undefined {
+  return catalogo.find(
+    (o) => o.produto === produto && o.indexacao.tipo === indexacaoTipo && (!liquidezDiaria || o.liquidez === 'DIARIA'),
+  );
+}
+
+function excedenteFGC(conglomerado: string, valorFatia: number, carteira: readonly ItemFGC[], hoje: DataISO): Fatia['fgc'] {
+  const limite = regraFGC(hoje).porConglomerado;
+  const chave = normalizarConglomerado(conglomerado);
+  const jaTem = carteira
+    .filter((i) => coberto(i.produto) && normalizarConglomerado(i.conglomerado) === chave)
+    .reduce((soma, i) => soma + i.brutoEm(hoje), 0);
+  const total = jaTem + valorFatia;
+  return total > limite ? { conglomerado, excedente: total - limite } : undefined;
+}
+
+export interface OpcoesCasamento {
+  /** Exige liquidez diária na oferta do catálogo (reserva de emergência). Padrão: false. */
+  liquidezDiaria?: boolean;
+}
+
+/**
+ * Preenche `ofertaCatalogo` (a primeira compatível) e `fgc` (quando há oferta casada, garantia FGC, valor
+ * definido e a soma com a carteira do mesmo conglomerado passa do limite) em cada fatia.
+ */
+export function casarComCatalogo(
+  fatias: readonly Fatia[], catalogo: readonly OfertaCadastrada[], carteira: readonly ItemFGC[], hoje: DataISO,
+  opcoes: OpcoesCasamento = {},
+): Fatia[] {
+  return fatias.map((f) => {
+    const ofertaCatalogo = primeiraCompativel(catalogo, f.produto, f.indexacaoTipo, opcoes.liquidezDiaria ?? false);
+    const fgc = f.garantia === 'FGC' && f.valor !== null && ofertaCatalogo
+      ? excedenteFGC(ofertaCatalogo.conglomerado, f.valor, carteira, hoje)
+      : undefined;
+    return { ...f, ofertaCatalogo, fgc };
+  });
 }
