@@ -58,7 +58,7 @@ function abrirNaTrilha(l: Licao) {
 }
 
 describe('App: aba Aprender', () => {
-  it('é a última aba; #aprender abre o índice e #aprender/<lição> abre a lição', () => {
+  it('é a última aba; #aprender abre o índice e #aprender/<lição> abre a lição', async () => {
     history.replaceState(null, '', '/#aprender');
     render(<App />);
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Comparar', 'Catálogo', 'Carteira', 'Aprender']);
@@ -67,7 +67,7 @@ describe('App: aba Aprender', () => {
     cleanup();
     history.replaceState(null, '', '/#aprender/fgc');
     render(<App />);
-    expect(within(painelAtivo()).getByRole('heading', { level: 2, name: 'FGC e garantias' })).toBeInTheDocument();
+    expect(await within(painelAtivo()).findByRole('heading', { level: 2, name: 'FGC e garantias' })).toBeInTheDocument();
   });
   it('abrir a lição põe o id no hash; voltar ao índice tira', () => {
     render(<App />);

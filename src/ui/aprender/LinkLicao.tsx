@@ -1,5 +1,5 @@
-import { licaoPorId } from '../../conteudo/licoes';
 import type { IdLicao } from '../../conteudo/licoes/tipos';
+import { TITULOS_LICOES } from '../../conteudo/licoes/titulos';
 
 /** O hash de uma lição (`#aprender/fgc`) e do índice (`#aprender`): a aba é o prefixo antes da `/` (ver Abas). */
 export const ABA_APRENDER = 'aprender';
@@ -10,7 +10,7 @@ export const hashDaLicao = (id: IdLicao | null) => (id === null ? `#${ABA_APREND
  * `onVerLicao` troca de aba sem recarregar. Sem `onVerLicao`, fica o hash, que o App também entende.
  */
 export function LinkLicao({ licao, onVerLicao }: { licao: IdLicao; onVerLicao?: ((id: IdLicao) => void) | undefined }) {
-  const titulo = licaoPorId(licao)?.titulo ?? '';
+  const titulo = TITULOS_LICOES[licao];
   return (
     <a href={hashDaLicao(licao)} class="link-licao" onClick={(e) => {
       if (!onVerLicao) return;

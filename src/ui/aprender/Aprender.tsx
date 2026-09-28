@@ -3,11 +3,11 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Progresso } from '../../armazenamento/progresso';
 import { CASOS_CLASSICOS } from '../../conteudo/casos';
 import { GLOSSARIO } from '../../conteudo/glossario';
-import { LICOES, licaoPorId } from '../../conteudo/licoes';
 import type { CasoClassico, IdLicao, Licao } from '../../conteudo/licoes/tipos';
 import { MarkdownRestrito } from '../MarkdownRestrito';
 import { Termo } from '../Termo';
 import { hashDaLicao } from './LinkLicao';
+import { type EstadoConteudoAprender, useConteudoAprender } from './useConteudoAprender';
 
 export { ABA_APRENDER } from './LinkLicao';
 
@@ -17,6 +17,10 @@ const ID_TITULO_LICAO = `${PREFIXO}-licao-titulo`;
 const idLinkDaLicao = (id: IdLicao) => `${PREFIXO}-link-${id}`;
 
 const LINK_MD = /\[([^\]]+)\]\(([^)\s]+)\)/g;
+
+const TEXTO_CARREGANDO = 'Carregando conteúdo…';
+const TEXTO_ERRO = 'Não deu para carregar o conteúdo da trilha Aprender.';
+const TEXTO_TENTAR_DE_NOVO = 'Tentar de novo';
 
 /** O nome de cada fonte: o rótulo do primeiro link para ela no texto da lição; sem link, o domínio. */
 function rotulosDasFontes(l: Licao): Map<string, string> {
@@ -44,21 +48,46 @@ export interface PropsAprender {
   onCaso: (caso: CasoClassico) => void;
 }
 
-/** A trilha "Aprender" (spec §6): o índice das lições e dos casos clássicos, ou a lição aberta. */
+/** O título e o aviso de carregando/erro enquanto o chunk das lições não chega (ver useConteudoAprender). */
+function AvisoConteudo(
+  { estado, idTitulo, tituloCarregando, onTentarDeNovo }:
+  { estado: EstadoConteudoAprender; idTitulo: string; tituloCarregando: string; onTentarDeNovo: () => void },
+) {
+  if (estado === 'pronto') return null; // não deveria acontecer: quem chama já filtra por `estado !== 'pronto'`
+  return (
+    <>
+      <h2 id={idTitulo} tabIndex={-1}>{tituloCarregando}</h2>
+      {estado === 'carregando'
+        ? <p role="status">{TEXTO_CARREGANDO}</p>
+        : (
+          <div class="aprender__erro">
+            <p role="alert" class="erro">{TEXTO_ERRO}</p>
+            <button type="button" onClick={onTentarDeNovo}>{TEXTO_TENTAR_DE_NOVO}</button>
+          </div>
+        )}
+    </>
+  );
+}
+
+/** A trilha "Aprender" (spec §6): o índice das lições e dos casos clássicos, ou a lição aberta. As 10 lições
+ * (seções e fontes completas) chegam sob demanda, num chunk à parte (useConteudoAprender). */
 export function Aprender({ licao: idLicao, onAbrir, progresso, onConcluir, onExperimente, onCaso }: PropsAprender) {
-  const licao = idLicao === null ? undefined : licaoPorId(idLicao);
+  const { estado, conteudo, tentarDeNovo } = useConteudoAprender();
+  const licao = idLicao === null || conteudo === null ? undefined : conteudo.licaoPorId(idLicao);
   /** O anúncio vale para a lição em que apareceu (invalidação derivada). */
   const [anuncio, setAnuncio] = useState<{ texto: string; licao: IdLicao } | null>(null);
   const anterior = useRef(idLicao);
 
-  // Trocou de lição: o foco vai para o título da nova; de volta ao índice, para o link da lição de onde veio.
+  // Trocou de lição: o foco vai para o título da nova; de volta ao índice, para o link da lição de onde veio. Só
+  // depois do conteúdo pronto (senão o título/link ainda não estão no DOM).
   useEffect(() => {
+    if (estado !== 'pronto') return;
     const veio = anterior.current;
     anterior.current = idLicao;
     if (veio === idLicao) return;
     if (idLicao !== null) document.getElementById(ID_TITULO_LICAO)?.focus();
     else if (veio !== null) document.getElementById(idLinkDaLicao(veio))?.focus();
-  }, [idLicao]);
+  }, [idLicao, estado]);
 
   function concluir(l: Licao, concluida: boolean) {
     onConcluir(l.id, concluida);
@@ -68,11 +97,16 @@ export function Aprender({ licao: idLicao, onAbrir, progresso, onConcluir, onExp
   const status = anuncio !== null && anuncio.licao === idLicao ? anuncio.texto : '';
 
   return (
-    <section class="aprender" aria-labelledby={licao ? ID_TITULO_LICAO : ID_TITULO_APRENDER}>
-      {licao
-        ? <PaginaLicao licao={licao} concluida={progresso.concluidas.includes(licao.id)} onAbrir={onAbrir}
-          onConcluir={(c) => concluir(licao, c)} onExperimente={() => onExperimente(licao)} />
-        : <Indice progresso={progresso} onAbrir={onAbrir} onCaso={onCaso} />}
+    <section class="aprender" aria-labelledby={idLicao !== null ? ID_TITULO_LICAO : ID_TITULO_APRENDER}>
+      {estado !== 'pronto' || conteudo === null
+        ? (
+          <AvisoConteudo estado={estado} idTitulo={idLicao !== null ? ID_TITULO_LICAO : ID_TITULO_APRENDER}
+            tituloCarregando={idLicao !== null ? 'Carregando lição…' : 'Aprender'} onTentarDeNovo={tentarDeNovo} />
+        )
+        : licao
+          ? <PaginaLicao licao={licao} licoes={conteudo.LICOES} concluida={progresso.concluidas.includes(licao.id)} onAbrir={onAbrir}
+            onConcluir={(c) => concluir(licao, c)} onExperimente={() => onExperimente(licao)} />
+          : <Indice licoes={conteudo.LICOES} progresso={progresso} onAbrir={onAbrir} onCaso={onCaso} />}
       <p role="status" class="visualmente-oculto">{status}</p>
       <p class="aviso">Conteúdo educativo: não é recomendação de investimento.</p>
     </section>
@@ -97,7 +131,11 @@ function LinkParaLicao({ para, onAbrir, children, class: classe, id }: PropsLink
   );
 }
 
-function Indice({ progresso, onAbrir, onCaso }: Pick<PropsAprender, 'progresso' | 'onAbrir' | 'onCaso'>) {
+interface PropsIndice extends Pick<PropsAprender, 'progresso' | 'onAbrir' | 'onCaso'> {
+  licoes: readonly Licao[];
+}
+
+function Indice({ licoes, progresso, onAbrir, onCaso }: PropsIndice) {
   const n = progresso.concluidas.length;
   const { acertos, total } = progresso.palpites;
   return (
@@ -105,12 +143,12 @@ function Indice({ progresso, onAbrir, onCaso }: Pick<PropsAprender, 'progresso' 
       <h2 id={ID_TITULO_APRENDER} tabIndex={-1}>Aprender</h2>
       <p>Lições curtas sobre renda fixa. Cada uma termina com uma comparação pronta para você ver a regra em ação.</p>
       <div class="aprender__progresso">
-        <label for={`${PREFIXO}-progresso`}>{n} de {LICOES.length} lições</label>
-        <progress id={`${PREFIXO}-progresso`} value={n} max={LICOES.length} />
+        <label for={`${PREFIXO}-progresso`}>{n} de {licoes.length} lições</label>
+        <progress id={`${PREFIXO}-progresso`} value={n} max={licoes.length} />
         {total > 0 && <p>Você acertou {acertos} de {total} {plural(total, 'palpite', 'palpites')}.</p>}
       </div>
       <ol class="trilha" aria-label="Lições">
-        {LICOES.map((l) => {
+        {licoes.map((l) => {
           const feita = progresso.concluidas.includes(l.id);
           return (
             <li key={l.id} class="trilha__item">
@@ -149,20 +187,21 @@ function Indice({ progresso, onAbrir, onCaso }: Pick<PropsAprender, 'progresso' 
 
 interface PropsPagina {
   licao: Licao;
+  licoes: readonly Licao[];
   concluida: boolean;
   onAbrir: (id: IdLicao | null) => void;
   onConcluir: (concluida: boolean) => void;
   onExperimente: () => void;
 }
 
-function PaginaLicao({ licao, concluida, onAbrir, onConcluir, onExperimente }: PropsPagina) {
-  const proxima = LICOES.find((l) => l.ordem === licao.ordem + 1);
+function PaginaLicao({ licao, licoes, concluida, onAbrir, onConcluir, onExperimente }: PropsPagina) {
+  const proxima = licoes.find((l) => l.ordem === licao.ordem + 1);
   const rotulos = rotulosDasFontes(licao);
   return (
     <article class="licao">
       <LinkParaLicao para={null} onAbrir={onAbrir} class="link">Voltar ao índice</LinkParaLicao>
       <p class="dica">
-        Lição {licao.ordem} de {LICOES.length} · {licao.tempoLeituraMin} min de leitura{concluida ? ' · ✓ concluída' : ''}
+        Lição {licao.ordem} de {licoes.length} · {licao.tempoLeituraMin} min de leitura{concluida ? ' · ✓ concluída' : ''}
       </p>
       <h2 id={ID_TITULO_LICAO} tabIndex={-1}>{licao.titulo}</h2>
       <p class="licao__resumo">{licao.resumo}</p>

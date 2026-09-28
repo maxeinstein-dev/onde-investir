@@ -9,8 +9,8 @@ import {
   contarVisita, dispensarDica, lerProgresso, marcarConcluida, type Progresso, registrarPalpite, salvarProgresso,
 } from '../armazenamento/progresso';
 import { explicarCenario } from '../conteudo/comparacao';
-import { licaoPorId } from '../conteudo/licoes';
 import { type CasoClassico, type IdLicao, type Licao, montarExperimente } from '../conteudo/licoes/tipos';
+import { idLicaoValido } from '../conteudo/licoes/titulos';
 import { cenarioAtivo, usaSoManual, type CenarioAtivo } from '../dados/cenarios';
 import type { IndicadoresCarregados } from '../dados/indicadores';
 import { cenarioComHistorico } from '../engine/historico';
@@ -61,8 +61,8 @@ function useCenarioAtivo(ind: IndicadoresCarregados | null, p: PreferenciasCenar
 function licaoDoHash(): IdLicao | null {
   const prefixo = `#${ABA_APRENDER}/`;
   if (!location.hash.startsWith(prefixo)) return null;
-  const id = location.hash.slice(prefixo.length) as IdLicao;
-  return licaoPorId(id) ? id : null;
+  const id = location.hash.slice(prefixo.length);
+  return idLicaoValido(id) ? id : null;
 }
 
 /** O cenário que vai no link: o em uso de fato (o manual, se o pedido caiu nele por falta de dados). */

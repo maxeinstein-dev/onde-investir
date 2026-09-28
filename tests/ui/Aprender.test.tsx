@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
 import { useState } from 'preact/hooks';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { marcarConcluida, PROGRESSO_VAZIO, type Progresso } from '../../src/armazenamento/progresso';
@@ -34,9 +34,28 @@ const indice = () => screen.getByRole('list', { name: 'Lições' });
 const itens = () => within(indice()).getAllByRole('listitem');
 const abrirLicao = (l: Licao) => fireEvent.click(within(indice()).getByRole('link', { name: new RegExp(`^${l.ordem}\\. ${l.titulo}`) }));
 
+/** O conteúdo das lições vem por import dinâmico (useConteudoAprender): espera o índice (ou a lição) chegar. */
+function montar(props: PropsTela = {}) {
+  const utils = render(<Tela {...props} />);
+  return utils;
+}
+const esperaIndice = () => screen.findByRole('list', { name: 'Lições' });
+const esperaLicao = (l: Licao) => screen.findByRole('heading', { level: 2, name: l.titulo });
+
+describe('Aprender: carregamento', () => {
+  it('mostra "Carregando…" enquanto o chunk das lições não chega, e o índice depois', async () => {
+    montar();
+    expect(screen.getByText('Carregando conteúdo…')).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Lições' })).toBeNull();
+    await esperaIndice();
+    expect(itens()).toHaveLength(10);
+  });
+});
+
 describe('Aprender: índice', () => {
-  it('as 10 lições em ordem, com título, resumo e tempo de leitura', () => {
-    render(<Tela />);
+  it('as 10 lições em ordem, com título, resumo e tempo de leitura', async () => {
+    montar();
+    await esperaIndice();
     expect(screen.getByRole('heading', { level: 2, name: 'Aprender' })).toBeInTheDocument();
     expect(itens()).toHaveLength(10);
     LICOES.forEach((l, i) => {
@@ -46,9 +65,10 @@ describe('Aprender: índice', () => {
       expect(item).toHaveTextContent(`${l.tempoLeituraMin} min de leitura`);
     });
   });
-  it('marca as concluídas com ✓ e mostra a barra "N de 10 lições"', () => {
+  it('marca as concluídas com ✓ e mostra a barra "N de 10 lições"', async () => {
     const progresso = { ...PROGRESSO_VAZIO, concluidas: [segunda.id, ultima.id] };
-    render(<Tela progresso={progresso} />);
+    montar({ progresso });
+    await esperaIndice();
     const barra = screen.getByRole('progressbar', { name: '2 de 10 lições' });
     expect(barra).toHaveAttribute('value', '2');
     expect(barra).toHaveAttribute('max', '10');
@@ -56,19 +76,23 @@ describe('Aprender: índice', () => {
     expect(within(itens()[1] as HTMLElement).getByText('concluída', { exact: false })).toBeInTheDocument();
     expect(itens()[0]).not.toHaveTextContent('✓');
   });
-  it('sem palpites, não mostra a taxa de acerto; com palpites, "Você acertou X de Y palpites"', () => {
-    render(<Tela />);
+  it('sem palpites, não mostra a taxa de acerto; com palpites, "Você acertou X de Y palpites"', async () => {
+    montar();
+    await esperaIndice();
     expect(screen.queryByText(/Você acertou/)).toBeNull();
     cleanup();
-    render(<Tela progresso={{ ...PROGRESSO_VAZIO, palpites: { acertos: 2, total: 3 } }} />);
+    montar({ progresso: { ...PROGRESSO_VAZIO, palpites: { acertos: 2, total: 3 } } });
+    await esperaIndice();
     expect(screen.getByText('Você acertou 2 de 3 palpites.')).toBeInTheDocument();
     cleanup();
-    render(<Tela progresso={{ ...PROGRESSO_VAZIO, palpites: { acertos: 0, total: 1 } }} />);
+    montar({ progresso: { ...PROGRESSO_VAZIO, palpites: { acertos: 0, total: 1 } } });
+    await esperaIndice();
     expect(screen.getByText('Você acertou 0 de 1 palpite.')).toBeInTheDocument();
   });
-  it('os 4 casos clássicos, cada um com a pergunta, a explicação e o "Experimente"', () => {
+  it('os 4 casos clássicos, cada um com a pergunta, a explicação e o "Experimente"', async () => {
     const onCaso = vi.fn();
-    render(<Tela onCaso={onCaso} />);
+    montar({ onCaso });
+    await esperaIndice();
     const secao = screen.getByRole('heading', { name: 'Casos clássicos' }).closest('section') as HTMLElement;
     const casos = within(within(secao).getByRole('list')).getAllByRole('listitem');
     expect(casos).toHaveLength(4);
@@ -80,18 +104,20 @@ describe('Aprender: índice', () => {
     fireEvent.click(within(secao).getByRole('button', { name: `Experimente: ${caso.titulo}` }));
     expect(onCaso).toHaveBeenCalledWith(caso);
   });
-  it('o rodapé avisa que o conteúdo é educativo', () => {
-    render(<Tela />);
+  it('o rodapé avisa que o conteúdo é educativo', async () => {
+    montar();
+    await esperaIndice();
     expect(screen.getByText(/Conteúdo educativo/)).toBeInTheDocument();
   });
 });
 
 describe('Aprender: lição', () => {
-  it('abre a lição com o foco no título, as seções, os termos e as fontes', () => {
-    render(<Tela />);
+  it('abre a lição com o foco no título, as seções, os termos e as fontes', async () => {
+    montar();
+    await esperaIndice();
     abrirLicao(primeira);
-    const titulo = screen.getByRole('heading', { level: 2, name: primeira.titulo });
-    expect(document.activeElement).toBe(titulo);
+    const titulo = await esperaLicao(primeira);
+    await waitFor(() => expect(document.activeElement).toBe(titulo));
     expect(screen.queryByRole('list', { name: 'Lições' })).toBeNull();
     for (const s of primeira.secoes) expect(screen.getByRole('heading', { level: 3, name: s.titulo })).toBeInTheDocument();
     const termos = screen.getByRole('heading', { name: 'Termos desta lição' }).closest('section') as HTMLElement;
@@ -101,23 +127,28 @@ describe('Aprender: lição', () => {
     expect(hrefs).toEqual([...primeira.fontes]);
     for (const a of within(fontes).getAllByRole('link')) expect(a).toHaveAttribute('rel', 'noopener noreferrer');
   });
-  it('"Experimente" entrega a lição para quem abre a comparação', () => {
+  it('"Experimente" entrega a lição para quem abre a comparação', async () => {
     const onExperimente = vi.fn();
-    render(<Tela onExperimente={onExperimente} />);
+    montar({ onExperimente });
+    await esperaIndice();
     abrirLicao(primeira);
+    await esperaLicao(primeira);
     fireEvent.click(screen.getByRole('button', { name: /^Experimente/ }));
     expect(onExperimente).toHaveBeenCalledWith(primeira);
   });
-  it('as lições conceituais não têm "Experimente"', () => {
+  it('as lições conceituais não têm "Experimente"', async () => {
     for (const l of LICOES.filter((x) => x.experimente === undefined)) {
-      render(<Tela licao={l.id} />);
+      montar({ licao: l.id });
+      await esperaLicao(l);
       expect(screen.queryByRole('button', { name: /^Experimente/ })).toBeNull();
       cleanup();
     }
   });
-  it('marcar como concluída e desmarcar, com o anúncio e o ✓ no índice', () => {
-    render(<Tela />);
+  it('marcar como concluída e desmarcar, com o anúncio e o ✓ no índice', async () => {
+    montar();
+    await esperaIndice();
     abrirLicao(primeira);
+    await esperaLicao(primeira);
     const status = screen.getByRole('status');
     const marcar = screen.getByRole('button', { name: 'Marcar como concluída' });
     fireEvent.click(marcar);
@@ -125,32 +156,43 @@ describe('Aprender: lição', () => {
     // O mesmo botão, com o texto trocado: quem estava nele não perde o foco.
     expect(screen.getByRole('button', { name: 'Desmarcar como concluída' })).toBe(marcar);
     fireEvent.click(screen.getByRole('link', { name: 'Voltar ao índice' }));
+    await esperaIndice();
     expect(screen.getByRole('progressbar', { name: '1 de 10 lições' })).toBeInTheDocument();
     expect(itens()[0]).toHaveTextContent('✓');
     abrirLicao(primeira);
+    await esperaLicao(primeira);
     fireEvent.click(screen.getByRole('button', { name: 'Desmarcar como concluída' }));
     expect(screen.getByRole('status')).toHaveTextContent('Lição desmarcada.');
     expect(screen.getByRole('button', { name: 'Marcar como concluída' })).toBeInTheDocument();
   });
-  it('"Próxima lição" abre a seguinte com o foco no título; a última não tem', () => {
-    render(<Tela />);
+  it('"Próxima lição" abre a seguinte com o foco no título; a última não tem', async () => {
+    montar();
+    await esperaIndice();
     abrirLicao(primeira);
+    await esperaLicao(primeira);
     fireEvent.click(screen.getByRole('link', { name: `Próxima lição: ${segunda.titulo}` }));
-    expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2, name: segunda.titulo }));
+    const titulo = await esperaLicao(segunda);
+    await waitFor(() => expect(document.activeElement).toBe(titulo));
     cleanup();
-    render(<Tela licao={ultima.id} />);
+    montar({ licao: ultima.id });
+    await esperaLicao(ultima);
     expect(screen.queryByRole('link', { name: /^Próxima lição/ })).toBeNull();
   });
-  it('"Voltar ao índice" devolve o foco ao link da lição', () => {
-    render(<Tela />);
+  it('"Voltar ao índice" devolve o foco ao link da lição', async () => {
+    montar();
+    await esperaIndice();
     abrirLicao(segunda);
+    await esperaLicao(segunda);
     fireEvent.click(screen.getByRole('link', { name: 'Voltar ao índice' }));
-    expect(document.activeElement).toBe(within(indice()).getByRole('link', { name: new RegExp(`^2\\. ${segunda.titulo}`) }));
+    await esperaIndice();
+    await waitFor(() => expect(document.activeElement).toBe(within(indice()).getByRole('link', { name: new RegExp(`^2\\. ${segunda.titulo}`) })));
   });
-  it('os links têm o hash da lição (abrir em outra aba funciona)', () => {
-    render(<Tela />);
+  it('os links têm o hash da lição (abrir em outra aba funciona)', async () => {
+    montar();
+    await esperaIndice();
     expect(within(indice()).getByRole('link', { name: new RegExp(`^1\\. ${primeira.titulo}`) })).toHaveAttribute('href', `#aprender/${primeira.id}`);
     abrirLicao(primeira);
+    await esperaLicao(primeira);
     expect(screen.getByRole('link', { name: 'Voltar ao índice' })).toHaveAttribute('href', '#aprender');
   });
 });

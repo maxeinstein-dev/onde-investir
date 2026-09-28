@@ -7,6 +7,7 @@ import { LICOES } from '../../src/conteudo/licoes';
 import {
   type Experimente, type IdLicao, type Licao, montarExperimente, PALAVRAS_POR_MINUTO, palavrasDaLicao,
 } from '../../src/conteudo/licoes/tipos';
+import { ID_LICOES, idLicaoValido, TITULOS_LICOES } from '../../src/conteudo/licoes/titulos';
 import { CENARIO_INICIAL } from '../../src/dados/cenarioInicial';
 import { gerarAlertas } from '../../src/engine/alertas';
 import { horizontesPadrao, tabelaPorHorizonte } from '../../src/engine/comparacao';
@@ -57,6 +58,15 @@ describe('lições (integridade)', () => {
     expect(new Set(LICOES.map((l) => l.id)).size).toBe(10);
     expect(new Set(LICOES.map((l) => l.id))).toEqual(new Set(Object.keys(TODAS)));
     expect(LICOES.map((l) => l.ordem)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  });
+
+  it('titulos.ts (fora do chunk pesado) bate com o título e a ordem de cada lição', () => {
+    expect(ID_LICOES).toEqual(LICOES.map((l) => l.id));
+    for (const l of LICOES) {
+      expect(TITULOS_LICOES[l.id], l.id).toBe(l.titulo);
+      expect(idLicaoValido(l.id)).toBe(true);
+    }
+    expect(idLicaoValido('nao-existe')).toBe(false);
   });
 
   it('título, resumo de uma frase e seções preenchidas', () => {
