@@ -208,4 +208,8 @@ describe('sugerir — dispatcher completo', () => {
     expect(sugerir({ tipo: 'LONGO_PRAZO', horizonteAnos: 10 }, ctx()).length).toBeGreaterThan(0);
     expect(sugerir({ tipo: 'SEM_OBJETIVO', horizonteAnos: 10 }, ctx()).length).toBeGreaterThan(0);
   });
+  it('valida o objetivo antes de calcular: horizonte negativo ou fracionário lança', () => {
+    expect(() => sugerir({ tipo: 'LONGO_PRAZO', horizonteAnos: -5 }, ctx())).toThrow(OfertaInvalidaError);
+    expect(() => sugerir({ tipo: 'LONGO_PRAZO', horizonteAnos: 5.5 }, ctx())).toThrow(OfertaInvalidaError);
+  });
 });

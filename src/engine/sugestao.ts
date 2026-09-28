@@ -187,7 +187,13 @@ function sugerirSemObjetivo(o: Extract<Objetivo, { tipo: 'SEM_OBJETIVO' }>, ctx:
   return casarComCatalogo(base, ctx.catalogo, ctx.carteira, ctx.hoje);
 }
 
+/**
+ * Dispatcher por tipo de objetivo. Valida `objetivo` (chamando `validarObjetivo`, que lança
+ * `OfertaInvalidaError`) antes de qualquer cálculo, então as funções internas por tipo podem supor
+ * um objetivo já validado.
+ */
 export function sugerir(objetivo: Objetivo, ctx: ContextoSugestao): Fatia[] {
+  validarObjetivo(objetivo, ctx.hoje);
   switch (objetivo.tipo) {
     case 'RESERVA': return sugerirReserva(objetivo, ctx);
     case 'COM_DATA': return sugerirComData(objetivo, ctx);
