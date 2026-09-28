@@ -11,7 +11,7 @@ import { dataBR, ehDataValida, type DataISO } from '../../engine/datas';
 import { calcularEquivalencias } from '../../engine/equivalencia';
 import type { Cenario } from '../../engine/indexadores';
 import type { CenarioProjetado } from '../../engine/projecao';
-import { validarRegraReinvestimento, type OfertaCadastrada, type RegraReinvestimento } from '../../engine/ofertas';
+import { aplicacaoDe, validarRegraReinvestimento, type OfertaCadastrada, type RegraReinvestimento } from '../../engine/ofertas';
 import { seriesDeValorLiquido, trocasDeLider, trocasRelevantes, type Serie, type TrocasRelevantes } from '../../engine/serie';
 import { formatarMoeda, formatarPercentual } from '../../formato';
 import { CampoNumerico } from '../CampoNumerico';
@@ -423,7 +423,7 @@ function EquivalenciasDaComparacao({ calculo, eqId, eqData, onOferta, onData }: 
     const origem = nomeOferta(oferta);
     if (projecao.estado !== 'DISPONIVEL') return <EquivalenciasIndisponiveis origem={origem} motivo={descreverProjecao(projecao)} />;
     try {
-      const eq = calcularEquivalencias({ produto: oferta.produto, indexacao: oferta.indexacao, valor: entrada.valor, dataAplicacao: entrada.dataAplicacao }, coluna.data, cenario);
+      const eq = calcularEquivalencias(aplicacaoDe(oferta, entrada.valor, entrada.dataAplicacao), coluna.data, cenario);
       const aviso = projecao.reinvestimento
         ? `As equivalências consideram ${descreverOferta(oferta)} aplicado de uma vez até ${dataBR(coluna.data)}, sem reaplicar no vencimento.`
         : undefined;

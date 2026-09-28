@@ -2,7 +2,7 @@
 import { type DataISO, dataBR, ehDataValida } from './datas';
 import { OfertaInvalidaError, RegraNaoEncontradaError } from './erros';
 import type { Cenario } from './indexadores';
-import { INDEXACOES_PERMITIDAS, simular, type Oferta, type ResultadoSimulacao } from './produtos';
+import { INDEXACOES_PERMITIDAS, simular, validarCustoExtra, type Aplicacao, type Oferta, type ResultadoSimulacao } from './produtos';
 import { dataMinimaResgate } from './regras/prazoMinimo';
 
 export type Liquidez = 'DIARIA' | 'NO_VENCIMENTO';
@@ -41,7 +41,16 @@ export function validarOfertaCadastrada(o: OfertaCadastrada): void {
     throw new OfertaInvalidaError('Títulos do Tesouro têm liquidez diária (com marcação a mercado nos prefixados e IPCA+)');
   }
   if (o.liquidez === 'NO_VENCIMENTO' && o.vencimento === undefined) throw new OfertaInvalidaError('Informe o vencimento de uma oferta sem liquidez diária');
+  validarCustoExtra(o.custoExtraAA);
 }
+
+/** O produto, a indexação e o custo extra (quando há) da oferta: o que `simular` precisa, sem o cadastro. */
+export function ofertaPura(o: Oferta): Oferta {
+  return { produto: o.produto, indexacao: o.indexacao, ...(o.custoExtraAA === undefined ? {} : { custoExtraAA: o.custoExtraAA }) };
+}
+
+/** A oferta aplicada com valor e data. */
+export const aplicacaoDe = (o: Oferta, valor: number, dataAplicacao: DataISO): Aplicacao => ({ ...ofertaPura(o), valor, dataAplicacao });
 
 /** TAXA_FIXA exige taxa finita, maior que −100% e até 100% a.a. A UI valida antes; o engine lança. */
 export function validarRegraReinvestimento(regra: RegraReinvestimento): void {
@@ -50,9 +59,12 @@ export function validarRegraReinvestimento(regra: RegraReinvestimento): void {
   if (!Number.isFinite(t) || t <= -1 || t > 1) throw new OfertaInvalidaError('Taxa de reinvestimento inválida');
 }
 
-/** A oferta em que o dinheiro é reaplicado no vencimento, pela regra (sem o fallback em CDB 100%). */
+/**
+ * A oferta em que o dinheiro é reaplicado no vencimento, pela regra (sem o fallback em CDB 100%). Na mesma oferta,
+ * o custo extra vai junto (mesmo lugar, mesma tarifa); no CDB 100% e na taxa fixa, sem custo.
+ */
 export function ofertaDeReinvestimento(o: Oferta, regra: RegraReinvestimento): Oferta {
-  const mesma: Oferta = { produto: o.produto, indexacao: o.indexacao };
+  const mesma = ofertaPura(o);
   switch (regra.tipo) {
     case 'MESMA_TAXA': return mesma;
     case 'CDI_100': return CDB_100;
@@ -94,7 +106,7 @@ export function projetar(
   regra: RegraReinvestimento = { tipo: 'PADRAO' },
 ): Projecao {
   validarRegraReinvestimento(regra); // fora do try: regra inválida não vira fallback nem "indisponível"
-  const aplicacao = { produto: o.produto, indexacao: o.indexacao, valor, dataAplicacao };
+  const aplicacao = aplicacaoDe(o, valor, dataAplicacao);
   const venc = o.vencimento;
   if (venc !== undefined && venc <= dataAplicacao) return { estado: 'INDISPONIVEL', motivo: 'A oferta vence antes da data de aplicação' };
   if (dataAlvo <= dataAplicacao) return { estado: 'INDISPONIVEL', motivo: 'Escolha uma data depois da aplicação' };
