@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { urlCalendarioCopom, urlFocusAnuais, urlFocusIpcaMensal, urlFocusSelic, urlSgsUltimos } from '../../src/dados/bcb';
+import { urlCalendarioCopom, urlFocusAnuais, urlFocusIpcaMensal, urlFocusSelic, urlSgsAno, urlSgsUltimos } from '../../src/dados/bcb';
 
 const headers = readFileSync(new URL('../../public/_headers', import.meta.url), 'utf-8');
 const csp = /Content-Security-Policy:\s*(.+)/.exec(headers)?.[1] ?? '';
@@ -11,7 +11,7 @@ describe('CSP em public/_headers', () => {
     expect(diretiva('connect-src')).toEqual(['\'self\'', 'https://api.bcb.gov.br', 'https://olinda.bcb.gov.br', 'https://www.bcb.gov.br']);
   });
   it('toda URL que o app busca tem a origem liberada', () => {
-    const urls = [urlSgsUltimos(432, 1), urlFocusSelic(), urlFocusIpcaMensal(), urlFocusAnuais(), urlCalendarioCopom('2026-01-01', '2028-12-31')];
+    const urls = [urlSgsUltimos(432, 1), urlSgsAno(12, 2025), urlFocusSelic(), urlFocusIpcaMensal(), urlFocusAnuais(), urlCalendarioCopom('2026-01-01', '2028-12-31')];
     for (const url of urls) expect(diretiva('connect-src'), url).toContain(new URL(url).origin);
   });
   it('o resto continua restrito', () => {
