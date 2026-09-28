@@ -129,3 +129,39 @@ describe('sugerir — LONGO_PRAZO', () => {
     ]);
   });
 });
+
+describe('sugerir — COM_DATA', () => {
+  const objetivo = { tipo: 'COM_DATA' as const, valorAlvo: 50000, data: '2029-06-01' };
+
+  it('sem catálogo, cai no pós-fixado genérico de fallback', () => {
+    const [f] = sugerir(objetivo, ctx());
+    expect(f).toMatchObject({ produto: 'CDB', indexacaoTipo: 'POS_CDI', percentual: 1, motivo: 'DATA_SEM_CASAMENTO', garantia: 'FGC', valor: 50000 });
+  });
+
+  it('casa com o vencimento mais próximo, sem passar da data', () => {
+    const catalogo = [
+      { id: 'longe', produto: 'TESOURO_PREFIXADO' as const, indexacao: { tipo: 'PRE' as const, taxaAA: 0.12 }, emissor: 'Tesouro', conglomerado: 'Tesouro', liquidez: 'DIARIA' as const, vencimento: '2035-01-01' },
+      { id: 'certo', produto: 'CDB' as const, indexacao: { tipo: 'PRE' as const, taxaAA: 0.13 }, emissor: 'Banco Y', conglomerado: 'Banco Y', liquidez: 'NO_VENCIMENTO' as const, vencimento: '2029-05-15' },
+      { id: 'passa', produto: 'CDB' as const, indexacao: { tipo: 'POS_CDI' as const, percentualCDI: 1 }, emissor: 'Banco Z', conglomerado: 'Banco Z', liquidez: 'NO_VENCIMENTO' as const, vencimento: '2029-07-01' }, // depois da data-alvo, não serve
+    ];
+    const [f] = sugerir(objetivo, ctx({ catalogo }));
+    expect(f?.ofertaCatalogo?.id).toBe('certo');
+    expect(f).toMatchObject({ produto: 'CDB', indexacaoTipo: 'PRE', motivo: 'DATA_VENCIMENTO_CASADO', garantia: 'FGC', valor: 50000 });
+  });
+
+  it('entre duas ofertas que casam, escolhe a de vencimento mais próximo da data', () => {
+    const catalogo = [
+      { id: 'longe', produto: 'CDB' as const, indexacao: { tipo: 'PRE' as const, taxaAA: 0.1 }, emissor: 'A', conglomerado: 'A', liquidez: 'NO_VENCIMENTO' as const, vencimento: '2029-01-01' },
+      { id: 'perto', produto: 'CDB' as const, indexacao: { tipo: 'PRE' as const, taxaAA: 0.1 }, emissor: 'B', conglomerado: 'B', liquidez: 'NO_VENCIMENTO' as const, vencimento: '2029-05-30' },
+    ];
+    const [f] = sugerir(objetivo, ctx({ catalogo }));
+    expect(f?.ofertaCatalogo?.id).toBe('perto');
+  });
+
+  it('gera aviso de FGC quando o valor-alvo somado à carteira passa do limite', () => {
+    const catalogo = [{ id: 'a', produto: 'CDB' as const, indexacao: { tipo: 'PRE' as const, taxaAA: 0.1 }, emissor: 'Banco X', conglomerado: 'Banco X', liquidez: 'NO_VENCIMENTO' as const, vencimento: '2029-05-01' }];
+    const carteira: ItemFGC[] = [{ conglomerado: 'Banco X', produto: 'CDB', brutoEm: () => 210000 }];
+    const [f] = sugerir(objetivo, ctx({ catalogo, carteira }));
+    expect(f?.fgc).toEqual({ conglomerado: 'Banco X', excedente: 10000 }); // 210000 + 50000 − 250000
+  });
+});

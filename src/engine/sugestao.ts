@@ -7,7 +7,7 @@ import { OfertaInvalidaError } from './erros';
 import type { ItemFGC } from './fgc';
 import { coberto, normalizarConglomerado } from './fgc';
 import type { OfertaCadastrada } from './ofertas';
-import type { TipoIndexacao, TipoProduto } from './produtos';
+import { garantiaDe, type TipoIndexacao, type TipoProduto } from './produtos';
 import { regraFGC } from './regras/fgc';
 import { faixaLongoPrazo, MULTIPLICADOR_RESERVA } from './regras/sugestao';
 
@@ -132,9 +132,34 @@ function sugerirLongoPrazo(o: Extract<Objetivo, { tipo: 'LONGO_PRAZO' }>, ctx: C
   return casarComCatalogo(base, ctx.catalogo, ctx.carteira, ctx.hoje);
 }
 
+function ofertaCasadaComData(catalogo: readonly OfertaCadastrada[], dataAlvo: DataISO): OfertaCadastrada | undefined {
+  const candidatas = catalogo.filter((o) => o.vencimento !== undefined && o.vencimento <= dataAlvo);
+  if (candidatas.length === 0) return undefined;
+  // DataISO é AAAA-MM-DD: compara como string. A maior é a mais próxima da data-alvo, sem passar dela.
+  return candidatas.reduce((melhor, o) => ((o.vencimento as DataISO) > (melhor.vencimento as DataISO) ? o : melhor));
+}
+
+function sugerirComData(o: Extract<Objetivo, { tipo: 'COM_DATA' }>, ctx: ContextoSugestao): Fatia[] {
+  const casada = ofertaCasadaComData(ctx.catalogo, o.data);
+  if (casada) {
+    const fgc = coberto(casada.produto)
+      ? excedenteFGC(casada.conglomerado, o.valorAlvo, ctx.carteira, ctx.hoje)
+      : undefined;
+    return [{
+      produto: casada.produto, indexacaoTipo: casada.indexacao.tipo, percentual: 1, motivo: 'DATA_VENCIMENTO_CASADO',
+      garantia: garantiaDe(casada.produto), valor: o.valorAlvo, ofertaCatalogo: casada, fgc,
+    }];
+  }
+  return casarComCatalogo(
+    [{ produto: 'CDB', indexacaoTipo: 'POS_CDI', percentual: 1, motivo: 'DATA_SEM_CASAMENTO', garantia: 'FGC', valor: o.valorAlvo }],
+    ctx.catalogo, ctx.carteira, ctx.hoje, { liquidezDiaria: true },
+  );
+}
+
 export function sugerir(objetivo: Objetivo, ctx: ContextoSugestao): Fatia[] {
   switch (objetivo.tipo) {
     case 'RESERVA': return sugerirReserva(objetivo, ctx);
+    case 'COM_DATA': return sugerirComData(objetivo, ctx);
     case 'LONGO_PRAZO': return sugerirLongoPrazo(objetivo, ctx);
     default: throw new Error(`Objetivo "${objetivo.tipo}" ainda não implementado`);
   }
