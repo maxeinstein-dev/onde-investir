@@ -152,6 +152,11 @@ function deBase64Url(texto: string): Uint8Array | null {
   }
 }
 
+/** Corta o prefixo (`c1.` ou `j1.`) pelo tamanho de quem bateu, não por um tamanho fixo dos dois. */
+export function cortarPrefixo(fragmento: string, comprimido: boolean, prefixoComprimido: string, prefixoJson: string): string {
+  return fragmento.slice((comprimido ? prefixoComprimido : prefixoJson).length);
+}
+
 const temCompressao = () => typeof CompressionStream === 'function';
 const temDescompressao = () => typeof DecompressionStream === 'function';
 
@@ -254,7 +259,7 @@ export async function decodificar(fragmento: string): Promise<ResultadoLink> {
   if (fragmento.length > LIMITE_FRAGMENTO) return { ok: false, erro: `O link passa do limite de ${LIMITE_FRAGMENTO} caracteres.` };
   const comprimido = fragmento.startsWith(PREFIXO_COMPRIMIDO);
   if (!comprimido && !fragmento.startsWith(PREFIXO_JSON)) return { ok: false, erro: 'Formato de link desconhecido.' };
-  const bytes = deBase64Url(fragmento.slice(PREFIXO_COMPRIMIDO.length));
+  const bytes = deBase64Url(cortarPrefixo(fragmento, comprimido, PREFIXO_COMPRIMIDO, PREFIXO_JSON));
   if (bytes === null) return { ok: false, erro: 'O link está corrompido (base64 inválido).' };
 
   let json = bytes;

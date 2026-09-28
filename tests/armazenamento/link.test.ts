@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  LIMITE_DESCOMPRIMIDO, LIMITE_FRAGMENTO, codificar, decodificar, lerLimitado, type EstadoCompartilhado,
+  LIMITE_DESCOMPRIMIDO, LIMITE_FRAGMENTO, codificar, cortarPrefixo, decodificar, lerLimitado, type EstadoCompartilhado,
 } from '../../src/armazenamento/link';
 import { PREMISSAS_PADRAO } from '../../src/engine/projecao';
 
@@ -69,6 +69,19 @@ async function zerosComprimidos(n: number): Promise<Uint8Array> {
   });
   return new Uint8Array(await new Response(fonte.pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
 }
+
+describe('cortarPrefixo: corta pelo tamanho do prefixo que bateu, não por um tamanho fixo', () => {
+  it('usa o comprimento do prefixo comprimido, mesmo maior que o do JSON', () => {
+    expect(cortarPrefixo('c-longo.RESTO', true, 'c-longo.', 'j.')).toBe('RESTO');
+  });
+  it('usa o comprimento do prefixo JSON, mesmo maior que o do comprimido', () => {
+    expect(cortarPrefixo('j-longo.RESTO', false, 'c.', 'j-longo.')).toBe('RESTO');
+  });
+  it('prefixos de tamanhos bem diferentes não deixam sobra nem cortam demais', () => {
+    expect(cortarPrefixo('abc.payload', true, 'abc.', 'x.')).toBe('payload');
+    expect(cortarPrefixo('x.payload', false, 'abc.', 'x.')).toBe('payload');
+  });
+});
 
 describe('link compartilhável: codificar e decodificar', () => {
   it('ida e volta: c1. + base64url, e o estado volta igual', async () => {
