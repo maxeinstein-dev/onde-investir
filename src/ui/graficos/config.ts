@@ -1,5 +1,5 @@
-// Configuração comum dos gráficos de linha: eixo x em dias desde a época, reais no eixo y, legenda com a forma
-// do ponto e anotações. Funções puras: quem cria o Chart é `useGrafico`.
+// Configuração comum dos gráficos de linha: eixo x em dias desde a época, reais no eixo y, a forma do ponto e
+// anotações. A legenda não vai no canvas (ver `Legenda`). Funções puras: quem cria o Chart é `useGrafico`.
 import type { ChartConfiguration, ScriptableContext, ScriptableLineSegmentContext, TooltipItem } from 'chart.js';
 import type { AnnotationOptions } from 'chartjs-plugin-annotation';
 import { type DataISO, dataBR } from '../../engine/datas';
@@ -82,7 +82,8 @@ export function configLinhas(p: PaletaGrafico, { datasets, xMin, xMax, anotacoes
         },
       },
       plugins: {
-        legend: { position: 'bottom', labels: { ...eixo, usePointStyle: true } },
+        // A legenda fica em HTML, abaixo do canvas (`Legenda`): no celular, a do canvas tomava a área do gráfico.
+        legend: { display: false },
         tooltip: {
           callbacks: {
             title: (itens) => (itens[0] ? dataBR(dataDoEixo(itens[0].parsed.x ?? 0)) : ''),

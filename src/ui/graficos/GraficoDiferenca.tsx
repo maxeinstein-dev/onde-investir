@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'preact/hooks';
+import { useId, useMemo, useRef, useState } from 'preact/hooks';
 import { nomeOferta } from '../../conteudo/comparacao';
 import { GRAFICO_DIFERENCA, resumirDiferenca, rotuloDaTrocaDeSinal, type TrechoDiferenca } from '../../conteudo/serie';
 import type { OfertaCadastrada } from '../../engine/ofertas';
@@ -10,6 +10,7 @@ import { type Anotacoes, type ConfigLinha, configLinhas, limites, linha, linhaVe
 import { diferencaEntre, type PontoDiferenca, trechosDaDiferenca } from './diferenca';
 import { diaDoEixo } from './eixo';
 import { AvisoCarregamento } from './AvisoCarregamento';
+import { Legenda } from './Legenda';
 import { useGrafico } from './useGrafico';
 
 export interface PropsGraficoDiferenca {
@@ -22,10 +23,13 @@ export interface PropsGraficoDiferenca {
 
 interface Escolha { a: number; b: number }
 
+/** "A − B": o rótulo da linha, no tooltip e na legenda. */
+const rotuloDaDiferenca = ({ a, b }: Escolha) => `${letraDaOferta(a)} − ${letraDaOferta(b)}`;
+
 function montarConfig(p: PaletaGrafico, { a, b }: Escolha, pontos: readonly PontoDiferenca[], trechos: readonly TrechoDiferenca[]): ConfigLinha {
   const [primeira, ultima] = limites(pontos.map((pt) => pt.data)) ?? ['1970-01-01', '1970-01-01'];
   const [letraA, letraB] = [letraDaOferta(a), letraDaOferta(b)];
-  const rotulo = `${letraA} − ${letraB}`;
+  const rotulo = rotuloDaDiferenca({ a, b });
   const anotacoes: Anotacoes = {
     zero: { type: 'line', yMin: 0, yMax: 0, borderColor: p.marcador, borderWidth: 2 },
   };
@@ -59,7 +63,8 @@ export function GraficoDiferenca({ series, ofertas, prefixo = 'grafico-diferenca
   const nome = (i: number) => (ofertas[i] ? nomeOferta(ofertas[i]) : letraDaOferta(i));
   const resumo = resumirDiferenca(trechos, nome(a), nome(b));
   const canvas = useRef<HTMLCanvasElement>(null);
-  const estado = useGrafico(canvas, (p) => montarConfig(p, escolha, pontos, trechos), [pontos, trechos, a, b]);
+  const idResumo = useId();
+  const { estado, tentarDeNovo } = useGrafico(canvas, (p) => montarConfig(p, escolha, pontos, trechos), [pontos, trechos, a, b]);
 
   if (n < 2) return null;
 
@@ -80,15 +85,18 @@ export function GraficoDiferenca({ series, ofertas, prefixo = 'grafico-diferenca
         </div>
         <div class="campo">
           <label for={`${prefixo}-b`}>{GRAFICO_DIFERENCA.com}</label>
-          <select id={`${prefixo}-b`} value={String(b)} onChange={(e) => escolher('b', Number(e.currentTarget.value))}>{opcoes}</select>
+          {/* O rótulo visível "com" sozinho não diz nada a quem navega pelos campos do formulário. */}
+          <select id={`${prefixo}-b`} aria-label={GRAFICO_DIFERENCA.compararCom} value={String(b)} onChange={(e) => escolher('b', Number(e.currentTarget.value))}>{opcoes}</select>
         </div>
       </div>
       <p class="dica">{GRAFICO_DIFERENCA.explicacao}</p>
       <div class="grafico__area">
-        <canvas ref={canvas} role="img" aria-label={resumo} hidden={estado === 'erro'} />
-        <AvisoCarregamento estado={estado} />
+        <canvas ref={canvas} role="img" aria-labelledby={idResumo} hidden={estado === 'erro'} />
+        <AvisoCarregamento estado={estado} onTentarDeNovo={tentarDeNovo} />
       </div>
-      <div class="grafico__resumo">
+      {/* A linha tem a cor e a forma da oferta A. */}
+      <Legenda itens={[{ serie: a, texto: rotuloDaDiferenca(escolha) }]} hidden={estado === 'erro'} />
+      <div class="grafico__resumo" id={idResumo}>
         <p>{resumo}</p>
       </div>
     </figure>

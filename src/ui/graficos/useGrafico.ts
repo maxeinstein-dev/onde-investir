@@ -11,8 +11,11 @@ export type EstadoGrafico = 'carregando' | 'pronto' | 'erro';
 let modulo: ModuloChart | null = null;
 let carregando: Promise<ModuloChart> | null = null;
 
+/** O import do chunk, num objeto para os testes simularem a rede caindo e voltando. */
+export const importador = { chart: (): Promise<ModuloChart> => import('./chart') };
+
 function carregarChart(): Promise<ModuloChart> {
-  carregando ??= import('./chart').then(
+  carregando ??= importador.chart().then(
     (m) => { modulo = m; return m; },
     (e: unknown) => { carregando = null; throw e; }, // uma falha não fica guardada: o próximo gráfico tenta de novo
   );
@@ -22,17 +25,22 @@ function carregarChart(): Promise<ModuloChart> {
 /**
  * Carrega o Chart.js sob demanda, cria o gráfico no canvas e o destrói ao desmontar e sempre que `deps` mudar
  * (antes de criar o novo), para não deixar instâncias nem observadores de redimensionamento para trás. As cores
- * saem dos tokens CSS na hora. Devolve o estado do carregamento, para a figura mostrar o aviso certo.
+ * saem dos tokens CSS na hora. Devolve o estado do carregamento, para a figura mostrar o aviso certo, e
+ * `tentarDeNovo`, para o botão do aviso de falha. Depois de uma falha, `deps` mudar também tenta de novo.
  */
-export function useGrafico(canvas: RefObject<HTMLCanvasElement>, montar: (p: PaletaGrafico) => ConfigLinha, deps: readonly unknown[]): EstadoGrafico {
+export function useGrafico(
+  canvas: RefObject<HTMLCanvasElement>, montar: (p: PaletaGrafico) => ConfigLinha, deps: readonly unknown[],
+): { estado: EstadoGrafico; tentarDeNovo: () => void } {
   const [chart, setChart] = useState<ModuloChart | null>(modulo);
   const [erro, setErro] = useState(false);
+  const [tentativa, setTentativa] = useState(0);
   useEffect(() => {
     if (chart) return;
     let vivo = true;
+    setErro(false);
     carregarChart().then((m) => { if (vivo) setChart(m); }, () => { if (vivo) setErro(true); });
     return () => { vivo = false; };
-  }, [chart]);
+  }, [chart, tentativa, ...deps]);
   useEffect(() => {
     const el = canvas.current;
     if (!el || !chart) return;
@@ -40,5 +48,6 @@ export function useGrafico(canvas: RefObject<HTMLCanvasElement>, montar: (p: Pal
     return () => grafico.destroy();
     // `montar` é recriada a cada renderização; quem diz quando refazer é `deps`.
   }, [chart, ...deps]);
-  return erro ? 'erro' : chart ? 'pronto' : 'carregando';
+  const estado: EstadoGrafico = erro ? 'erro' : chart ? 'pronto' : 'carregando';
+  return { estado, tentarDeNovo: () => setTentativa((t) => t + 1) };
 }

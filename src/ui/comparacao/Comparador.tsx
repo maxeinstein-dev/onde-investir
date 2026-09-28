@@ -369,7 +369,7 @@ export function Comparador({
             <Termo id="reinvestimento">Reinvestimento</Termo>: {descreverRegra(resultado.regra)} O IR recomeça na reaplicação.
           </p>
           {tabela}
-          <Alertas alertas={resultado.alertas} ofertas={resultado.ofertas} horizontes={resultado.colunas} />
+          <Alertas alertas={resultado.alertas} ofertas={resultado.ofertas} horizontes={resultado.colunas} prefixo={`${PREFIXO}-alertas`} />
           <PorQueLidera ofertas={resultado.ofertas} colunas={resultado.colunas} data={liderData} onData={setLiderData} />
           <details open class="graficos">
             <summary>Gráficos</summary>
