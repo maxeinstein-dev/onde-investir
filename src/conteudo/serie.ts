@@ -33,3 +33,22 @@ export function resumirTrocas(trocas: readonly TrocaDeLider[], ofertas: readonly
     ...trocas.map((t) => `A partir de ${dataBR(t.data)}, ${quemLidera(ofertas, t.para, 'passa a liderar')}.`),
   ];
 }
+
+/** Textos fixos do gráfico do valor líquido. */
+export const GRAFICO_VALOR = {
+  titulo: 'Valor líquido ao longo do tempo',
+  tracejado: 'Linha tracejada: a oferta ainda não pode ser resgatada, e o valor é só referência.',
+  premissa: 'premissa',
+} as const;
+
+/** Rótulo da linha vertical de uma troca de líder, pelas letras de quem passa a liderar. */
+export function rotuloDaTroca(letras: readonly string[]): string {
+  if (letras.length === 0) return 'Ninguém pode resgatar';
+  return letras.length === 1 ? `${letras[0]} passa a liderar` : `${listar(letras)} empatam`;
+}
+
+/** Por que o valor da oferta é só referência naquele trecho (no tooltip). */
+export function motivoSemResgate(o: OfertaCadastrada): string {
+  if (o.produto === 'TESOURO_PREFIXADO' || o.produto === 'TESOURO_IPCA') return '(marcação a mercado)';
+  return o.liquidez === 'NO_VENCIMENTO' ? '(só no vencimento)' : '(prazo mínimo)';
+}

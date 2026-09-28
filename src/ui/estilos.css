@@ -885,6 +885,31 @@ button:hover {
   border-radius: var(--raio);
 }
 
+/* Gráficos: o canvas ocupa a largura do contêiner (o Chart.js mede o pai), com altura fixa. */
+.grafico {
+  margin: 1rem 0 1.5rem;
+  min-width: 0;
+}
+
+.grafico__titulo {
+  font-weight: 700;
+}
+
+.grafico__area {
+  position: relative;
+  width: 100%;
+  height: 20rem;
+}
+
+.grafico__area canvas {
+  max-width: 100%;
+}
+
+.grafico__resumo p {
+  margin: 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+
 /* Celular: uma coluna só. */
 @media (max-width: 639px) {
   .pagina {
@@ -899,6 +924,10 @@ button:hover {
      sem ancestral posicionado, left/right contam a partir da tela e o topo fica na posição natural. */
   .termo {
     position: static;
+  }
+
+  .grafico__area {
+    height: 17rem;
   }
 
   .termo__painel,
