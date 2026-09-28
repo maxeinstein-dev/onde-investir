@@ -1,8 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, render } from '@testing-library/preact';
-import { h } from 'preact';
+import { cleanup } from '@testing-library/preact';
 import { afterEach, describe, expect, it } from 'vitest';
-import { reaisRedondos } from '../../src/conteudo/alertas';
 import { CASOS_CLASSICOS } from '../../src/conteudo/casos';
 import { GLOSSARIO } from '../../src/conteudo/glossario';
 import { LICOES } from '../../src/conteudo/licoes';
@@ -14,13 +12,8 @@ import { gerarAlertas } from '../../src/engine/alertas';
 import { horizontesPadrao, tabelaPorHorizonte } from '../../src/engine/comparacao';
 import { cenarioConstante } from '../../src/engine/indexadores';
 import { validarOfertaCadastrada } from '../../src/engine/ofertas';
-import { VERSOES_CUSTODIA } from '../../src/engine/regras/custodia';
-import { VERSOES_FGC } from '../../src/engine/regras/fgc';
-import { VERSOES_IOF } from '../../src/engine/regras/iof';
-import { VERSOES_IR } from '../../src/engine/regras/ir';
-import { VERSOES_POUPANCA } from '../../src/engine/regras/poupanca';
-import { MarkdownRestrito } from '../../src/ui/MarkdownRestrito';
 import { INI } from '../engine/cenarioPadrao';
+import { oficial, semSintaxeCrua, soNumerosDasRegras } from './textoOficial';
 
 afterEach(cleanup);
 
@@ -30,58 +23,12 @@ const TODAS: Record<IdLicao, true> = {
 };
 const CONCEITUAIS: readonly IdLicao[] = ['diversificacao', 'renda-variavel'];
 
-const DOMINIOS_OFICIAIS = [
-  'gov.br', 'bcb.gov.br', 'planalto.gov.br', 'b3.com.br', 'fgc.org.br', 'tesourodireto.com.br', 'ibge.gov.br',
-  'anbima.com.br', 'cvm.gov.br',
-];
-function oficial(url: string): boolean {
-  if (!url.startsWith('https://')) return false;
-  const host = new URL(url).hostname;
-  return DOMINIOS_OFICIAIS.some((d) => host === d || host.endsWith(`.${d}`));
-}
-
 /** O cenário padrão: os valores de referência do cenário manual. */
 const v = CENARIO_INICIAL.valores;
 const CEN_PADRAO = cenarioConstante({ cdiAA: v.cdi / 100, selicMetaAA: v.selicMeta / 100, ipcaAA: v.ipca / 100, trAM: v.tr / 100 });
 
 /** Os textos de uma lição que vão pelo MarkdownRestrito. */
 const textosDaLicao = (l: Licao) => l.secoes.map((s) => s.texto);
-
-/** Renderiza e confere que não sobrou marcação crua (asterisco, colchete, lista no meio de parágrafo, título). */
-function semSintaxeCrua(texto: string, rotulo: string) {
-  const { container } = render(h(MarkdownRestrito, { texto }));
-  const visivel = container.textContent ?? '';
-  expect(visivel, rotulo).not.toMatch(/[*[\]`#_<>]/);
-  expect(visivel, rotulo).not.toMatch(/\]\(/);
-  for (const p of container.querySelectorAll('p')) expect(p.textContent, rotulo).not.toMatch(/(^|\n)\s*- /);
-  for (const a of container.querySelectorAll('a')) expect(oficial(a.getAttribute('href') ?? ''), `${rotulo}: ${a.getAttribute('href')}`).toBe(true);
-  // Todo link do texto virou <a>: um link não-https viraria só o rótulo.
-  expect(container.querySelectorAll('a').length, rotulo).toBe([...texto.matchAll(/\]\(/g)].length);
-}
-
-// Os únicos números que o texto pode trazer com "%" ou "R$": os das regras versionadas do engine.
-const vigente = <T,>(versoes: readonly { valor: T; vigenciaFim?: string }[]) => versoes.filter((x) => x.vigenciaFim === undefined).map((x) => x.valor);
-const PERCENTUAIS_DAS_REGRAS = new Set<number>([
-  100,
-  ...vigente(VERSOES_IR).flat().map((f) => f.aliquota * 100),
-  ...vigente(VERSOES_IOF).flat(),
-  ...vigente(VERSOES_CUSTODIA).map((c) => c.taxaAA * 100),
-  ...VERSOES_POUPANCA.flatMap((p) => [p.valor.taxaFixaAM * 100, (p.valor.limiarSelicAA ?? 0) * 100, (p.valor.fracaoSelic ?? 0) * 100]),
-].map((n) => Math.round(n * 1000) / 1000));
-const REAIS_DAS_REGRAS = new Set<string>([
-  ...vigente(VERSOES_FGC).flatMap((f) => [reaisRedondos(f.porConglomerado), reaisRedondos(f.tetoGlobal)]),
-  ...vigente(VERSOES_CUSTODIA).map((c) => reaisRedondos(c.isencaoSelic)),
-].map((s) => s.replace(/\s/g, ' ')));
-
-function soNumerosDasRegras(texto: string, rotulo: string) {
-  for (const m of texto.matchAll(/(\d+(?:,\d+)?)\s?%/g)) {
-    const n = Math.round(Number((m[1] ?? '').replace(',', '.')) * 1000) / 1000;
-    expect(PERCENTUAIS_DAS_REGRAS.has(n), `${rotulo}: ${m[0]} não está nas regras`).toBe(true);
-  }
-  for (const m of texto.matchAll(/R\$\s?[\d.,]+(?:\s(?:milhões|milhão|mil))?/g)) {
-    expect(REAIS_DAS_REGRAS.has(m[0].replace(/\s/g, ' ')), `${rotulo}: ${m[0]} não é limite de regra`).toBe(true);
-  }
-}
 
 /** Monta o "Experimente" em `hoje` e roda a comparação com o cenário padrão. */
 function conferirExperimente(e: Experimente, rotulo: string, hoje: string) {
