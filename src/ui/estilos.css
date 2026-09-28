@@ -15,6 +15,7 @@
   --erro: #a4161a;
   --erro-fundo: #fdecea;
   --aviso-fundo: #fff6d6;
+  --aviso-borda: #b45309;
   --foco: #0b5cad;
   --raio: 8px;
   /* Gráficos (lidos pelo JS com getComputedStyle): 5 cores com contraste de 3:1 ou mais sobre o branco. */
@@ -883,6 +884,51 @@ button:hover {
   font-weight: 600;
   background: var(--fundo-suave);
   border-radius: var(--raio);
+}
+
+/* Alertas que ensinam: cartões abaixo da tabela. */
+.alertas {
+  margin: 1.25rem 0;
+}
+
+.alertas__lista {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.alerta {
+  padding: 0.75rem 1rem;
+  background: var(--aviso-fundo);
+  border-left: 4px solid var(--aviso-borda);
+  border-radius: var(--raio);
+  overflow-wrap: anywhere;
+}
+
+.pagina .alerta__titulo {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.alerta p {
+  margin: 0 0 0.5rem;
+}
+
+.alerta__porque {
+  color: var(--texto-suave);
+}
+
+.graficos {
+  margin: 1.5rem 0;
+  min-width: 0;
+}
+
+.graficos > summary {
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 /* Gráficos: o canvas ocupa a largura do contêiner (o Chart.js mede o pai), com altura fixa. */
