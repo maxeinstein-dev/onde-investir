@@ -8,7 +8,7 @@ const diretiva = (nome: string) => csp.split(';').map((d) => d.trim().split(/\s+
 
 describe('CSP em public/_headers', () => {
   it('connect-src libera só o próprio domínio e as APIs do Banco Central', () => {
-    expect(diretiva('connect-src')).toEqual(['\'self\'', 'https://api.bcb.gov.br', 'https://olinda.bcb.gov.br', 'https://www.bcb.gov.br']);
+    expect(diretiva('connect-src')).toEqual(['\'self\'', 'https://api.bcb.gov.br', 'https://olinda.bcb.gov.br', 'https://www.bcb.gov.br', 'https://challenges.cloudflare.com']);
   });
   it('toda URL que o app busca tem a origem liberada', () => {
     const urls = [urlSgsUltimos(432, 1), urlSgsAno(12, 2025), urlFocusSelic(), urlFocusIpcaMensal(), urlFocusAnuais(), urlCalendarioCopom('2026-01-01', '2028-12-31')];
@@ -16,7 +16,7 @@ describe('CSP em public/_headers', () => {
   });
   it('o resto continua restrito', () => {
     expect(diretiva('default-src')).toEqual(['\'self\'']);
-    expect(diretiva('script-src')).toEqual(['\'self\'']);
+    expect(diretiva('script-src')).toEqual(['\'self\'', 'https://challenges.cloudflare.com']);
     expect(diretiva('style-src')).toEqual(['\'self\'']);
     expect(diretiva('frame-ancestors')).toEqual(['\'none\'']);
   });

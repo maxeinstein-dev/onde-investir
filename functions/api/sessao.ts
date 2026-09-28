@@ -29,23 +29,24 @@ export const onRequestPost: PagesFunction<Ambiente> = async (contexto) => {
     return respostaErro(400, 'REQUISICAO_INVALIDA');
   }
 
-  let respostaVerificacao: Response;
+  let resultado: { success: boolean };
   try {
-    respostaVerificacao = await fetch(URL_SITEVERIFY, {
+    const respostaVerificacao = await fetch(URL_SITEVERIFY, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ secret: contexto.env.TURNSTILE_SECRET_KEY, response: token }),
     });
+
+    if (!respostaVerificacao.ok) {
+      return respostaErro(503, 'TURNSTILE_INDISPONIVEL');
+    }
+
+    resultado = (await respostaVerificacao.json()) as { success: boolean };
   } catch {
     return respostaErro(503, 'TURNSTILE_INDISPONIVEL');
   }
 
-  if (!respostaVerificacao.ok) {
-    return respostaErro(503, 'TURNSTILE_INDISPONIVEL');
-  }
-
-  const resultado = (await respostaVerificacao.json()) as { success: boolean };
-  if (!resultado.success) {
+  if (resultado.success !== true) {
     return respostaErro(403, 'TURNSTILE_INVALIDO');
   }
 
