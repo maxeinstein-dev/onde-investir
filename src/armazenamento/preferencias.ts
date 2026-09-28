@@ -31,16 +31,16 @@ export const PREFERENCIAS_PADRAO: PreferenciasCenario = {
   escolha: 'BASE', premissas: PREMISSAS_PADRAO, manual: CENARIO_INICIAL.valores,
 };
 
-const EsquemaEscolha = z.enum(['SOBEM', 'BASE', 'CAEM', 'MANUAL']);
+export const EsquemaEscolha = z.enum(['SOBEM', 'BASE', 'CAEM', 'MANUAL']);
 /** Os mesmos limites de `validarPremissas` no engine. */
-const EsquemaPremissas = z.strictObject({
+export const EsquemaPremissas = z.strictObject({
   k: z.number().min(0),
   ipcaLongoPrazoAA: z.number().gt(-1),
   juroRealLongoPrazoAA: z.number().gt(-1),
   anosConvergencia: z.number().int().min(0).max(30),
   spreadCDI: z.number().min(0).lt(0.05),
 });
-const EsquemaManual = z.strictObject({ cdi: z.number(), selicMeta: z.number(), ipca: z.number(), tr: z.number() })
+export const EsquemaManual = z.strictObject({ cdi: z.number(), selicMeta: z.number(), ipca: z.number(), tr: z.number() })
   .refine(valoresManuaisValidos);
 
 /** Cada parte é validada sozinha: uma parte inválida volta ao padrão sem apagar as outras. */
