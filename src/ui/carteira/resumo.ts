@@ -31,6 +31,8 @@ export type ExposicaoCarteira =
     /** Σ min(exposição do conglomerado, limite) hoje. */
     garantiaSomada: number;
     teto: number;
+    /** O limite por conglomerado da regra vigente hoje (`regraFGC(hoje)`). */
+    limitePorConglomerado: number;
     tetoGlobal: TetoGlobal | null;
     /** As posições do Tesouro, sem limite do FGC; null se não houver nenhuma calculada. */
     tesouro: { bruto: number; quantidade: number } | null;
@@ -91,6 +93,7 @@ function exposicaoDaCarteira(calculadas: readonly { posicao: Posicao; valor: Val
       ok: true, conglomerados,
       garantiaSomada: conglomerados.reduce((s, g) => s + Math.min(g.hoje, regra.porConglomerado), 0),
       teto: regra.tetoGlobal,
+      limitePorConglomerado: regra.porConglomerado,
       tetoGlobal: tetoGlobalExcedido(itens, hoje),
       tesouro: tesouro.length === 0 ? null : { bruto: tesouro.reduce((s, c) => s + c.valor.bruto, 0), quantidade: tesouro.length },
     };

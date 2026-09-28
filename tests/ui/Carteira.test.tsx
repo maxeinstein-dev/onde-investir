@@ -278,6 +278,11 @@ describe('aba Carteira', () => {
       expect(fgc).toHaveTextContent(/O total no conglomerado Grupo A passa do limite do FGC em \d\d\/\d\d\/\d{4}/);
     });
 
+    it('só com Tesouro: o limite por conglomerado vem da regra vigente', () => {
+      render(<Tela inicial={[tesouro]} />);
+      expect(screen.getByRole('region', { name: /Exposição ao FGC/ })).toHaveTextContent('cada conglomerado conta até R$ 250 mil');
+    });
+
     it('o Tesouro fica à parte, sem limite do FGC', () => {
       render(<Tela inicial={[a1, tesouro]} />);
       const fgc = screen.getByRole('region', { name: /Exposição ao FGC/ });

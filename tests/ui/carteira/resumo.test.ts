@@ -74,6 +74,7 @@ describe('resumirCarteira', () => {
     const r = resumirCarteira(cinco, HOJE, CEN);
     if (!r.fgc.ok) throw new Error('FGC deveria ter sido calculado');
     expect(r.fgc.teto).toBe(1_000_000);
+    expect(r.fgc.limitePorConglomerado).toBe(250_000);
     expect(r.fgc.garantiaSomada).toBeGreaterThan(1_000_000);
     expect(r.fgc.tetoGlobal).not.toBeNull();
     const um = resumirCarteira([cdb('a', 'Grupo A', 1_200_000, '2027-01-04')], HOJE, CEN);

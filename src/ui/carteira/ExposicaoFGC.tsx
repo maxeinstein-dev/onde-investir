@@ -53,7 +53,7 @@ export function ExposicaoFGC({ fgc, naoCalculadas, hoje }: PropsExposicaoFGC) {
           ) : (
             <p class="dica">
               Garantia somada: {formatarMoeda(fgc.garantiaSomada)} de {redondo(fgc.teto)}, o teto global do FGC (cada conglomerado
-              conta até {redondo(fgc.conglomerados[0]?.limite ?? 250_000)}).
+              conta até {redondo(fgc.limitePorConglomerado)}).
             </p>
           )}
           {fgc.tesouro && (
