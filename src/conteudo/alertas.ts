@@ -22,6 +22,12 @@ function prazo(horizontes: readonly Horizonte[], data: DataISO): string {
   return h ? nomeDoHorizonte(h) : dataBR(data);
 }
 
+/** "no prazo de 5 anos"; com a sua data (ou fora da tabela), "até 15/01/2028". */
+function noPrazo(horizontes: readonly Horizonte[], data: DataISO): string {
+  const h = horizontes.find((x) => x.data === data);
+  return h && h.rotulo !== 'Sua data' ? `no prazo de ${h.rotulo}` : `até ${dataBR(data)}`;
+}
+
 /** "R$ 250 mil", "R$ 1 milhão", "R$ 2 milhões"; outros valores em reais. */
 function reaisRedondos(valor: number): string {
   if (valor >= 1_000_000 && valor % 1_000_000 === 0) return `R$ ${formatarNumero(valor / 1_000_000)} ${valor === 1_000_000 ? 'milhão' : 'milhões'}`;
@@ -42,9 +48,9 @@ function textoDoIOF(a: Extract<Alerta, { tipo: 'IOF' }>, ofertas: readonly Ofert
   const x = nome(ofertas, a.oferta);
   const valor = formatarMoeda(a.iof);
   if (a.vencimento !== undefined && a.etapa === 2) {
-    return `${x} vence em ${dataBR(a.vencimento)}, e o dinheiro reaplicado é resgatado ${dias(a.dias)} depois: paga ${valor} de IOF.`;
+    return `${x} vence em ${dataBR(a.vencimento)} e o dinheiro reaplicado é resgatado ${dias(a.dias)} depois, então paga ${valor} de IOF.`;
   }
-  if (a.vencimento !== undefined) return `${x} vence em ${dataBR(a.vencimento)}, ${dias(a.dias)} depois da aplicação: paga ${valor} de IOF no vencimento.`;
+  if (a.vencimento !== undefined) return `${x} vence em ${dataBR(a.vencimento)}, ${dias(a.dias)} depois da aplicação, então paga ${valor} de IOF no vencimento.`;
   return `Resgate antes de 30 dias: em ${prazo(horizontes, a.horizonte)}, ${x} paga ${valor} de IOF.`;
 }
 
@@ -79,14 +85,14 @@ export function textoDoAlerta(a: Alerta, ofertas: readonly OfertaCadastrada[], h
       if (a.etapa1Isenta) {
         return {
           titulo: 'A reaplicação passa a pagar IR',
-          oQue: `${nome(ofertas, a.oferta)} é isenta, mas ao vencer em ${dataBR(a.data)} o dinheiro vai para ${descreverOferta(a.reinvestimento)}, que paga IR: ${formatarMoeda(a.custo)} até ${prazo(horizontes, a.horizonte)}.`,
+          oQue: `${nome(ofertas, a.oferta)} é isenta, mas ao vencer em ${dataBR(a.data)} o dinheiro vai para ${descreverOferta(a.reinvestimento)}, que paga IR: ${formatarMoeda(a.custo)} ${noPrazo(horizontes, a.horizonte)}.`,
           porQue: 'LCI e LCA são isentas de IR para pessoa física. No vencimento, o dinheiro vai para a oferta de reinvestimento, e o rendimento dela paga IR se ela não for isenta.',
           termo: 'reinvestimento',
         };
       }
       return {
         titulo: 'O IR recomeça na reaplicação',
-        oQue: `Em ${prazo(horizontes, a.horizonte)}, a reaplicação de ${nome(ofertas, a.oferta)} (a partir de ${dataBR(a.data)}) paga ${formatarPercentual(a.aliquotaNova)} de IR, em vez de ${formatarPercentual(a.aliquotaSemReaplicar)} se o dinheiro tivesse ficado aplicado desde o início: ${formatarMoeda(a.custo)} a mais.`,
+        oQue: `Em ${prazo(horizontes, a.horizonte)}, a reaplicação de ${nome(ofertas, a.oferta)}, feita em ${dataBR(a.data)}, paga ${formatarPercentual(a.aliquotaNova)} de IR. Se o dinheiro tivesse ficado aplicado desde o início, pagaria ${formatarPercentual(a.aliquotaSemReaplicar)}, então a reaplicação custa ${formatarMoeda(a.custo)} a mais.`,
         porQue: 'O IR regressivo conta o prazo de cada aplicação. Quando o dinheiro é reaplicado, a contagem recomeça e a alíquota volta a subir.',
         termo: 'ir-regressivo',
       };

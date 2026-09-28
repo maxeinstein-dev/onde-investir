@@ -70,7 +70,7 @@ export const GRAFICO_CARREGAMENTO = {
 /** Textos fixos do gráfico do valor líquido. */
 export const GRAFICO_VALOR = {
   titulo: 'Valor líquido ao longo do tempo',
-  tracejado: 'Linha tracejada: o valor é só referência. A oferta ainda não pode ser resgatada (só no vencimento ou no prazo mínimo) ou, no Tesouro Prefixado e no IPCA+, a venda antes do vencimento sai pelo preço de mercado, e a linha mostra o valor na curva contratada.',
+  tracejado: 'Linha tracejada: valor só de referência. Ou a oferta ainda não pode ser resgatada (só no vencimento ou por prazo mínimo), ou, no Tesouro Prefixado e no IPCA+, vender antes do vencimento sai pelo preço de mercado, e a linha mostra o valor na curva contratada.',
   premissa: 'premissa',
 } as const;
 
@@ -83,7 +83,7 @@ export function rotuloDaTroca(letras: readonly string[]): string {
 const MOTIVOS: Record<MotivoSemResgate, string> = {
   NO_VENCIMENTO: '(só no vencimento)',
   PRAZO_MINIMO: '(prazo mínimo)',
-  MARCACAO_A_MERCADO: '(na curva contratada, não é o preço de mercado)',
+  MARCACAO_A_MERCADO: '(valor na curva contratada)',
 };
 
 /** Por que o valor do ponto é só referência (no tooltip), pelo motivo que a série já calculou. */
@@ -94,7 +94,7 @@ export const GRAFICO_DIFERENCA = {
   titulo: 'Diferença entre duas ofertas',
   comparar: 'Comparar',
   com: 'com',
-  explicacao: 'Acima do zero, a primeira oferta está à frente; abaixo, a segunda.',
+  explicacao: 'Acima do zero a primeira oferta está à frente, e abaixo dele, a segunda.',
   referencia: '(valor de referência)',
 } as const;
 

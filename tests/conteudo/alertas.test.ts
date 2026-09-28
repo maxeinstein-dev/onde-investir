@@ -65,7 +65,7 @@ describe('textoDoAlerta', () => {
     };
     const t = textoDoAlerta(a, ofertas, horizontes);
     expect(t.titulo).toBe('O IR recomeça na reaplicação');
-    expect(t.oQue).toMatch(re(String.raw`Em 2 anos, a reaplicação de CDB 103% do CDI \(Banco B\) \(a partir de 28/09/2027\) paga 17,5% de IR, em vez de 15% se o dinheiro tivesse ficado aplicado desde o início: ${R}42,10 a mais\.`));
+    expect(t.oQue).toMatch(re(String.raw`Em 2 anos, a reaplicação de CDB 103% do CDI \(Banco B\), feita em 28/09/2027, paga 17,5% de IR\. Se o dinheiro tivesse ficado aplicado desde o início, pagaria 15%, então a reaplicação custa ${R}42,10 a mais\.`));
     expect(t.porQue).toMatch(/recomeça/);
     expect(t.termo).toBe('ir-regressivo');
   });
@@ -77,9 +77,18 @@ describe('textoDoAlerta', () => {
     };
     const t = textoDoAlerta(a, ofertas, horizontes);
     expect(t.titulo).toBe('A reaplicação passa a pagar IR');
-    expect(t.oQue).toMatch(re(String.raw`LCI 90% do CDI \(Banco B\) é isenta, mas ao vencer em 28/09/2029 o dinheiro vai para CDB 100% do CDI, que paga IR: ${R}250,00 até 5 anos\.`));
+    expect(t.oQue).toMatch(re(String.raw`LCI 90% do CDI \(Banco B\) é isenta, mas ao vencer em 28/09/2029 o dinheiro vai para CDB 100% do CDI, que paga IR: ${R}250,00 no prazo de 5 anos\.`));
     expect(t.porQue).toMatch(/isentas/);
     expect(t.termo).toBe('reinvestimento');
+  });
+
+  it('IR_REINICIA com a original isenta, na sua data: até a data', () => {
+    const a: Alerta = {
+      tipo: 'IR_REINICIA', oferta: 3, data: '2027-06-01', horizonte: '2028-01-15', reinvestimento: CDB_100, etapa1Isenta: true,
+      aliquotaNova: 0.225, aliquotaSemReaplicar: 0, custo: 12.5,
+    };
+    expect(textoDoAlerta(a, ofertas, horizontes).oQue)
+      .toMatch(re(String.raw`LCI 90% do CDI \(Banco B\) é isenta, mas ao vencer em 01/06/2027 o dinheiro vai para CDB 100% do CDI, que paga IR: ${R}12,50 até 15/01/2028\.`));
   });
 
   it('IOF', () => {
@@ -126,12 +135,12 @@ describe('textoDoAlerta', () => {
   it('IOF na reaplicação e no vencimento antes de 30 dias', () => {
     const reaplicacao: Alerta = { tipo: 'IOF', oferta: 0, horizonte: '2027-09-28', iof: 3.21, etapa: 2, dias: 27, vencimento: '2027-09-01' };
     expect(textoDoAlerta(reaplicacao, ofertas, horizontes).oQue)
-      .toMatch(re(String.raw`CDB 103% do CDI \(Banco B\) vence em 01/09/2027, e o dinheiro reaplicado é resgatado 27 dias depois: paga ${R}3,21 de IOF\.`));
+      .toMatch(re(String.raw`CDB 103% do CDI \(Banco B\) vence em 01/09/2027 e o dinheiro reaplicado é resgatado 27 dias depois, então paga ${R}3,21 de IOF\.`));
     const umDia: Alerta = { ...reaplicacao, dias: 1 };
-    expect(textoDoAlerta(umDia, ofertas, horizontes).oQue).toMatch(/resgatado 1 dia depois:/);
+    expect(textoDoAlerta(umDia, ofertas, horizontes).oQue).toMatch(/resgatado 1 dia depois, então/);
     const noVencimento: Alerta = { tipo: 'IOF', oferta: 0, horizonte: '2031-09-28', iof: 5, etapa: 1, dias: 20, vencimento: '2026-10-18' };
     expect(textoDoAlerta(noVencimento, ofertas, horizontes).oQue)
-      .toMatch(re(String.raw`CDB 103% do CDI \(Banco B\) vence em 18/10/2026, 20 dias depois da aplicação: paga ${R}5,00 de IOF no vencimento\.`));
+      .toMatch(re(String.raw`CDB 103% do CDI \(Banco B\) vence em 18/10/2026, 20 dias depois da aplicação, então paga ${R}5,00 de IOF no vencimento\.`));
   });
 
   it('horizonte fora da lista: a data', () => {

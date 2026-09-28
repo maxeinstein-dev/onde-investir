@@ -116,7 +116,7 @@ describe('GraficoValorLiquido', () => {
     await carregou();
     const cb = ultimo().config.options?.plugins?.tooltip?.callbacks as { label: (item: { datasetIndex: number; dataIndex: number; parsed: { y: number } }) => string };
     expect(cb.label({ datasetIndex: 0, dataIndex: 0, parsed: { y: 10010 } })).toMatch(/^A: R\$\s10\.010,00 \(prazo mínimo\)$/);
-    expect(cb.label({ datasetIndex: 1, dataIndex: 0, parsed: { y: 10020 } })).toMatch(/^B: R\$\s10\.020,00 \(na curva contratada, não é o preço de mercado\)$/);
+    expect(cb.label({ datasetIndex: 1, dataIndex: 0, parsed: { y: 10020 } })).toMatch(/^B: R\$\s10\.020,00 \(valor na curva contratada\)$/);
   });
 
   it('a dica explica o tracejado, inclusive no Tesouro', async () => {

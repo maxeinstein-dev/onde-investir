@@ -11,7 +11,7 @@ describe('rótulos do gráfico do valor líquido', () => {
   it('por que o trecho é só referência, pelo motivo do ponto', () => {
     expect(motivoSemResgate('NO_VENCIMENTO')).toBe('(só no vencimento)');
     expect(motivoSemResgate('PRAZO_MINIMO')).toBe('(prazo mínimo)');
-    expect(motivoSemResgate('MARCACAO_A_MERCADO')).toBe('(na curva contratada, não é o preço de mercado)');
+    expect(motivoSemResgate('MARCACAO_A_MERCADO')).toBe('(valor na curva contratada)');
   });
   it('a dica do tracejado explica também o Tesouro Prefixado e o IPCA+', () => {
     expect(GRAFICO_VALOR.tracejado).toMatch(/Tesouro Prefixado/);
