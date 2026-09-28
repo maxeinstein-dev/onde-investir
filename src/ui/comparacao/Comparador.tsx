@@ -3,7 +3,7 @@ import { adicionar, remover } from '../../armazenamento/comparacao';
 import { armazenamentoLocal } from '../../armazenamento/navegador';
 import { lerPalpitesLigados, salvarPalpitesLigados } from '../../armazenamento/preferencias';
 import type { EstadoCompartilhado } from '../../armazenamento/link';
-import { AVISO_CENARIO_INVALIDO, descreverProjecao, nomeDoHorizonte, nomeOferta } from '../../conteudo/comparacao';
+import { AVISO_CENARIO_INVALIDO, descreverProjecao, nomeDoHorizonte, nomeOferta, nomesDistintos } from '../../conteudo/comparacao';
 import { dicasPara } from '../../conteudo/dicas';
 import type { IdLicao } from '../../conteudo/licoes/tipos';
 import { descreverOferta } from '../../conteudo/motivos';
@@ -351,7 +351,7 @@ export function Comparador({
     const saiu = ofertas[indice];
     const restantes = ofertas.filter((o) => o.id !== id);
     onMudarSelecao(remover(selecao, id));
-    if (saiu) anunciar(`${nomeOferta(saiu)} saiu da comparação.`);
+    if (saiu) anunciar(`${nomesDistintos(ofertas)[indice] ?? nomeOferta(saiu)} saiu da comparação.`);
     // Com o resultado aberto e ainda duas ou mais, recalcula na hora, sem repetir o palpite. Nos outros casos a
     // fase volta a EDITANDO: se a mesma oferta voltasse, o resultado antigo reapareceria sem recalcular.
     if (fase.tipo === 'resultado' && restantes.length >= 2) {
@@ -368,7 +368,7 @@ export function Comparador({
     setFoco(restantes.length === 0 ? ID_BOTAO_ADICIONAR : idColuna(Math.min(Math.max(indice, 0), restantes.length - 1)));
   }
 
-  const nomes = (fase.tipo === 'editando' ? ofertas : fase.ofertas).map(nomeOferta);
+  const nomes = nomesDistintos(fase.tipo === 'editando' ? ofertas : fase.ofertas);
   const resultado = fase.tipo === 'resultado' ? fase : null;
   const temCarteira = carteira.length > 0;
   const dicas = useMemo(
@@ -523,10 +523,11 @@ function EquivalenciasDaComparacao({ calculo, eqId, eqData, onOferta, onData }: 
   const padrao = colunas.filter((c) => c.projecoes[indice]?.estado === 'DISPONIVEL').at(-1) ?? colunas.at(-1);
   const coluna = colunas.find((c) => c.data === eqData) ?? padrao;
   const projecao = coluna?.projecoes[indice];
+  const nomes = useMemo(() => nomesDistintos(ofertas), [ofertas]);
 
   const conteudo = useMemo(() => {
     if (!oferta || !coluna || !projecao) return null;
-    const origem = nomeOferta(oferta);
+    const origem = nomes[indice] ?? nomeOferta(oferta);
     if (projecao.estado !== 'DISPONIVEL') return <EquivalenciasIndisponiveis origem={origem} motivo={descreverProjecao(projecao)} />;
     try {
       const eq = calcularEquivalencias(aplicacaoDe(oferta, entrada.valor, entrada.dataAplicacao), coluna.data, cenario);
@@ -537,7 +538,7 @@ function EquivalenciasDaComparacao({ calculo, eqId, eqData, onOferta, onData }: 
     } catch (err) {
       return <EquivalenciasIndisponiveis origem={origem} motivo={err instanceof Error ? `${err.message.replace(/\.$/, '')}.` : String(err)} />;
     }
-  }, [oferta, coluna, projecao, entrada, cenario]);
+  }, [oferta, coluna, projecao, entrada, cenario, nomes, indice]);
 
   if (!oferta || !coluna) return null;
   return (
@@ -546,7 +547,7 @@ function EquivalenciasDaComparacao({ calculo, eqId, eqData, onOferta, onData }: 
         <div class="campo">
           <label for={`${PREFIXO}-eq-oferta`}>Calcular equivalências para</label>
           <select id={`${PREFIXO}-eq-oferta`} value={oferta.id} onChange={(e) => onOferta(e.currentTarget.value)}>
-            {ofertas.map((o, i) => <option key={o.id} value={o.id}>{letraDaOferta(i)}: {nomeOferta(o)}</option>)}
+            {ofertas.map((o, i) => <option key={o.id} value={o.id}>{letraDaOferta(i)}: {nomes[i]}</option>)}
           </select>
         </div>
         <div class="campo">

@@ -6,7 +6,7 @@ import type { OfertaCadastrada } from '../engine/ofertas';
 import type { TetoGlobal } from '../engine/fgc';
 import { regraFGC } from '../engine/regras/fgc';
 import { formatarMoeda, formatarNumero, formatarPercentual } from '../formato';
-import { listar, nomeDoHorizonte, nomeOferta } from './comparacao';
+import { listar, nomeDoHorizonte, nomesDistintos } from './comparacao';
 import { descreverOferta } from './motivos';
 import type { IdTermo } from './glossario';
 import type { IdLicao } from './licoes/tipos';
@@ -31,10 +31,8 @@ export function licaoDoAlerta(a: Alerta): IdLicao {
   return LICAO_DO_ALERTA[a.tipo];
 }
 
-const nome = (ofertas: readonly OfertaCadastrada[], i: number) => {
-  const o = ofertas[i];
-  return o ? nomeOferta(o) : `Oferta ${i + 1}`;
-};
+/** O nome da oferta na comparação, distinto das outras ({@link nomesDistintos}). */
+const nome = (ofertas: readonly OfertaCadastrada[], i: number) => nomesDistintos(ofertas)[i] ?? `Oferta ${i + 1}`;
 
 /** Como o horizonte aparece: o rótulo da tabela ("5 anos", "15/01/2028 (sua data)"), ou a data. */
 function prazo(horizontes: readonly Horizonte[], data: DataISO): string {

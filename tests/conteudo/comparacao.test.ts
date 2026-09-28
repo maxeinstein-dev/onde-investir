@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { concluirLinhaDoTempo, descreverProjecao, explicarCenario, explicarLideranca, nomeOferta } from '../../src/conteudo/comparacao';
+import { concluirLinhaDoTempo, descreverProjecao, explicarCenario, explicarLideranca, nomeOferta, nomesDistintos } from '../../src/conteudo/comparacao';
 import { GLOSSARIO } from '../../src/conteudo/glossario';
 import { horizontesPadrao, linhaDoTempo, tabelaPorHorizonte, type ColunaHorizonte } from '../../src/engine/comparacao';
 import type { OfertaCadastrada, Projecao } from '../../src/engine/ofertas';
@@ -17,6 +17,48 @@ const R = String.raw`R\$\s?`;
 describe('nomeOferta', () => {
   it('descrição da oferta e o emissor', () => {
     expect(nomeOferta(cdb2027)).toBe('CDB 103% do CDI (Banco B)');
+  });
+});
+
+describe('nomesDistintos', () => {
+  const cdb2028: OfertaCadastrada = { ...cdb2027, id: '3', vencimento: '2028-09-28' };
+  const cdbDiario: OfertaCadastrada = { id: '4', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 }, emissor: 'Banco B', conglomerado: 'B', liquidez: 'DIARIA' };
+
+  it('sem repetição: o nome da oferta, sem mudança', () => {
+    expect(nomesDistintos([cdb2027, lci2028])).toEqual(['CDB 103% do CDI (Banco B)', 'LCI 80% do CDI (Banco B)']);
+  });
+  it('nome repetido: cada uma ganha o vencimento', () => {
+    expect(nomesDistintos([cdb2027, lci2028, cdb2028])).toEqual([
+      'CDB 103% do CDI (Banco B) · vence em 28/09/2027',
+      'LCI 80% do CDI (Banco B)',
+      'CDB 103% do CDI (Banco B) · vence em 28/09/2028',
+    ]);
+  });
+  it('sem vencimento: "liquidez diária"', () => {
+    expect(nomesDistintos([cdbDiario, cdb2027])).toEqual([
+      'CDB 103% do CDI (Banco B) · liquidez diária',
+      'CDB 103% do CDI (Banco B) · vence em 28/09/2027',
+    ]);
+  });
+  it('se ainda colidir, acrescenta a letra da coluna', () => {
+    const outro: OfertaCadastrada = { ...cdb2027, id: '9' };
+    expect(nomesDistintos([lci2028, cdb2027, outro])).toEqual([
+      'LCI 80% do CDI (Banco B)',
+      'CDB 103% do CDI (Banco B) · vence em 28/09/2027 · B',
+      'CDB 103% do CDI (Banco B) · vence em 28/09/2027 · C',
+    ]);
+  });
+  it('lista vazia', () => {
+    expect(nomesDistintos([])).toEqual([]);
+  });
+  it('a linha do tempo e o "Por que lidera" usam os nomes distintos', () => {
+    const ofertas = [cdb2027, cdb2028];
+    const horizontes = horizontesPadrao(INI, null);
+    const colunas = tabelaPorHorizonte(ofertas, 10000, INI, horizontes, CEN, { tipo: 'PADRAO' });
+    const doisAnos = colunas.find((c) => c.rotulo === '2 anos') as ColunaHorizonte;
+    expect(explicarLideranca(ofertas, doisAnos)?.titulo).toMatch(/^Por que CDB 103% do CDI \(Banco B\) · vence em 28\/09\/202[78] lidera em 2 anos\?$/);
+    const linhas = concluirLinhaDoTempo(ofertas, linhaDoTempo(ofertas, 10000, INI, CEN, { tipo: 'PADRAO' }));
+    expect(linhas.join(' ')).toMatch(/· vence em 28\/09\/2028/);
   });
 });
 

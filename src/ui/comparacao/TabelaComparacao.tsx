@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
-import { descreverProjecao, nomeDoHorizonte, nomeOferta } from '../../conteudo/comparacao';
+import { descreverProjecao, nomeDoHorizonte, nomesDistintos } from '../../conteudo/comparacao';
 import { descreverOferta } from '../../conteudo/motivos';
 import type { ColunaHorizonte } from '../../engine/comparacao';
 import { dataBR, ehDataValida, type DataISO } from '../../engine/datas';
@@ -107,6 +107,7 @@ function TituloDoBloco({ id, colunas, children }: { id: string; colunas: number;
 /** As ofertas lado a lado (colunas), com as características e o valor líquido em cada horizonte (linhas). */
 export function TabelaComparacao({ ofertas, colunas, dataAplicacao, onRemover }: PropsTabelaComparacao) {
   const n = ofertas.length;
+  const nomes = nomesDistintos(ofertas);
   const idCaracteristicas = `${PREFIXO}-bloco-caracteristicas`;
   const idValores = `${PREFIXO}-bloco-valores`;
   const caracteristicas = ofertas.some((o) => (o.custoExtraAA ?? 0) > 0) ? [...CARACTERISTICAS, CUSTO_EXTRA] : CARACTERISTICAS;
@@ -121,16 +122,16 @@ export function TabelaComparacao({ ofertas, colunas, dataAplicacao, onRemover }:
             {ofertas.map((o, i) => (
               <th key={o.id} scope="col" id={idColuna(i)} tabIndex={-1} class="tabela-comparacao__oferta">
                 <span class="tabela-comparacao__letra">{letraDaOferta(i)}</span>
-                <span class="tabela-comparacao__nome">{nomeOferta(o)}</span>
+                <span class="tabela-comparacao__nome">{nomes[i]}</span>
               </th>
             ))}
           </tr>
           {/* Os botões ficam numa linha própria, fora do th: o nome da coluna é só a letra e o nome da oferta. */}
           <tr class="tabela-comparacao__acoes">
             <td />
-            {ofertas.map((o) => (
+            {ofertas.map((o, i) => (
               <td key={o.id}>
-                <button type="button" class="tabela-comparacao__tirar" aria-label={`Tirar da comparação: ${nomeOferta(o)}`}
+                <button type="button" class="tabela-comparacao__tirar" aria-label={`Tirar da comparação: ${nomes[i] ?? ''}`}
                   onClick={() => onRemover(o.id)}>
                   ✕ Tirar da comparação
                 </button>

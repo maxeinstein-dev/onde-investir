@@ -4,6 +4,7 @@ import { type DataISO, dataBR } from '../engine/datas';
 import type { OfertaCadastrada, Projecao } from '../engine/ofertas';
 import type { CenarioProjetado } from '../engine/projecao';
 import { formatarMoeda, formatarNumero, formatarPercentual } from '../formato';
+import { letraDaOferta } from '../ui/letras';
 import { descreverOferta, explicarVencedor, fraseDoPlacar } from './motivos';
 
 /** Perto dos botões Comparar, enquanto o painel tem um rascunho inválido. */
@@ -11,6 +12,29 @@ export const AVISO_CENARIO_INVALIDO = 'Corrija o cenário no painel antes de com
 
 /** Como a oferta aparece nos textos: a descrição e o emissor, que distingue ofertas iguais. */
 export const nomeOferta = (o: OfertaCadastrada): string => `${descreverOferta(o)} (${o.emissor})`;
+
+/** Quantas vezes cada nome aparece na lista. */
+function repeticoes(nomes: readonly string[]): (nome: string) => number {
+  const conta = new Map<string, number>();
+  for (const n of nomes) conta.set(n, (conta.get(n) ?? 0) + 1);
+  return (n) => conta.get(n) ?? 0;
+}
+
+/**
+ * O nome de cada oferta numa mesma comparação ({@link nomeOferta}), sem repetição: quem divide o nome com outra
+ * ganha " · vence em dd/mm/aaaa" (ou " · liquidez diária", sem vencimento); se ainda colidir, a letra da coluna.
+ */
+export function nomesDistintos(ofertas: readonly OfertaCadastrada[]): string[] {
+  const base = ofertas.map(nomeOferta);
+  const naBase = repeticoes(base);
+  const comPrazo = base.map((n, i) => {
+    if (naBase(n) < 2) return n;
+    const v = ofertas[i]?.vencimento;
+    return `${n} · ${v === undefined ? 'liquidez diária' : `vence em ${dataBR(v)}`}`;
+  });
+  const noPrazo = repeticoes(comPrazo);
+  return comPrazo.map((n, i) => (noPrazo(n) < 2 ? n : `${n} · ${letraDaOferta(i)}`));
+}
 
 /** Primeira letra minúscula, a não ser que a palavra seja uma sigla ("LCI"). */
 function continuarFrase(texto: string): string {
@@ -61,10 +85,11 @@ export interface Lideranca {
 export function explicarLideranca(ofertas: readonly OfertaCadastrada[], coluna: ColunaHorizonte): Lideranca | null {
   if (coluna.lideres.length === 0) return null;
   const prazo = nomeDoHorizonte(coluna);
+  const nomes = nomesDistintos(ofertas);
   const ranking = coluna.projecoes
     .flatMap((p, i) => {
       const o = ofertas[i];
-      return p.estado === 'DISPONIVEL' && o ? [{ p, o, nome: nomeOferta(o), lider: coluna.lideres.includes(i) }] : [];
+      return p.estado === 'DISPONIVEL' && o ? [{ p, o, nome: nomes[i] ?? nomeOferta(o), lider: coluna.lideres.includes(i) }] : [];
     })
     // Os líderes primeiro (empate em centavos), depois pelo líquido.
     .sort((a, b) => Number(b.lider) - Number(a.lider) || b.p.liquido - a.p.liquido);
@@ -101,7 +126,8 @@ export function concluirLinhaDoTempo(
   if (linhas.length === 0 || !ultimo || !ultimaColuna || ultimaColuna.data <= ultimo.data || ultimaColuna.lideres.length === 0) return linhas;
   const mesmos = ultimaColuna.lideres.length === ultimo.lideres.length && ultimaColuna.lideres.every((i) => ultimo.lideres.includes(i));
   if (mesmos) return linhas;
-  const nomes = ultimaColuna.lideres.flatMap((i) => (ofertas[i] ? [nomeOferta(ofertas[i])] : []));
+  const distintos = nomesDistintos(ofertas);
+  const nomes = ultimaColuna.lideres.flatMap((i) => (distintos[i] === undefined ? [] : [distintos[i]]));
   return [...linhas, `Depois disso a ordem muda: em ${nomeDoHorizonte(ultimaColuna)} quem lidera é ${listar(nomes)}.`];
 }
 
@@ -109,30 +135,33 @@ function concluirNoUltimoVencimento(ofertas: readonly OfertaCadastrada[], l: { m
   const ultimo = l.marcos.at(-1);
   if (!ultimo || ultimo.lideres.length === 0) return [];
   const data = dataBR(ultimo.data);
+  const distintos = nomesDistintos(ofertas);
   const disponiveis = ultimo.projecoes
-    .flatMap((p, i) => (p.estado === 'DISPONIVEL' ? [{ p, o: ofertas[i] }] : []))
-    .filter((x): x is { p: Disponivel; o: OfertaCadastrada } => x.o !== undefined)
+    .flatMap((p, i) => {
+      const nome = distintos[i];
+      return p.estado === 'DISPONIVEL' && ofertas[i] && nome !== undefined ? [{ p, nome }] : [];
+    })
     .sort((a, b) => b.p.liquido - a.p.liquido);
   const lider = disponiveis[0];
   if (!lider) return [];
   const liquido = formatarMoeda(lider.p.liquido);
 
   if (ultimo.lideres.length > 1) {
-    const nomes = ultimo.lideres.flatMap((i) => (ofertas[i] ? [nomeOferta(ofertas[i])] : []));
+    const nomes = ultimo.lideres.flatMap((i) => (distintos[i] === undefined ? [] : [distintos[i]]));
     return [`${listar(nomes)} terminam empatados em ${data}, com ${liquido} líquidos.`];
   }
 
   const segundo = disponiveis[1];
-  const inicio = `No último vencimento, em ${data}, ${nomeOferta(lider.o)} termina na frente com ${liquido} líquidos`;
+  const inicio = `No último vencimento, em ${data}, ${lider.nome} termina na frente com ${liquido} líquidos`;
   const fim = 'Para outras datas, veja a tabela acima.';
   const linhas = [
     segundo
-      ? `${inicio}, ${formatarMoeda(lider.p.liquido - segundo.p.liquido)} a mais que ${nomeOferta(segundo.o)}. ${fim}`
+      ? `${inicio}, ${formatarMoeda(lider.p.liquido - segundo.p.liquido)} a mais que ${segundo.nome}. ${fim}`
       : `${inicio}. ${fim}`,
   ];
   const reaplicacao = lider.p.reinvestimento ? lider.p.etapas.at(-1) : undefined;
   if (segundo && reaplicacao) {
-    linhas.push(`${nomeOferta(lider.o)} vence antes, é reaplicado e mesmo assim termina na frente.`);
+    linhas.push(`${lider.nome} vence antes, é reaplicado e mesmo assim termina na frente.`);
     if (!reaplicacao.isentoIR) linhas.push(`Na reaplicação o IR recomeçou do zero, com alíquota de ${formatarPercentual(reaplicacao.aliquotaIR)} nesse prazo.`);
   }
   return linhas;

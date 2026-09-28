@@ -2,12 +2,13 @@
 import { type DataISO, dataBR, somarDias } from '../engine/datas';
 import type { OfertaCadastrada } from '../engine/ofertas';
 import type { MotivoSemResgate, Oscilacao, TrocaRelevante } from '../engine/serie';
-import { listar, nomeOferta } from './comparacao';
+import { listar, nomesDistintos } from './comparacao';
 
 const NINGUEM = 'nenhuma oferta pode ser resgatada';
 
 function nomes(ofertas: readonly OfertaCadastrada[], indices: readonly number[]): string {
-  return listar(indices.map((i) => (ofertas[i] ? nomeOferta(ofertas[i]) : `Oferta ${i + 1}`)));
+  const distintos = nomesDistintos(ofertas);
+  return listar(indices.map((i) => distintos[i] ?? `Oferta ${i + 1}`));
 }
 
 /** "X lidera", "X e Y empatam na liderança" ou "nenhuma oferta pode ser resgatada". */

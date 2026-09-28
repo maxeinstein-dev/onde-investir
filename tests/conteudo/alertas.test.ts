@@ -19,6 +19,7 @@ const cdbDiario: OfertaCadastrada = { ...base, id: '2', produto: 'CDB', indexaca
 const tesouroSelic: OfertaCadastrada = { ...base, id: '3', produto: 'TESOURO_SELIC', indexacao: { tipo: 'SELIC' }, vencimento: '2032-03-01', liquidez: 'DIARIA' };
 const lciNoVencimento: OfertaCadastrada = { ...base, id: '4', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.9 }, vencimento: '2029-09-28', liquidez: 'NO_VENCIMENTO' };
 const lciDiaria: OfertaCadastrada = { ...lciNoVencimento, id: '5', liquidez: 'DIARIA' };
+// As duas LCIs dividem o nome e o vencimento: nos textos, cada uma ganha o vencimento e a letra (nomesDistintos).
 const ofertas = [cdbNoVencimento, cdbDiario, tesouroSelic, lciNoVencimento, lciDiaria];
 const horizontes = horizontesPadrao(INI, '2028-01-15');
 const CDB_103: Oferta = { produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 } };
@@ -46,7 +47,7 @@ describe('textoDoAlerta', () => {
     expect(textoDoAlerta(empate, ofertas, horizontes).oQue)
       .toBe('CDB 102,8% do CDI (Banco B) rende o mesmo que CDB 103% do CDI (Banco B) em 5 anos e dá para resgatar a qualquer momento.');
     const dois: Alerta = { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0, 3], alternativa: 1, diferenca: 1, diferencaPercentual: 0.0001, vantagem: 'LIQUIDEZ' };
-    expect(textoDoAlerta(dois, ofertas, horizontes).oQue).toMatch(/a menos que CDB 103% do CDI \(Banco B\) e LCI 90% do CDI \(Banco B\) em 5 anos/);
+    expect(textoDoAlerta(dois, ofertas, horizontes).oQue).toMatch(/a menos que CDB 103% do CDI \(Banco B\) e LCI 90% do CDI \(Banco B\) · vence em 28\/09\/2029 · D em 5 anos/);
   });
 
   it('QUASE_EMPATE com garantia do Tesouro', () => {
@@ -78,7 +79,7 @@ describe('textoDoAlerta', () => {
     };
     const t = textoDoAlerta(a, ofertas, horizontes);
     expect(t.titulo).toBe('A reaplicação passa a pagar IR');
-    expect(t.oQue).toMatch(re(String.raw`LCI 90% do CDI \(Banco B\) é isenta, mas ao vencer em 28/09/2029 o dinheiro vai para CDB 100% do CDI, que paga IR: ${R}250,00 no prazo de 5 anos\.`));
+    expect(t.oQue).toMatch(re(String.raw`LCI 90% do CDI \(Banco B\) · vence em 28/09/2029 · D é isenta, mas ao vencer em 28/09/2029 o dinheiro vai para CDB 100% do CDI, que paga IR: ${R}250,00 no prazo de 5 anos\.`));
     expect(t.porQue).toMatch(/isentas/);
     expect(t.termo).toBe('reinvestimento');
   });
@@ -89,7 +90,7 @@ describe('textoDoAlerta', () => {
       aliquotaNova: 0.225, aliquotaSemReaplicar: 0, custo: 12.5,
     };
     expect(textoDoAlerta(a, ofertas, horizontes).oQue)
-      .toMatch(re(String.raw`LCI 90% do CDI \(Banco B\) é isenta, mas ao vencer em 01/06/2027 o dinheiro vai para CDB 100% do CDI, que paga IR: ${R}12,50 até 15/01/2028\.`));
+      .toMatch(re(String.raw`LCI 90% do CDI \(Banco B\) · vence em 28/09/2029 · D é isenta, mas ao vencer em 01/06/2027 o dinheiro vai para CDB 100% do CDI, que paga IR: ${R}12,50 até 15/01/2028\.`));
   });
 
   it('IOF', () => {
@@ -105,14 +106,14 @@ describe('textoDoAlerta', () => {
     const a: Alerta = { tipo: 'PRAZO_INCOMPATIVEL', oferta: 3, horizonte: '2028-01-15', disponivelEm: '2029-09-28' };
     const t = textoDoAlerta(a, ofertas, horizontes);
     expect(t.titulo).toBe('Prazo incompatível');
-    expect(t.oQue).toBe('Não dá para resgatar LCI 90% do CDI (Banco B) em 15/01/2028 (sua data). Só no vencimento (28/09/2029).');
+    expect(t.oQue).toBe('Não dá para resgatar LCI 90% do CDI (Banco B) · vence em 28/09/2029 · D em 15/01/2028 (sua data). Só no vencimento (28/09/2029).');
     expect(t.termo).toBe('liquidez');
   });
 
   it('PRAZO_INCOMPATIVEL: prazo mínimo legal', () => {
     const a: Alerta = { tipo: 'PRAZO_INCOMPATIVEL', oferta: 4, horizonte: '2031-09-28', disponivelEm: '2027-03-28' };
     const t = textoDoAlerta(a, ofertas, horizontes);
-    expect(t.oQue).toBe('Não dá para resgatar LCI 90% do CDI (Banco B) em 5 anos: o resgate só é possível a partir de 28/03/2027.');
+    expect(t.oQue).toBe('Não dá para resgatar LCI 90% do CDI (Banco B) · vence em 28/09/2029 · E em 5 anos: o resgate só é possível a partir de 28/03/2027.');
     expect(t.termo).toBe('prazo-minimo');
   });
 
@@ -129,7 +130,7 @@ describe('textoDoAlerta', () => {
   it('PRAZO_INCOMPATIVEL sem data de liberação', () => {
     const a: Alerta = { tipo: 'PRAZO_INCOMPATIVEL', oferta: 3, horizonte: '2031-09-28' };
     const t = textoDoAlerta(a, ofertas, horizontes);
-    expect(t.oQue).toBe('Não dá para resgatar LCI 90% do CDI (Banco B) em 5 anos.');
+    expect(t.oQue).toBe('Não dá para resgatar LCI 90% do CDI (Banco B) · vence em 28/09/2029 · D em 5 anos.');
     expect(t.termo).toBe('liquidez');
   });
 

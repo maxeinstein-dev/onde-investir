@@ -8,7 +8,7 @@ import { CHAVE_OFERTAS } from '../../src/armazenamento/ofertas';
 import { CHAVE_PREFERENCIAS } from '../../src/armazenamento/preferencias';
 import { CHAVE_PROGRESSO } from '../../src/armazenamento/progresso';
 import { CASOS_CLASSICOS } from '../../src/conteudo/casos';
-import { nomeOferta } from '../../src/conteudo/comparacao';
+import { nomesDistintos } from '../../src/conteudo/comparacao';
 import { LICOES } from '../../src/conteudo/licoes';
 import { type CasoClassico, type Licao, montarExperimente } from '../../src/conteudo/licoes/tipos';
 import { App } from '../../src/ui/App';
@@ -49,7 +49,7 @@ function semear(ofertas: unknown[], selecao?: string[]) {
 
 const comExperimente = LICOES.find((l) => l.experimente !== undefined) as Licao;
 const nomesDoExperimente = (e: NonNullable<Licao['experimente']>) =>
-  montarExperimente(e, HOJE).ofertas.map((o, i) => nomeOferta({ ...o, id: `x${i}` }));
+  nomesDistintos(montarExperimente(e, HOJE).ofertas.map((o, i) => ({ ...o, id: `x${i}` })));
 const casoSobem = CASOS_CLASSICOS.find((c) => c.experimente.cenario === 'SOBEM') as CasoClassico;
 
 function abrirNaTrilha(l: Licao) {
@@ -183,6 +183,24 @@ describe('App: comparação temporária do "Experimente"', () => {
     fireEvent.click(aba('Aprender'));
     fireEvent.click(screen.getByRole('link', { name: 'Voltar ao índice' }));
     if (esperado.total === 1) expect(screen.getByText(`Você acertou ${esperado.acertos} de 1 palpite.`)).toBeInTheDocument();
+  });
+});
+
+describe('App: ofertas com o mesmo nome no "Experimente"', () => {
+  const reaplicacao = LICOES.find((l) => l.id === 'reaplicacao') as Licao;
+  it('Reaplicação: os dois CDBs aparecem distintos na tabela e no palpite', () => {
+    render(<App />);
+    abrirNaTrilha(reaplicacao);
+    fireEvent.click(screen.getByRole('button', { name: 'Experimente' }));
+    const nomes = nomesDasColunas();
+    expect(nomes).toEqual([
+      'LCI 90% do CDI (Banco Alfa)',
+      'CDB 103% do CDI (Banco Alfa) · vence em 28/09/2027',
+      'CDB 103% do CDI (Banco Alfa) · vence em 28/09/2031',
+    ]);
+    fireEvent.click(within(painelAtivo()).getByRole('button', { name: 'Comparar' }));
+    const palpite = within(painelAtivo()).getByRole('heading', { level: 2, name: /\?$/ }).closest('section') as HTMLElement;
+    expect(within(palpite).getAllByRole('button', { name: /^[A-E]: / }).map((b) => b.textContent)).toEqual(nomes.map((n, i) => `${'ABC'[i]}: ${n}`));
   });
 });
 
