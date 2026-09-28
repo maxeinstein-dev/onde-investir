@@ -78,7 +78,7 @@ function soNumerosDasRegras(texto: string, rotulo: string) {
     const n = Math.round(Number((m[1] ?? '').replace(',', '.')) * 1000) / 1000;
     expect(PERCENTUAIS_DAS_REGRAS.has(n), `${rotulo}: ${m[0]} não está nas regras`).toBe(true);
   }
-  for (const m of texto.matchAll(/R\$\s?[\d.,]+(?:\s(?:mil|milhão|milhões))?/g)) {
+  for (const m of texto.matchAll(/R\$\s?[\d.,]+(?:\s(?:milhões|milhão|mil))?/g)) {
     expect(REAIS_DAS_REGRAS.has(m[0].replace(/\s/g, ' ')), `${rotulo}: ${m[0]} não é limite de regra`).toBe(true);
   }
 }
@@ -222,5 +222,58 @@ describe('montarExperimente', () => {
     expect(m.suaData).toBe('2027-02-28');
     expect(m.regra).toEqual({ tipo: 'PADRAO' });
     expect(m).not.toHaveProperty('cenario');
+  });
+});
+
+describe('os links do texto e as fontes', () => {
+  it('todo link no texto de uma lição está na lista de fontes dela', () => {
+    for (const l of LICOES) {
+      for (const s of l.secoes) for (const m of s.texto.matchAll(/\]\(([^)\s]+)\)/g)) expect(l.fontes, `${l.id}: ${m[1]}`).toContain(m[1]);
+    }
+  });
+});
+
+/** Os alertas do "Experimente" com o cenário padrão, montado em INI. */
+function alertasDo(e: Experimente) {
+  const m = montarExperimente(e, INI);
+  const ofertas = m.ofertas.map((o, i) => ({ ...o, id: `exp-${i}` }));
+  const colunas = tabelaPorHorizonte(ofertas, m.valor, m.dataAplicacao, horizontesPadrao(m.dataAplicacao, m.suaData ?? null), CEN_PADRAO, m.regra);
+  return { colunas, alertas: gerarAlertas(ofertas, colunas, undefined, m.suaData, { carteira: [], valor: m.valor, dataAplicacao: m.dataAplicacao, cen: CEN_PADRAO }) };
+}
+const experimenteDe = (id: IdLicao) => {
+  const e = LICOES.find((l) => l.id === id)?.experimente;
+  if (!e) throw new Error(`sem experimente: ${id}`);
+  return e;
+};
+const casoDe = (id: string) => {
+  const c = CASOS_CLASSICOS.find((x) => x.id === id);
+  if (!c) throw new Error(`sem caso: ${id}`);
+  return c.experimente;
+};
+
+describe('o que o texto promete, a comparação mostra', () => {
+  it('FGC: o valor do exemplo passa do limite e gera o alerta', () => {
+    expect(alertasDo(experimenteDe('fgc')).alertas.some((a) => a.tipo === 'FGC_LIMITE')).toBe(true);
+  });
+  it('liquidez: na data próxima, há ofertas indisponíveis', () => {
+    expect(alertasDo(experimenteDe('liquidez')).alertas.some((a) => a.tipo === 'PRAZO_INCOMPATIVEL')).toBe(true);
+  });
+  it('marcação a mercado: aviso de venda a preço de mercado na sua data', () => {
+    expect(alertasDo(experimenteDe('marcacao-mercado')).alertas.some((a) => a.tipo === 'PRAZO_INCOMPATIVEL' && a.motivo === 'MARCACAO_A_MERCADO')).toBe(true);
+  });
+  it('reaplicação: a LCI reaplicada passa a pagar IR, e o CDB reaplicado recomeça o IR', () => {
+    const irs = alertasDo(experimenteDe('reaplicacao')).alertas.filter((a) => a.tipo === 'IR_REINICIA');
+    expect(irs.some((a) => a.tipo === 'IR_REINICIA' && a.etapa1Isenta)).toBe(true);
+    expect(irs.some((a) => a.tipo === 'IR_REINICIA' && !a.etapa1Isenta)).toBe(true);
+  });
+  it('LCI × CDB: a oferta vencedora muda ao longo dos prazos', () => {
+    const lideres = alertasDo(casoDe('caso-lci-cdb')).colunas.map((c) => c.lideres.join());
+    expect(new Set(lideres).size).toBeGreaterThan(1);
+  });
+  it('prefixado com juros subindo: aviso de venda a preço de mercado na sua data', () => {
+    expect(alertasDo(casoDe('caso-prefixado-juros-sobem')).alertas.some((a) => a.tipo === 'PRAZO_INCOMPATIVEL' && a.motivo === 'MARCACAO_A_MERCADO')).toBe(true);
+  });
+  it('custo de reaplicar: há o alerta de IR na reaplicação', () => {
+    expect(alertasDo(casoDe('caso-custo-reaplicar')).alertas.some((a) => a.tipo === 'IR_REINICIA')).toBe(true);
   });
 });
