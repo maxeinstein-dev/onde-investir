@@ -70,4 +70,18 @@ describe('Sugestao', () => {
     expect(primeiro?.destroy).not.toHaveBeenCalled();
     expect(graficos).toHaveLength(1);
   });
+
+  it('mostra a nota de renda variável para longo prazo acima de 5 anos, com link para a lição', async () => {
+    const objetivo: ObjetivoSalvo = { id: 'o3', criadoEm: HOJE, entradas: { tipo: 'LONGO_PRAZO', horizonteAnos: 10 } };
+    render(<Sugestao objetivo={objetivo} catalogo={[]} carteira={[]} hoje={HOJE} onIrParaComparar={() => {}} />);
+    await carregou();
+    expect(await screen.findByText(/Para prazos acima de 5 anos/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /renda variável/i })).toHaveAttribute('href', '#aprender/renda-variavel');
+  });
+
+  it('não mostra a nota para reserva de emergência', async () => {
+    render(<Sugestao objetivo={objetivoReserva} catalogo={[]} carteira={[]} hoje={HOJE} onIrParaComparar={() => {}} />);
+    await carregou();
+    expect(screen.queryByText(/renda variável/i)).not.toBeInTheDocument();
+  });
 });
