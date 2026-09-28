@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { exportarDados, importarDados, LIMITE_CARACTERES_IMPORTACAO } from '../../armazenamento/arquivo';
 import { LIMITE_OFERTAS } from '../../armazenamento/ofertas';
-import { novoIdPosicao } from '../../armazenamento/posicoes';
+import { LIMITE_POSICOES, novoIdPosicao } from '../../armazenamento/posicoes';
 import type { OfertaCadastrada } from '../../engine/ofertas';
 import type { Posicao } from '../../engine/posicoes';
 import { hoje } from '../hoje';
@@ -22,6 +22,16 @@ const LIMITE_BYTES = LIMITE_CARACTERES_IMPORTACAO * 4;
 const ESPERA_REVOGAR_MS = 1000;
 /** Tempo com o status vazio antes de reescrever a mesma mensagem, para o leitor de tela anunciar de novo. */
 const ESPERA_REPETIR_MS = 100;
+
+const contarOfertas = (n: number) => (n === 1 ? '1 oferta' : `${n} ofertas`);
+const contarPosicoes = (n: number) => (n === 1 ? '1 posição' : `${n} posições`);
+
+/** "1 oferta exportada.", "2 ofertas importadas." ou, com posições, "1 oferta e 2 posições importadas.". */
+function resumo(ofertas: number, posicoes: number, verbo: 'exportad' | 'importad'): string {
+  if (posicoes === 0) return `${contarOfertas(ofertas)} ${verbo}${ofertas === 1 ? 'a' : 'as'}.`;
+  // Com as duas, o particípio concorda no feminino plural (ofertas e posições).
+  return `${contarOfertas(ofertas)} e ${contarPosicoes(posicoes)} ${verbo}as.`;
+}
 
 function baixar(texto: string, nome: string) {
   const url = URL.createObjectURL(new Blob([texto], { type: 'application/json' }));
@@ -69,7 +79,7 @@ export function ExportarImportar({ ofertas, posicoes = [], gerarId, gerarIdPosic
 
   function exportar() {
     baixar(exportarDados(ofertas, posicoes, Date.now()), `rende-ofertas-${hoje()}.json`);
-    informar(`${ofertas.length === 1 ? '1 oferta exportada' : `${ofertas.length} ofertas exportadas`}.`);
+    informar(resumo(ofertas.length, posicoes.length, 'exportad'));
   }
 
   function processar(texto: string) {
@@ -83,9 +93,13 @@ export function ExportarImportar({ ofertas, posicoes = [], gerarId, gerarIdPosic
       avisar(`Com as importadas seriam ${total} ofertas; o limite é ${LIMITE_OFERTAS}.`);
       return;
     }
+    const totalPosicoes = posicoes.length + r.posicoes.length;
+    if (totalPosicoes > LIMITE_POSICOES) {
+      avisar(`Com as importadas seriam ${totalPosicoes} posições; o limite é ${LIMITE_POSICOES}.`);
+      return;
+    }
     onImportar(r.ofertas, r.posicoes);
-    const n = r.ofertas.length;
-    informar(n === 1 ? '1 oferta importada.' : `${n} ofertas importadas.`);
+    informar(resumo(r.ofertas.length, r.posicoes.length, 'importad'));
   }
 
   function aoEscolher(e: Event) {
@@ -106,7 +120,7 @@ export function ExportarImportar({ ofertas, posicoes = [], gerarId, gerarIdPosic
 
   return (
     <div class="exportar-importar">
-      <button type="button" onClick={exportar} disabled={ofertas.length === 0}>Exportar ofertas</button>
+      <button type="button" onClick={exportar} disabled={ofertas.length === 0 && posicoes.length === 0}>Exportar ofertas</button>
       <div class="campo">
         <label for="importar-ofertas">Importar ofertas (.json)</label>
         <input id="importar-ofertas" type="file" accept="application/json,.json" onChange={aoEscolher} />

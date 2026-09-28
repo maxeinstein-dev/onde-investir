@@ -2,11 +2,15 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { CHAVE_COMPARACAO } from '../../src/armazenamento/comparacao';
+import { exportarDados } from '../../src/armazenamento/arquivo';
 import { CHAVE_OFERTAS } from '../../src/armazenamento/ofertas';
+import { CHAVE_POSICOES } from '../../src/armazenamento/posicoes';
 import { CHAVE_PREFERENCIAS } from '../../src/armazenamento/preferencias';
 import {
   urlCalendarioCopom, urlFocusAnuais, urlFocusIpcaMensal, urlFocusSelic, urlSgsUltimos,
 } from '../../src/dados/bcb';
+import type { OfertaCadastrada } from '../../src/engine/ofertas';
+import type { Posicao } from '../../src/engine/posicoes';
 import { App } from '../../src/ui/App';
 import { idColuna } from '../../src/ui/comparacao/TabelaComparacao';
 import copom from '../fixtures/bcb/copom.json';
@@ -203,6 +207,21 @@ describe('App', () => {
     cleanup();
     render(<App />);
     expect(screen.getByRole('article', { name: /A: CDB 100% do CDI/ })).toBeInTheDocument();
+  });
+
+  it('importar um arquivo v2 no catálogo grava também as posições', async () => {
+    vi.stubGlobal('fetch', fetchForaDoAr);
+    render(<App />);
+    fireEvent.click(aba('Catálogo'));
+    const posicao = { ...X, valorAplicado: 10_000, dataAplicacao: '2026-01-05', eventos: [] };
+    const arquivo = new File([exportarDados([X as OfertaCadastrada], [posicao as Posicao], Date.now())], 'dados.json', { type: 'application/json' });
+    fireEvent.change(within(painelAtivo()).getByLabelText('Importar ofertas (.json)'), { target: { files: [arquivo] } });
+    expect(await within(painelAtivo()).findByText('1 oferta e 1 posição importadas.')).toBeInTheDocument();
+    expect(salvas(CHAVE_OFERTAS)).toHaveLength(1);
+    const gravadas = salvas(CHAVE_POSICOES);
+    expect(gravadas).toHaveLength(1);
+    expect(gravadas[0]).toMatchObject({ emissor: 'Banco X', valorAplicado: 10_000, dataAplicacao: '2026-01-05' });
+    expect(gravadas[0].id).toMatch(/^p-/);
   });
 
   describe('catálogo e comparação', () => {

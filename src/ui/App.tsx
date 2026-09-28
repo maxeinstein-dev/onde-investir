@@ -2,15 +2,18 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { adicionar, lerSelecao, salvarSelecao, sincronizarSelecao } from '../armazenamento/comparacao';
 import { armazenamentoLocal } from '../armazenamento/navegador';
 import { lerOfertas, salvarOfertas } from '../armazenamento/ofertas';
+import { lerPosicoes, salvarPosicoes } from '../armazenamento/posicoes';
 import { lerPreferencias, salvarPreferencias, type PreferenciasCenario } from '../armazenamento/preferencias';
 import { explicarCenario } from '../conteudo/comparacao';
 import { cenarioAtivo, usaSoManual, type CenarioAtivo } from '../dados/cenarios';
 import type { IndicadoresCarregados } from '../dados/indicadores';
 import type { OfertaCadastrada } from '../engine/ofertas';
+import type { Posicao } from '../engine/posicoes';
 import { Abas, useAbaDaUrl } from './Abas';
 import { Comparador } from './comparacao/Comparador';
 import { idColuna } from './comparacao/TabelaComparacao';
 import { MinhasOfertas } from './ofertas/MinhasOfertas';
+import { hoje } from './hoje';
 import { PainelIndicadores } from './PainelIndicadores';
 import { SEM_INDICADORES, useIndicadores } from './useIndicadores';
 
@@ -38,6 +41,7 @@ export function App({ carregar }: PropsApp = {}) {
   const indicadores = useIndicadores(carregar);
   const [preferencias, setPreferencias] = useState(() => lerPreferencias(armazenamento));
   const [ofertas, setOfertas] = useState(() => lerOfertas(armazenamento));
+  const [posicoes, setPosicoes] = useState(() => lerPosicoes(armazenamento, hoje()));
   // Sem seleção salva (primeira visita ao M2.1), a comparação começa vazia, mesmo com ofertas no catálogo.
   const [selecaoSalva, setSelecaoSalva] = useState(() => lerSelecao(armazenamento));
   const [aba, irPara] = useAbaDaUrl(ABAS, APELIDOS);
@@ -91,6 +95,11 @@ export function App({ carregar }: PropsApp = {}) {
     if (sincronizada.length !== selecao.length) mudarSelecao(sincronizada, o);
   }
 
+  function mudarPosicoes(p: Posicao[]) {
+    setPosicoes(p);
+    if (!salvarPosicoes(armazenamento, p)) setFalhouAoGravar(true);
+  }
+
   function criarOferta(o: OfertaCadastrada) {
     const catalogo = [...ofertas, o];
     setOfertas(catalogo);
@@ -129,7 +138,10 @@ export function App({ carregar }: PropsApp = {}) {
         },
         {
           id: 'catalogo', rotulo: 'Catálogo',
-          conteudo: <MinhasOfertas ofertas={ofertas} onChange={mudarOfertas} selecao={selecao} onComparar={compararDoCatalogo} />,
+          conteudo: (
+            <MinhasOfertas ofertas={ofertas} onChange={mudarOfertas} selecao={selecao} onComparar={compararDoCatalogo}
+              posicoes={posicoes} onImportarPosicoes={(novas) => mudarPosicoes([...posicoes, ...novas])} />
+          ),
         },
       ]} />
     </main>

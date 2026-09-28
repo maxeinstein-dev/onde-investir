@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { LIMITE_OFERTAS } from '../../armazenamento/ofertas';
 import type { OfertaCadastrada } from '../../engine/ofertas';
+import type { Posicao } from '../../engine/posicoes';
 import { ExportarImportar } from './ExportarImportar';
 import { FormOfertaCadastrada } from './FormOfertaCadastrada';
 import { ListaOfertas } from './ListaOfertas';
@@ -21,9 +22,16 @@ export interface PropsMinhasOfertas {
   /** Os ids na comparação; com `onComparar`, cada cartão ganha o botão "Comparar". */
   selecao?: readonly string[];
   onComparar?: (id: string) => void;
+  /** As posições da carteira: vão no arquivo exportado (v2) e contam no limite da importação. */
+  posicoes?: readonly Posicao[];
+  gerarIdPosicao?: () => string;
+  /** As posições de um arquivo v2 importado, já validadas e com ids novos. Quem chama acrescenta e persiste. */
+  onImportarPosicoes?: (novas: Posicao[]) => void;
 }
 
-export function MinhasOfertas({ ofertas, onChange, gerarId = novoIdOferta, selecao = [], onComparar }: PropsMinhasOfertas) {
+export function MinhasOfertas({
+  ofertas, onChange, gerarId = novoIdOferta, selecao = [], onComparar, posicoes = [], gerarIdPosicao, onImportarPosicoes,
+}: PropsMinhasOfertas) {
   const [editando, setEditando] = useState<string | null>(null);
   const emEdicao = ofertas.find((o) => o.id === editando) ?? null;
   const conglomerados = [...new Set(ofertas.map((o) => o.conglomerado))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
@@ -69,7 +77,11 @@ export function MinhasOfertas({ ofertas, onChange, gerarId = novoIdOferta, selec
         <FormOfertaCadastrada key={emEdicao?.id ?? 'nova'} inicial={emEdicao} conglomerados={conglomerados} gerarId={gerarId}
           onSalvar={salvar} onCancelar={() => setEditando(null)} />
       )}
-      <ExportarImportar ofertas={ofertas} gerarId={gerarId} onImportar={(novas) => onChange([...ofertas, ...novas])} />
+      <ExportarImportar ofertas={ofertas} posicoes={posicoes} gerarId={gerarId} {...(gerarIdPosicao ? { gerarIdPosicao } : {})}
+        onImportar={(novas, novasPosicoes) => {
+          onChange([...ofertas, ...novas]);
+          if (novasPosicoes.length > 0) onImportarPosicoes?.(novasPosicoes);
+        }} />
     </section>
   );
 }
