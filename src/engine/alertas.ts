@@ -7,6 +7,7 @@ import type { Cenario } from './indexadores';
 import { aplicacaoDe, type OfertaCadastrada, type Projecao } from './ofertas';
 import type { Oferta } from './produtos';
 import { garantiaDe, simular } from './produtos';
+import { regraFGC } from './regras/fgc';
 import { dataMinimaResgate } from './regras/prazoMinimo';
 import { aliquotaIR } from './regras/ir';
 
@@ -65,6 +66,10 @@ export type Alerta =
     /** Bruto somado da carteira e da oferta no fim. */
     totalNoFim: number;
     excedenteNoFim: number;
+    /** Bruto da carteira do conglomerado, sem a oferta, na data de aplicação. */
+    carteiraNaAplicacao: number;
+    /** A carteira sozinha já passa do limite na data de aplicação: aplicar mais só aumenta a parte sem garantia. */
+    jaAcima: boolean;
   }
   | {
     /**
@@ -249,8 +254,11 @@ function alertasFGC(ofertas: readonly OfertaCadastrada[], horizontes: readonly D
     for (;;) {
       try {
         // Sem a oferta, não há o que alertar sobre aplicar nela: só a marca de não calculado.
-        const limite = fora.has(-1) ? [] : primeiraDataAcimaDoLimite(itens.filter((x) => !fora.has(x.indice)).map((x) => x.item), datas)
-          .map((a): Alerta => ({ tipo: 'FGC_LIMITE', oferta: i, ...a }));
+        const contados = itens.filter((x) => !fora.has(x.indice));
+        const carteiraNaAplicacao = contados.reduce((soma, x) => soma + (x.indice >= 0 ? x.item.brutoEm(ctx.dataAplicacao) : 0), 0);
+        const jaAcima = carteiraNaAplicacao > regraFGC(ctx.dataAplicacao).porConglomerado;
+        const limite = fora.has(-1) ? [] : primeiraDataAcimaDoLimite(contados.map((x) => x.item), datas)
+          .map((a): Alerta => ({ tipo: 'FGC_LIMITE', oferta: i, ...a, carteiraNaAplicacao, jaAcima }));
         if (fora.size === 0) return limite;
         const carteira = [...fora].filter((k) => k >= 0).sort((a, b) => a - b);
         return [...limite, { tipo: 'FGC_NAO_CALCULADO', oferta: i, conglomerado: o.conglomerado, carteira, ofertaForaDaConta: fora.has(-1) }];

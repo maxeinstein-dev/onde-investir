@@ -307,7 +307,7 @@ describe('FGC_LIMITE', () => {
     const totalNoFim = 200_000 + simular({ produto: 'CDB', indexacao: cdbVenc2031.indexacao, valor: 45_000, dataAplicacao: INI }, '2031-09-28', CEN).valorBruto;
     expect(fgc).toEqual([{
       tipo: 'FGC_LIMITE', oferta: 0, conglomerado: 'B', data, total, limite: 250_000, excedente: total - 250_000,
-      fim: '2031-09-28', totalNoFim, excedenteNoFim: totalNoFim - 250_000,
+      fim: '2031-09-28', totalNoFim, excedenteNoFim: totalNoFim - 250_000, jaAcima: false, carteiraNaAplicacao: 200_000,
     }]);
     expect(data > INI && data < '2028-09-28').toBe(true);
   });
@@ -341,7 +341,11 @@ describe('FGC_LIMITE', () => {
   });
   it('a carteira do conglomerado já acima: a oferta alerta na data de aplicação', () => {
     const [a] = doTipo(comFGC([cdbVenc2031], [carteiraFixa('B', 260_000)]), 'FGC_LIMITE');
-    expect(a).toMatchObject({ oferta: 0, data: INI, total: 305_000, excedente: 55_000 });
+    expect(a).toMatchObject({ oferta: 0, data: INI, total: 305_000, excedente: 55_000, jaAcima: true, carteiraNaAplicacao: 260_000 });
+  });
+  it('jaAcima só quando a carteira sozinha passa do limite na aplicação (exatamente no limite, não)', () => {
+    const [a] = doTipo(comFGC([cdbVenc2031], [carteiraFixa('B', 250_000)]), 'FGC_LIMITE');
+    expect(a).toMatchObject({ data: INI, jaAcima: false, carteiraNaAplicacao: 250_000 });
   });
   describe('item da carteira que não pode ser calculado', () => {
     const quebra = (conglomerado: string, erro: () => Error): ItemFGC => ({ conglomerado, produto: 'POUPANCA', brutoEm: () => { throw erro(); } });

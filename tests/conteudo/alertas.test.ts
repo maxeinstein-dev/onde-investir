@@ -248,7 +248,7 @@ describe('textoDoAlerta — FGC_LIMITE (rascunho, revisão no C2/C3)', () => {
   it('conta o conglomerado, a data, o total e o excedente, com o termo fgc', () => {
     const a: Alerta = {
       tipo: 'FGC_LIMITE', oferta: 0, conglomerado: 'B', data: '2027-07-29', total: 250_010.5, limite: 250_000, excedente: 10.5,
-      fim: '2031-09-28', totalNoFim: 281_800.25, excedenteNoFim: 31_800.25,
+      fim: '2031-09-28', totalNoFim: 281_800.25, excedenteNoFim: 31_800.25, jaAcima: false, carteiraNaAplicacao: 200_000,
     };
     const t = textoDoAlerta(a, ofertas, horizontes);
     expect(t.titulo).toBe('Acima do limite do FGC');
@@ -256,6 +256,19 @@ describe('textoDoAlerta — FGC_LIMITE (rascunho, revisão no C2/C3)', () => {
     expect(t.porQue).toMatch(/^O FGC cobre até R\$ 250 mil/);
     expect(t.termo).toBe('fgc');
     expect(GLOSSARIO[t.termo]).toBeDefined();
+  });
+});
+
+describe('textoDoAlerta — FGC_LIMITE com a carteira já acima', () => {
+  it('avisa que aplicar mais aumenta a parte sem garantia', () => {
+    const a: Alerta = {
+      tipo: 'FGC_LIMITE', oferta: 0, conglomerado: 'B', data: INI, total: 305_000, limite: 250_000, excedente: 55_000,
+      fim: '2031-09-28', totalNoFim: 330_000, excedenteNoFim: 80_000, jaAcima: true, carteiraNaAplicacao: 260_000,
+    };
+    const t = textoDoAlerta(a, ofertas, horizontes);
+    expect(t.titulo).toBe('Acima do limite do FGC');
+    expect(t.oQue).toMatch(re(String.raw`Você já tem ${R}260\.000,00 no conglomerado B, acima dos ${R}250 mil que o FGC cobre\. Aplicar mais aqui aumenta a parte sem garantia\.`));
+    expect(t.termo).toBe('fgc');
   });
 });
 
