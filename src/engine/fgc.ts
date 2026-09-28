@@ -9,10 +9,19 @@ export interface ItemFGC { conglomerado: string; produto: TipoProduto; brutoEm(d
 export interface AlertaFGC {
   /** O nome como apareceu no primeiro item do conglomerado. */
   conglomerado: string;
+  /** O primeiro dia acima do limite (o cruzamento). */
   data: DataISO;
+  /** Bruto somado no cruzamento. */
   total: number;
   limite: number;
+  /** O excedente no cruzamento: por definição, pequeno (o total acabou de passar do limite). */
   excedente: number;
+  /** A última das datas conferidas: o vencimento da oferta ou o horizonte mais distante. */
+  fim: DataISO;
+  /** Bruto somado no fim. */
+  totalNoFim: number;
+  /** O quanto passa do limite no fim (pelo limite vigente no fim): o tamanho real do que fica sem garantia. */
+  excedenteNoFim: number;
 }
 
 const COBERTOS: ReadonlySet<TipoProduto> = new Set(['CDB', 'RDB', 'LC', 'LCI', 'LCA', 'POUPANCA']);
@@ -75,11 +84,14 @@ function primeiroDiaAcima(itens: readonly ItemFGC[], abaixo: DataISO, acima: Dat
 /**
  * Para cada conglomerado, a primeira data em que o bruto somado passa do limite do FGC (os rendimentos contam).
  * Entre as `datas` (hoje, vencimentos, horizontes), acha a primeira acima do limite e, entre ela e a anterior,
- * o dia exato. Um alerta por conglomerado, em ordem de data e de nome.
+ * o dia exato. Um alerta por conglomerado, em ordem de data e de nome. Além do cruzamento, o alerta traz o total e o
+ * excedente no fim (a última das `datas`), que mostram quanto fica de fato sem garantia.
  */
 export function primeiraDataAcimaDoLimite(itens: readonly ItemFGC[], datas: readonly DataISO[]): AlertaFGC[] {
   const ordenadas = [...new Set(datas)].sort();
+  const fim = ordenadas.at(-1);
   const alertas: AlertaFGC[] = [];
+  if (fim === undefined) return alertas;
   for (const { nome, itens: doGrupo } of agrupar(itens).values()) {
     let anterior: DataISO | undefined;
     for (const d of ordenadas) {
@@ -90,7 +102,11 @@ export function primeiraDataAcimaDoLimite(itens: readonly ItemFGC[], datas: read
       const data = anterior === undefined ? d : primeiroDiaAcima(doGrupo, anterior, d);
       const total = somaEm(doGrupo, data);
       const limite = regraFGC(data).porConglomerado;
-      alertas.push({ conglomerado: nome, data, total, limite, excedente: total - limite });
+      const totalNoFim = somaEm(doGrupo, fim);
+      alertas.push({
+        conglomerado: nome, data, total, limite, excedente: total - limite,
+        fim, totalNoFim, excedenteNoFim: totalNoFim - regraFGC(fim).porConglomerado,
+      });
       break;
     }
   }

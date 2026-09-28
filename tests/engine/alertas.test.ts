@@ -303,8 +303,23 @@ describe('FGC_LIMITE', () => {
     const fgc = doTipo(comFGC([cdbVenc2031], carteira), 'FGC_LIMITE');
     const data = primeiroDia(200_000, cdbVenc2031, 45_000);
     const total = 200_000 + simular({ produto: 'CDB', indexacao: cdbVenc2031.indexacao, valor: 45_000, dataAplicacao: INI }, data, CEN).valorBruto;
-    expect(fgc).toEqual([{ tipo: 'FGC_LIMITE', oferta: 0, conglomerado: 'B', data, total, limite: 250_000, excedente: total - 250_000 }]);
+    const totalNoFim = 200_000 + simular({ produto: 'CDB', indexacao: cdbVenc2031.indexacao, valor: 45_000, dataAplicacao: INI }, '2031-09-28', CEN).valorBruto;
+    expect(fgc).toEqual([{
+      tipo: 'FGC_LIMITE', oferta: 0, conglomerado: 'B', data, total, limite: 250_000, excedente: total - 250_000,
+      fim: '2031-09-28', totalNoFim, excedenteNoFim: totalNoFim - 250_000,
+    }]);
     expect(data > INI && data < '2028-09-28').toBe(true);
+  });
+  it('cenário da revisão: R$ 200 mil + R$ 40 mil em CDB 110% até 2031; o cruzamento e o excedente no fim', () => {
+    const cdb110: OfertaCadastrada = { ...cdbVenc2031, indexacao: { tipo: 'POS_CDI', percentualCDI: 1.1 } };
+    const [a, ...resto] = doTipo(comFGC([cdb110], [carteiraFixa('B', 200_000)], 40_000), 'FGC_LIMITE');
+    expect(resto).toEqual([]);
+    const brutoNoFim = simular({ produto: 'CDB', indexacao: cdb110.indexacao, valor: 40_000, dataAplicacao: INI }, '2031-09-28', CEN).valorBruto;
+    expect(a).toMatchObject({ data: primeiroDia(200_000, cdb110, 40_000), fim: '2031-09-28', totalNoFim: 200_000 + brutoNoFim, excedenteNoFim: 200_000 + brutoNoFim - 250_000 });
+    // No cruzamento o excedente é de centavos; no fim, dezenas de milhares.
+    expect(a?.excedente).toBeLessThan(1_000);
+    expect(a?.excedenteNoFim).toBeGreaterThan(29_000);
+    expect(a?.excedenteNoFim).toBeLessThan(33_000);
   });
   it('sem vencimento, conta até o horizonte mais distante', () => {
     const fgc = doTipo(comFGC([cdbDiario(1)], [carteiraFixa('B', 200_000)]), 'FGC_LIMITE');

@@ -246,10 +246,13 @@ describe('resumirTrocas com trocas relevantes (alternância fundida)', () => {
 
 describe('textoDoAlerta — FGC_LIMITE (rascunho, revisão no C2/C3)', () => {
   it('conta o conglomerado, a data, o total e o excedente, com o termo fgc', () => {
-    const a: Alerta = { tipo: 'FGC_LIMITE', oferta: 0, conglomerado: 'B', data: '2027-07-29', total: 250_010.5, limite: 250_000, excedente: 10.5 };
+    const a: Alerta = {
+      tipo: 'FGC_LIMITE', oferta: 0, conglomerado: 'B', data: '2027-07-29', total: 250_010.5, limite: 250_000, excedente: 10.5,
+      fim: '2031-09-28', totalNoFim: 281_800.25, excedenteNoFim: 31_800.25,
+    };
     const t = textoDoAlerta(a, ofertas, horizontes);
     expect(t.titulo).toBe('Acima do limite do FGC');
-    expect(t.oQue).toMatch(re(String.raw`Aplicando o valor da comparação em CDB 103% do CDI \(Banco B\), o que você tem no conglomerado B passa de ${R}250 mil em 29/07/2027: ${R}250\.010,50, ${R}10,50 acima do limite\.`));
+    expect(t.oQue).toMatch(re(String.raw`Aplicando o valor da comparação em CDB 103% do CDI \(Banco B\), o total no conglomerado B passa de ${R}250 mil em 29/07/2027 e chega a ${R}281\.800,25 em 28/09/2031, ${R}31\.800,25 acima do que o FGC cobre\.`));
     expect(t.porQue).toMatch(/^O FGC cobre até R\$ 250 mil/);
     expect(t.termo).toBe('fgc');
     expect(GLOSSARIO[t.termo]).toBeDefined();

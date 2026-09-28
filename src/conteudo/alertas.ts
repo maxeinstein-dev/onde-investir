@@ -136,7 +136,7 @@ export function textoDoAlerta(a: Alerta, ofertas: readonly OfertaCadastrada[], h
       // Rascunho do M3a: a revisão editorial é das tarefas C2 e C3.
       return {
         titulo: 'Acima do limite do FGC',
-        oQue: `Aplicando o valor da comparação em ${nome(ofertas, a.oferta)}, o que você tem no conglomerado ${a.conglomerado} passa de ${reaisRedondos(a.limite)} em ${dataBR(a.data)}: ${formatarMoeda(a.total)}, ${formatarMoeda(a.excedente)} acima do limite.`,
+        oQue: `Aplicando o valor da comparação em ${nome(ofertas, a.oferta)}, o total no conglomerado ${a.conglomerado} passa de ${reaisRedondos(a.limite)} em ${dataBR(a.data)} e chega a ${formatarMoeda(a.totalNoFim)} em ${dataBR(a.fim)}, ${formatarMoeda(a.excedenteNoFim)} acima do que o FGC cobre.`,
         porQue: `${textoFGC(a.data)} O limite conta o principal e os rendimentos, e o que passar dele fica sem garantia.`,
         termo: 'fgc',
       };

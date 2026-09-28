@@ -58,7 +58,13 @@ export type Alerta =
     /** Bruto somado da carteira e da oferta na data. */
     total: number;
     limite: number;
+    /** No cruzamento. */
     excedente: number;
+    /** O vencimento da oferta ou, sem vencimento, o horizonte mais distante. */
+    fim: DataISO;
+    /** Bruto somado da carteira e da oferta no fim. */
+    totalNoFim: number;
+    excedenteNoFim: number;
   };
 
 /**

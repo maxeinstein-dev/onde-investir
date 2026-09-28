@@ -57,11 +57,15 @@ describe('primeiraDataAcimaDoLimite', () => {
     const esperado = primeiroDiaAcima(itens, INI, '2027-09-28') as DataISO;
     expect(esperado > INI && esperado < '2027-09-28').toBe(true);
     const total = itens.reduce((s, i) => s + i.brutoEm(esperado), 0);
-    expect(alertas).toEqual([{ conglomerado: 'Banco X', data: esperado, total, limite: 250_000, excedente: total - 250_000 }]);
+    const totalNoFim = itens.reduce((s, i) => s + i.brutoEm('2028-09-28'), 0);
+    expect(alertas).toEqual([{
+      conglomerado: 'Banco X', data: esperado, total, limite: 250_000, excedente: total - 250_000,
+      fim: '2028-09-28', totalNoFim, excedenteNoFim: totalNoFim - 250_000,
+    }]);
   });
   it('acima já na primeira data: é ela', () => {
     const alertas = primeiraDataAcimaDoLimite([fixo('Banco X', 260_000)], ['2027-01-04', INI]);
-    expect(alertas).toEqual([{ conglomerado: 'Banco X', data: INI, total: 260_000, limite: 250_000, excedente: 10_000 }]);
+    expect(alertas).toEqual([{ conglomerado: 'Banco X', data: INI, total: 260_000, limite: 250_000, excedente: 10_000, fim: '2027-01-04', totalNoFim: 260_000, excedenteNoFim: 10_000 }]);
   });
   it('exatamente no limite não passa', () => {
     expect(primeiraDataAcimaDoLimite([fixo('Banco X', 250_000)], [INI])).toEqual([]);
