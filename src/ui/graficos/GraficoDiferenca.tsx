@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'preact/hooks';
+import { useId, useMemo, useRef, useState } from 'preact/hooks';
 import { nomeOferta } from '../../conteudo/comparacao';
 import { GRAFICO_DIFERENCA, resumirDiferenca, rotuloDaTrocaDeSinal, type TrechoDiferenca } from '../../conteudo/serie';
 import type { OfertaCadastrada } from '../../engine/ofertas';
@@ -59,6 +59,7 @@ export function GraficoDiferenca({ series, ofertas, prefixo = 'grafico-diferenca
   const nome = (i: number) => (ofertas[i] ? nomeOferta(ofertas[i]) : letraDaOferta(i));
   const resumo = resumirDiferenca(trechos, nome(a), nome(b));
   const canvas = useRef<HTMLCanvasElement>(null);
+  const idResumo = useId();
   const { estado, tentarDeNovo } = useGrafico(canvas, (p) => montarConfig(p, escolha, pontos, trechos), [pontos, trechos, a, b]);
 
   if (n < 2) return null;
@@ -86,10 +87,10 @@ export function GraficoDiferenca({ series, ofertas, prefixo = 'grafico-diferenca
       </div>
       <p class="dica">{GRAFICO_DIFERENCA.explicacao}</p>
       <div class="grafico__area">
-        <canvas ref={canvas} role="img" aria-label={resumo} hidden={estado === 'erro'} />
+        <canvas ref={canvas} role="img" aria-labelledby={idResumo} hidden={estado === 'erro'} />
         <AvisoCarregamento estado={estado} onTentarDeNovo={tentarDeNovo} />
       </div>
-      <div class="grafico__resumo">
+      <div class="grafico__resumo" id={idResumo}>
         <p>{resumo}</p>
       </div>
     </figure>

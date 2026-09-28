@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'preact/hooks';
+import { useId, useMemo, useRef } from 'preact/hooks';
 import { nomeOferta } from '../../conteudo/comparacao';
 import { GRAFICO_VALOR, motivoSemResgate, resumirTrocas, rotuloDaTroca } from '../../conteudo/serie';
 import type { DataISO } from '../../engine/datas';
@@ -62,6 +62,7 @@ function montarConfig(p: PaletaGrafico, { series, trocas, ofertas, inicioPremiss
 export function GraficoValorLiquido(props: PropsGraficoValorLiquido) {
   const { series, trocas, ofertas, inicioPremissa, oscilacaoInicial } = props;
   const canvas = useRef<HTMLCanvasElement>(null);
+  const idResumo = useId();
   const resumo = useMemo(
     () => resumirTrocas(trocas, ofertas, lideresNoPonto(series, 0), oscilacaoInicial), [series, trocas, ofertas, oscilacaoInicial]);
   const { estado, tentarDeNovo } = useGrafico(canvas, (p) => montarConfig(p, props), [series, trocas, ofertas, inicioPremissa]);
@@ -70,10 +71,10 @@ export function GraficoValorLiquido(props: PropsGraficoValorLiquido) {
       <figcaption class="grafico__titulo">{GRAFICO_VALOR.titulo}</figcaption>
       <p class="dica">{GRAFICO_VALOR.tracejado}</p>
       <div class="grafico__area">
-        <canvas ref={canvas} role="img" aria-label={resumo.join(' ')} hidden={estado === 'erro'} />
+        <canvas ref={canvas} role="img" aria-labelledby={idResumo} hidden={estado === 'erro'} />
         <AvisoCarregamento estado={estado} onTentarDeNovo={tentarDeNovo} />
       </div>
-      <div class="grafico__resumo">
+      <div class="grafico__resumo" id={idResumo}>
         {resumo.map((frase) => <p key={frase}>{frase}</p>)}
       </div>
     </figure>

@@ -125,13 +125,16 @@ describe('GraficoValorLiquido', () => {
     expect(screen.getByText(/Linha tracejada/)).toHaveTextContent(/Tesouro Prefixado/);
   });
 
-  it('figure com figcaption; o canvas tem role="img" e o resumo das trocas no aria-label e em texto visível', async () => {
+  it('figure com figcaption; o canvas tem role="img" e o nome vem do resumo visível (aria-labelledby)', async () => {
     montar();
     await carregou();
     const resumo = resumirTrocas(TROCAS, OFERTAS, [0]);
     const img = screen.getByRole('img');
     expect(img.tagName).toBe('CANVAS');
-    expect(img).toHaveAttribute('aria-label', resumo.join(' '));
+    // Sem aria-label com o mesmo texto: o leitor de tela não lê o resumo duas vezes.
+    expect(img).not.toHaveAttribute('aria-label');
+    expect(img).toHaveAccessibleName(resumo.join(' '));
+    expect(document.getElementById(img.getAttribute('aria-labelledby') ?? '')).toHaveClass('grafico__resumo');
     expect(img.closest('figure')?.querySelector('figcaption')).toHaveTextContent('Valor líquido ao longo do tempo');
     for (const frase of resumo) expect(screen.getByText(frase)).toBeVisible();
   });
@@ -155,7 +158,7 @@ describe('GraficoValorLiquido com trocas relevantes', () => {
   it('o resumo cita a oscilação do trecho do começo', async () => {
     montar({ trocas: [], oscilacaoInicial: { oscilante: true, alternancias: 2, alternam: [0, 1] } });
     await carregou();
-    expect(screen.getByRole('img').getAttribute('aria-label')).toMatch(/quase o tempo todo e alterna outras 2 vezes\.$/);
+    expect(screen.getByRole('img')).toHaveAccessibleName(/quase o tempo todo e alterna outras 2 vezes\.$/);
   });
   it('trecho oscilante: a linha vertical fica, e o resumo diz que alterna', async () => {
     montar({ trocas: [{ data: D3, de: [0], para: [1], oscilante: true, alternancias: 3, alternam: [0, 1] }] });

@@ -87,12 +87,16 @@ describe('GraficoDiferenca', () => {
     expect(ultimo().config.options?.scales?.y).toMatchObject({ suggestedMin: 0, suggestedMax: 0 });
   });
 
-  it('resumo no aria-label e em texto visível', async () => {
+  it('resumo em texto visível, que também dá nome ao canvas (aria-labelledby, sem repetir num aria-label)', async () => {
     render(<GraficoDiferenca series={SERIES} ofertas={OFERTAS} />);
     await carregou();
     const resumo = 'CDB 100% do CDI (Banco Y) fica à frente até 18/10/2026; depois CDB 110% do CDI (Banco X).';
-    expect(screen.getByRole('img')).toHaveAttribute('aria-label', resumo);
-    expect(screen.getByText(resumo)).toBeVisible();
+    const img = screen.getByRole('img');
+    expect(img).not.toHaveAttribute('aria-label');
+    expect(img).toHaveAccessibleName(resumo);
+    const alvo = document.getElementById(img.getAttribute('aria-labelledby') ?? '');
+    expect(alvo).toHaveTextContent(resumo);
+    expect(alvo).toBeVisible();
   });
 
   it('trocar a oferta refaz o gráfico e destrói o anterior; tracejado onde uma delas não resgata', async () => {
