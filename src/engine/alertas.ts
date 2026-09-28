@@ -31,7 +31,15 @@ export type Alerta =
     /** R$: o IR da etapa 2 menos o que ela pagaria com `aliquotaSemReaplicar`. */
     custo: number;
   }
-  | { tipo: 'IOF'; oferta: number; horizonte: DataISO; iof: number }
+  | {
+    tipo: 'IOF'; oferta: number; horizonte: DataISO; iof: number;
+    /** 1: a aplicação original (resgate ou vencimento antes de 30 dias); 2: a reaplicação. */
+    etapa: 1 | 2;
+    /** Dias corridos da etapa até o resgate. */
+    dias: number;
+    /** O vencimento da oferta, quando há reaplicação. */
+    vencimento?: DataISO;
+  }
   | {
     tipo: 'PRAZO_INCOMPATIVEL'; oferta: number; horizonte: DataISO; disponivelEm?: DataISO;
     /** Só no Tesouro Prefixado/IPCA+ antes do vencimento, na data do usuário: dá para vender, a preço de mercado. */
@@ -130,9 +138,13 @@ function irReinicia(p: Projecao, oferta: number, horizonte: DataISO): Alerta[] {
   }];
 }
 
+/** IOF em cada etapa: a 1 quando o vencimento (ou o resgate) vem antes de 30 dias, a 2 na reaplicação. */
 function iof(p: Projecao, oferta: number, horizonte: DataISO): Alerta[] {
-  const final = disponivel(p) ? p.etapas.at(-1) : undefined;
-  return final && final.iof > 0 ? [{ tipo: 'IOF', oferta, horizonte, iof: final.iof }] : [];
+  if (!disponivel(p)) return [];
+  const vencimento = p.reinvestimento?.data;
+  return p.etapas.slice(0, 2).flatMap((e, k): Alerta[] => (e.iof >= PISO_REAIS
+    ? [{ tipo: 'IOF', oferta, horizonte, iof: e.iof, etapa: k === 0 ? 1 : 2, dias: e.diasCorridos, ...(vencimento === undefined ? {} : { vencimento }) }]
+    : []));
 }
 
 function prazoIncompativel(p: Projecao, oferta: number, horizonte: DataISO, naDataDoUsuario: boolean): Alerta[] {
@@ -146,17 +158,18 @@ function prazoIncompativel(p: Projecao, oferta: number, horizonte: DataISO, naDa
 }
 
 const ofertaDoAlerta = (a: Alerta) => (a.tipo === 'QUASE_EMPATE' ? a.alternativa : a.oferta);
-const chave = (a: Alerta) => `${a.tipo}:${ofertaDoAlerta(a)}`;
+const etapaDoAlerta = (a: Alerta) => (a.tipo === 'IOF' ? a.etapa : 0);
+const chave = (a: Alerta) => `${a.tipo}:${ofertaDoAlerta(a)}:${etapaDoAlerta(a)}`;
 
 /**
- * Alertas que ensinam (spec §5.6), a partir das colunas de `tabelaPorHorizonte`. Um alerta por (tipo, oferta),
- * no horizonte mais distante em que vale; no quase empate, a oferta é a alternativa. Ordem: pelo tipo e,
- * dentro do tipo, pela oferta.
+ * Alertas que ensinam (spec §5.6), a partir das colunas de `tabelaPorHorizonte`. Um alerta por (tipo, oferta) e,
+ * no IOF, por etapa, no horizonte mais distante em que vale; no quase empate, a oferta é a alternativa. Ordem:
+ * pelo tipo, pela oferta e pela etapa.
  * - QUASE_EMPATE: outra oferta disponível fica a menos de `limiar` do líder (relativo ao líquido do líder) e
  *   tem liquidez diária sem marcação a mercado enquanto o líder não tem, ou garantia do Tesouro contra FGC.
  * - IR_REINICIA: a reaplicação é tributada com alíquota maior que a dos dias totais desde a aplicação, ou a
  *   original é isenta e a reaplicação não (etapa1Isenta); o custo é o IR a mais, em R$.
- * - IOF: a etapa final paga IOF.
+ * - IOF: uma etapa paga pelo menos R$ 0,01 de IOF (um alerta por etapa).
  * - PRAZO_INCOMPATIVEL: indisponível no prazo da pessoa: a `dataUsuario`, quando há coluna nessa data (mesmo que
  *   seja um horizonte padrão), senão o horizonte mais distante. Na data do usuário, a marcação a mercado também
  *   entra, com o motivo MARCACAO_A_MERCADO.
@@ -183,5 +196,5 @@ export function gerarAlertas(
     for (const a of novos) porChave.set(chave(a), a);
   }
   return [...porChave.values()].sort((a, b) =>
-    ORDEM_TIPOS.indexOf(a.tipo) - ORDEM_TIPOS.indexOf(b.tipo) || ofertaDoAlerta(a) - ofertaDoAlerta(b));
+    ORDEM_TIPOS.indexOf(a.tipo) - ORDEM_TIPOS.indexOf(b.tipo) || ofertaDoAlerta(a) - ofertaDoAlerta(b) || etapaDoAlerta(a) - etapaDoAlerta(b));
 }

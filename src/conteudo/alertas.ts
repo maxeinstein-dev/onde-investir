@@ -21,6 +21,19 @@ function prazo(horizontes: readonly Horizonte[], data: DataISO): string {
   return h ? nomeDoHorizonte(h) : dataBR(data);
 }
 
+const dias = (n: number) => (n === 1 ? '1 dia' : `${n} dias`);
+
+/** O que acontece no IOF, pela etapa: a reaplicação, o vencimento antes de 30 dias ou o resgate antes de 30 dias. */
+function textoDoIOF(a: Extract<Alerta, { tipo: 'IOF' }>, ofertas: readonly OfertaCadastrada[], horizontes: readonly Horizonte[]): string {
+  const x = nome(ofertas, a.oferta);
+  const valor = formatarMoeda(a.iof);
+  if (a.vencimento !== undefined && a.etapa === 2) {
+    return `${x} vence em ${dataBR(a.vencimento)}, e o dinheiro reaplicado é resgatado ${dias(a.dias)} depois: paga ${valor} de IOF.`;
+  }
+  if (a.vencimento !== undefined) return `${x} vence em ${dataBR(a.vencimento)}, ${dias(a.dias)} depois da aplicação: paga ${valor} de IOF no vencimento.`;
+  return `Resgate antes de 30 dias: em ${prazo(horizontes, a.horizonte)}, ${x} paga ${valor} de IOF.`;
+}
+
 /**
  * Título, o que acontece, por quê e o termo do glossário para o "Saiba mais". `horizontes` dá o nome do prazo
  * (os da tabela); sem ele, a data.
@@ -66,7 +79,7 @@ export function textoDoAlerta(a: Alerta, ofertas: readonly OfertaCadastrada[], h
     case 'IOF':
       return {
         titulo: 'Resgate com IOF',
-        oQue: `Resgate antes de 30 dias: em ${prazo(horizontes, a.horizonte)}, ${nome(ofertas, a.oferta)} paga ${formatarMoeda(a.iof)} de IOF.`,
+        oQue: textoDoIOF(a, ofertas, horizontes),
         porQue: 'O IOF cobra parte do rendimento de quem resgata com menos de 30 dias de aplicação, e a parte cobrada diminui a cada dia até zerar.',
         termo: 'iof',
       };

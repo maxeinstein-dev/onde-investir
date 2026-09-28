@@ -82,7 +82,7 @@ describe('textoDoAlerta', () => {
   });
 
   it('IOF', () => {
-    const a: Alerta = { tipo: 'IOF', oferta: 0, horizonte: '2027-09-28', iof: 3.21 };
+    const a: Alerta = { tipo: 'IOF', oferta: 0, horizonte: '2027-09-28', iof: 3.21, etapa: 1, dias: 20 };
     const t = textoDoAlerta(a, ofertas, horizontes);
     expect(t.titulo).toBe('Resgate com IOF');
     expect(t.oQue).toMatch(re(String.raw`Resgate antes de 30 dias: em 1 ano, CDB 103% do CDI \(Banco B\) paga ${R}3,21 de IOF\.`));
@@ -122,8 +122,19 @@ describe('textoDoAlerta', () => {
     expect(t.termo).toBe('liquidez');
   });
 
+  it('IOF na reaplicação e no vencimento antes de 30 dias', () => {
+    const reaplicacao: Alerta = { tipo: 'IOF', oferta: 0, horizonte: '2027-09-28', iof: 3.21, etapa: 2, dias: 27, vencimento: '2027-09-01' };
+    expect(textoDoAlerta(reaplicacao, ofertas, horizontes).oQue)
+      .toMatch(re(String.raw`CDB 103% do CDI \(Banco B\) vence em 01/09/2027, e o dinheiro reaplicado é resgatado 27 dias depois: paga ${R}3,21 de IOF\.`));
+    const umDia: Alerta = { ...reaplicacao, dias: 1 };
+    expect(textoDoAlerta(umDia, ofertas, horizontes).oQue).toMatch(/resgatado 1 dia depois:/);
+    const noVencimento: Alerta = { tipo: 'IOF', oferta: 0, horizonte: '2031-09-28', iof: 5, etapa: 1, dias: 20, vencimento: '2026-10-18' };
+    expect(textoDoAlerta(noVencimento, ofertas, horizontes).oQue)
+      .toMatch(re(String.raw`CDB 103% do CDI \(Banco B\) vence em 18/10/2026, 20 dias depois da aplicação: paga ${R}5,00 de IOF no vencimento\.`));
+  });
+
   it('horizonte fora da lista: a data', () => {
-    const a: Alerta = { tipo: 'IOF', oferta: 0, horizonte: '2027-10-01', iof: 1 };
+    const a: Alerta = { tipo: 'IOF', oferta: 0, horizonte: '2027-10-01', iof: 1, etapa: 1, dias: 20 };
     expect(textoDoAlerta(a, ofertas).oQue).toMatch(/^Resgate antes de 30 dias: em 01\/10\/2027, /);
   });
 
@@ -133,7 +144,9 @@ describe('textoDoAlerta', () => {
       { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0], alternativa: 2, diferenca: 1, diferencaPercentual: 0.001, vantagem: 'GARANTIA' },
       { tipo: 'IR_REINICIA', oferta: 0, data: '2027-09-28', horizonte: '2028-09-28', reinvestimento: CDB_103, etapa1Isenta: false, aliquotaNova: 0.2, aliquotaSemReaplicar: 0.15, custo: 1 },
       { tipo: 'IR_REINICIA', oferta: 3, data: '2029-09-28', horizonte: '2031-09-28', reinvestimento: CDB_100, etapa1Isenta: true, aliquotaNova: 0.175, aliquotaSemReaplicar: 0, custo: 1 },
-      { tipo: 'IOF', oferta: 0, horizonte: '2027-09-28', iof: 1 },
+      { tipo: 'IOF', oferta: 0, horizonte: '2027-09-28', iof: 1, etapa: 1, dias: 20 },
+      { tipo: 'IOF', oferta: 0, horizonte: '2027-09-28', iof: 1, etapa: 1, dias: 20, vencimento: '2026-10-18' },
+      { tipo: 'IOF', oferta: 0, horizonte: '2027-09-28', iof: 1, etapa: 2, dias: 27, vencimento: '2027-09-01' },
       { tipo: 'PRAZO_INCOMPATIVEL', oferta: 3, horizonte: '2031-09-28', disponivelEm: '2029-09-28' },
       { tipo: 'PRAZO_INCOMPATIVEL', oferta: 4, horizonte: '2031-09-28', disponivelEm: '2027-03-28' },
     ];

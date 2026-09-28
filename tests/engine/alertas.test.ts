@@ -181,7 +181,34 @@ describe('IOF', () => {
     const umAno = colunas.find((c) => c.data === '2027-09-28')?.projecoes[0];
     const iof = umAno?.estado === 'DISPONIVEL' ? umAno.etapas.at(-1)?.iof : undefined;
     expect(iof).toBeGreaterThan(0);
-    expect(doTipo(gerarAlertas([cdb], colunas), 'IOF')).toEqual([{ tipo: 'IOF', oferta: 0, horizonte: '2027-09-28', iof }]);
+    expect(doTipo(gerarAlertas([cdb], colunas), 'IOF')).toEqual([{ tipo: 'IOF', oferta: 0, horizonte: '2027-09-28', iof, etapa: 2, dias: 27, vencimento: '2027-09-01' }]);
+  });
+
+  it('vencimento antes de 30 dias: a etapa 1 paga IOF no vencimento', () => {
+    const vinteDias: OfertaCadastrada = { ...b, id: 'c', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 }, vencimento: somarDias(INI, 20), liquidez: 'NO_VENCIMENTO' };
+    const p = projetar(vinteDias, 10000, INI, '2031-09-28', CEN);
+    const iof = p.estado === 'DISPONIVEL' ? p.etapas[0]?.iof : undefined;
+    expect(iof).toBeGreaterThan(0);
+    expect(doTipo(alertas([vinteDias]), 'IOF')).toEqual([
+      { tipo: 'IOF', oferta: 0, horizonte: '2031-09-28', iof, etapa: 1, dias: 20, vencimento: somarDias(INI, 20) },
+    ]);
+  });
+
+  it('sem reaplicação, a sua data antes de 30 dias: etapa 1, sem vencimento', () => {
+    const data = somarDias(INI, 10);
+    const p = projetar(cdbDiario(1), 10000, INI, data, CEN);
+    const iof = p.estado === 'DISPONIVEL' ? p.etapas[0]?.iof : undefined;
+    expect(doTipo(alertas([cdbDiario(1)], data), 'IOF')).toEqual([{ tipo: 'IOF', oferta: 0, horizonte: data, iof, etapa: 1, dias: 10 }]);
+  });
+
+  it('IOF abaixo de R$ 0,01 não gera alerta', () => {
+    const data = somarDias(INI, 29);
+    const colunas = tabelaPorHorizonte([cdbDiario(1)], 10, INI, horizontesPadrao(INI, data), CEN, PADRAO);
+    const p = colunas.find((c) => c.data === data)?.projecoes[0];
+    const iof = p?.estado === 'DISPONIVEL' ? p.etapas[0]?.iof ?? 0 : 0;
+    expect(iof).toBeGreaterThan(0);
+    expect(iof).toBeLessThan(0.01);
+    expect(doTipo(gerarAlertas([cdbDiario(1)], colunas, LIMIAR_QUASE_EMPATE, data), 'IOF')).toEqual([]);
   });
 
   it('sem IOF em nenhum horizonte, nenhum alerta', () => {

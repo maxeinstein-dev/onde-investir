@@ -17,7 +17,7 @@ const OFERTAS = [cdb, diario];
 const HORIZONTES = horizontesPadrao(INI, null);
 const ALERTAS: Alerta[] = [
   { tipo: 'QUASE_EMPATE', horizonte: '2031-09-28', lider: 0, lideres: [0], alternativa: 1, diferenca: 35.5, diferencaPercentual: 0.0023, vantagem: 'LIQUIDEZ' },
-  { tipo: 'IOF', oferta: 1, horizonte: '2031-09-28', iof: 1.2 },
+  { tipo: 'IOF', oferta: 1, horizonte: '2031-09-28', iof: 1.2, etapa: 1, dias: 10 },
 ];
 
 describe('Alertas', () => {
