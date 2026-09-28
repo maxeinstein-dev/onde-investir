@@ -31,13 +31,16 @@ export function ExposicaoFGC({ fgc, naoCalculadas, hoje }: PropsExposicaoFGC) {
               {fgc.conglomerados.map((g, i) => {
                 const idBarra = `${PREFIXO}-${i}`;
                 const rotulo = `${g.nome}: ${formatarMoeda(g.hoje)} hoje, de ${redondo(g.limite)}`;
+                // O <meter> para no máximo: acima do limite, o texto visível e a classe dizem o que a barra não mostra.
+                const acima = g.hoje > g.limite;
                 return (
-                  <li key={g.nome} class="exposicao-fgc__item">
+                  <li key={g.nome} class={acima ? 'exposicao-fgc__item exposicao-fgc__item--acima' : 'exposicao-fgc__item'}>
                     <label for={idBarra}>{rotulo}</label>
-                    <meter id={idBarra} class="exposicao-fgc__barra" min={0} max={g.limite} high={g.limite * 0.9} optimum={0}
-                      value={g.hoje}>
+                    <meter id={idBarra} class="exposicao-fgc__barra" min={0} max={g.limite} low={g.limite * 0.8} high={g.limite}
+                      optimum={0} value={g.hoje}>
                       {rotulo}
                     </meter>
+                    {acima && <p class="exposicao-fgc__acima">acima do limite</p>}
                     {g.fim && <p class="cartao__detalhe">No vencimento mais distante ({dataBR(g.fim.data)}): {formatarMoeda(g.fim.valor)}</p>}
                     {g.alerta && <p class="aviso">{textoDoLimiteNaCarteira(g.alerta, hoje)}</p>}
                   </li>

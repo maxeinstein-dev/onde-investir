@@ -1085,3 +1085,15 @@ button:hover {
   height: 1rem;
   margin: 0.25rem 0;
 }
+
+/* Acima do limite: a barra cheia não diz o quanto passou, então o item ganha a borda e o texto de alerta. */
+.exposicao-fgc__item--acima {
+  padding-left: 0.5rem;
+  border-left: 4px solid var(--erro);
+}
+
+.exposicao-fgc__acima {
+  margin: 0;
+  color: var(--erro);
+  font-weight: 600;
+}

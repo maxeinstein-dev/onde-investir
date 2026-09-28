@@ -243,12 +243,24 @@ describe('aba Carteira', () => {
       expect(barra.tagName).toBe('METER');
       expect(barra).toHaveAttribute('min', '0');
       expect(barra).toHaveAttribute('max', '250000');
+      expect(barra).toHaveAttribute('low', '200000');
+      expect(barra).toHaveAttribute('high', '250000');
+      expect(barra).toHaveAttribute('optimum', '0');
       expect(Number(barra.getAttribute('value'))).toBeCloseTo(hoje, 2);
+      expect(fgc).not.toHaveTextContent('acima do limite');
       expect(fgc).toHaveTextContent(`Grupo A: ${moeda(hoje)} hoje, de R$ 250 mil`);
       // A que vence antes não conta no vencimento mais distante.
       const fim = valorAtual(a2, '2029-01-02', CEN).bruto;
       expect(fgc).toHaveTextContent(`No vencimento mais distante (02/01/2029): ${moeda(fim)}`);
       expect(fgc.querySelectorAll('meter')).toHaveLength(1);
+    });
+
+    it('acima do limite: o texto visível "acima do limite" e o estilo de alerta, porque a barra para no máximo', () => {
+      render(<Tela inicial={[{ ...cdb, valorAplicado: 300_000 }]} />);
+      const fgc = screen.getByRole('region', { name: /Exposição ao FGC/ });
+      const item = within(fgc).getByLabelText(/^Grupo A:/).closest('li') as HTMLElement;
+      expect(item).toHaveClass('exposicao-fgc__item--acima');
+      expect(within(item).getByText('acima do limite')).toBeVisible();
     });
 
     it('LCA de R$ 300 mil vencida: nenhuma barra, nenhum alerta', () => {
