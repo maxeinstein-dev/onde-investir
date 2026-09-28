@@ -328,7 +328,6 @@ button:hover {
 
 /* Termo explicado */
 .termo {
-  position: relative;
   display: inline;
 }
 
@@ -350,16 +349,16 @@ button:hover {
   color: var(--primaria);
 }
 
-/* O painel flutua abaixo do termo, sem empurrar o texto. */
+/* O painel flutua fixo na tela, sem empurrar o texto nem alargar contêineres com overflow (a tabela da
+   comparação). top/left vêm do Termo.tsx via CSSOM; os valores aqui só valem até o primeiro cálculo. */
 .termo__painel {
-  position: absolute;
-  top: 100%;
+  position: fixed;
+  top: 0;
   left: 0;
   z-index: 10;
   display: block;
   width: max-content;
-  max-width: min(20rem, calc(100vw - 2rem));
-  margin-top: 0.25rem;
+  max-width: min(20rem, calc(100vw - 16px));
   padding: 0.6rem 0.75rem;
   text-align: left;
   white-space: normal;
@@ -375,12 +374,6 @@ button:hover {
 
 .termo__painel[hidden] {
   display: none;
-}
-
-/* Termo na metade direita da tela: o painel cresce para a esquerda. */
-.termo__painel--direita {
-  right: 0;
-  left: auto;
 }
 
 /* Equivalências */
@@ -991,21 +984,7 @@ button:hover {
     justify-self: stretch;
   }
 
-  /* No celular o painel ocupa a largura da tela menos as margens, logo abaixo da linha do termo:
-     sem ancestral posicionado, left/right contam a partir da tela e o topo fica na posição natural. */
-  .termo {
-    position: static;
-  }
-
   .grafico__area {
     height: 17rem;
-  }
-
-  .termo__painel,
-  .termo__painel--direita {
-    top: auto;
-    right: 1rem;
-    left: 1rem;
-    width: auto;
   }
 }

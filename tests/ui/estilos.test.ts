@@ -15,3 +15,13 @@ describe('estilos: texto longo sem espaço quebra em vez de rolar a página no c
     expect(declaracoes(seletor).some((d) => /overflow-wrap:\s*anywhere/.test(d))).toBe(true);
   });
 });
+
+describe('estilos: a dica do glossário flutua fixa na tela, fora do fluxo da tabela', () => {
+  it('.termo__painel usa position: fixed (não alarga contêineres com overflow)', () => {
+    expect(declaracoes('.termo__painel').some((d) => /position:\s*fixed/.test(d))).toBe(true);
+    expect(declaracoes('.termo__painel').some((d) => /position:\s*absolute/.test(d))).toBe(false);
+  });
+  it('limita a largura à tela menos 8px de cada lado', () => {
+    expect(declaracoes('.termo__painel').some((d) => /max-width:\s*min\(20rem,\s*calc\(100vw - 16px\)\)/.test(d))).toBe(true);
+  });
+});

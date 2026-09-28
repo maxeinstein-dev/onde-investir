@@ -121,7 +121,73 @@ describe('Termo', () => {
       expect(painel).not.toHaveAttribute('hidden');
     });
   });
+  describe('posição do painel: fixo e dentro da tela', () => {
+    const MARGEM = 8;
+    let largura = 1280;
+    let altura = 800;
+    beforeEach(() => {
+      vi.spyOn(window, 'innerWidth', 'get').mockImplementation(() => largura);
+      vi.spyOn(window, 'innerHeight', 'get').mockImplementation(() => altura);
+    });
+    afterEach(() => { vi.restoreAllMocks(); largura = 1280; altura = 800; });
+
+    const retangulo = (left: number, top: number, width: number, height: number) =>
+      ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
+
+    /** Abre a dica com o botão e o painel nas posições dadas e devolve o top/left aplicados no painel. */
+    function abrirEm(botaoRet: DOMRect, painelLargura: number, painelAltura: number) {
+      render(<p>Rende <Termo id="fgc">FGC</Termo></p>);
+      const botao = screen.getByRole('button', { name: 'FGC' });
+      const painel = document.getElementById(botao.getAttribute('aria-controls') ?? '')!;
+      vi.spyOn(botao, 'getBoundingClientRect').mockReturnValue(botaoRet);
+      vi.spyOn(painel, 'getBoundingClientRect').mockReturnValue(retangulo(0, 0, painelLargura, painelAltura));
+      fireEvent.click(botao);
+      return { painel, top: parseFloat(painel.style.top), left: parseFloat(painel.style.left) };
+    }
+    function dentroDaTela(top: number, left: number, w: number, h: number) {
+      expect(left).toBeGreaterThanOrEqual(MARGEM);
+      expect(left + w).toBeLessThanOrEqual(largura - MARGEM);
+      expect(top).toBeGreaterThanOrEqual(0);
+      expect(top + h).toBeLessThanOrEqual(altura);
+    }
+
+    it('usa a classe de painel com position: fixed', () => {
+      const { painel } = abrirEm(retangulo(100, 100, 40, 20), 200, 80);
+      expect(painel).toHaveClass('termo__painel');
+    });
+    it('por padrão fica logo abaixo do termo, alinhado a ele', () => {
+      const { top, left } = abrirEm(retangulo(100, 100, 40, 20), 200, 80);
+      expect(top).toBeGreaterThanOrEqual(120);
+      expect(top).toBeLessThan(130);
+      expect(left).toBe(100);
+    });
+    it('termo perto da borda direita: o painel é puxado para caber na tela', () => {
+      const { top, left } = abrirEm(retangulo(1250, 100, 25, 20), 320, 80);
+      dentroDaTela(top, left, 320, 80);
+      expect(left).toBe(1280 - 320 - MARGEM);
+    });
+    it('termo perto da borda inferior: o painel vai para cima', () => {
+      const { top, left } = abrirEm(retangulo(100, 760, 40, 20), 200, 120);
+      dentroDaTela(top, left, 200, 120);
+      expect(top + 120).toBeLessThanOrEqual(760);
+    });
+    it('em tela de 375px o painel cabe com a margem de 8px', () => {
+      largura = 375;
+      altura = 700;
+      const { top, left } = abrirEm(retangulo(300, 200, 30, 20), 359, 140);
+      dentroDaTela(top, left, 359, 140);
+      expect(left).toBe(MARGEM);
+    });
+    it('reposiciona no scroll enquanto aberto', () => {
+      const { painel } = abrirEm(retangulo(100, 100, 40, 20), 200, 80);
+      const botao = screen.getByRole('button', { name: 'FGC' });
+      vi.spyOn(botao, 'getBoundingClientRect').mockReturnValue(retangulo(100, 300, 40, 20));
+      fireEvent.scroll(window);
+      expect(parseFloat(painel.style.top)).toBeGreaterThanOrEqual(320);
+    });
+  });
 });
+
 
 describe('PalpiteAntesDeVer', () => {
   it('escolher e pular', () => {

@@ -1,10 +1,27 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useId, useRef, useState } from 'preact/hooks';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { GLOSSARIO, type IdTermo } from '../conteudo/glossario';
 import { MarkdownRestrito } from './MarkdownRestrito';
 
 /** Tempo para levar o mouse do termo até o painel (e o link "Fonte") sem a dica fechar. */
 const ATRASO_FECHAR_MS = 150;
+/** Distância mínima entre o painel e as bordas da tela. */
+const MARGEM_TELA = 8;
+/** Espaço entre o termo e o painel. */
+const AFASTAMENTO = 4;
+
+/**
+ * Posição (em coordenadas da tela) do painel `position: fixed`: abaixo do termo, ou acima se não couber embaixo,
+ * e deslocado na horizontal para caber na tela com a margem de 8px.
+ */
+function posicaoDoPainel(termo: DOMRect, largura: number, altura: number) {
+  const embaixo = termo.bottom + AFASTAMENTO;
+  const emCima = termo.top - AFASTAMENTO - altura;
+  const top = embaixo + altura <= window.innerHeight - MARGEM_TELA || emCima < MARGEM_TELA ? embaixo : emCima;
+  const maxLeft = window.innerWidth - largura - MARGEM_TELA;
+  const left = Math.max(MARGEM_TELA, Math.min(termo.left, maxLeft));
+  return { top, left };
+}
 
 /**
  * Termo com dica no padrão toggletip: abre com o mouse por cima ou com o foco do teclado e fecha quando
@@ -13,10 +30,10 @@ const ATRASO_FECHAR_MS = 150;
 export function Termo({ id, children }: { id: IdTermo; children: ComponentChildren }) {
   const [aberto, setAberto] = useState(false);
   const [fixado, setFixado] = useState(false);
-  const [aDireita, setADireita] = useState(false);
   const idPainel = useId();
   const raiz = useRef<HTMLSpanElement>(null);
   const botao = useRef<HTMLButtonElement>(null);
+  const painel = useRef<HTMLSpanElement>(null);
   const temporizador = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const termo = GLOSSARIO[id];
 
@@ -27,9 +44,6 @@ export function Termo({ id, children }: { id: IdTermo; children: ComponentChildr
 
   function abrir() {
     cancelarFechamento();
-    // Termo na metade direita da tela: o painel cresce para a esquerda, para não sair da tela.
-    const r = botao.current?.getBoundingClientRect();
-    setADireita(r !== undefined && r.left + r.width / 2 > window.innerWidth / 2);
     setAberto(true);
   }
 
@@ -57,6 +71,29 @@ export function Termo({ id, children }: { id: IdTermo; children: ComponentChildr
   }
 
   useEffect(() => () => clearTimeout(temporizador.current), []);
+
+  // O painel é `position: fixed` para não alargar a área rolável de contêineres com overflow (a tabela da
+  // comparação). A posição vai por CSSOM (el.style.top): a CSP `style-src 'self'` bloqueia o atributo
+  // `style` no markup, mas não o CSSOM. Recalcula ao abrir e, enquanto aberto, no scroll e no resize.
+  useLayoutEffect(() => {
+    if (!aberto) return;
+    const posicionar = () => {
+      const el = painel.current;
+      const b = botao.current;
+      if (!el || !b) return;
+      const { width, height } = el.getBoundingClientRect();
+      const { top, left } = posicaoDoPainel(b.getBoundingClientRect(), width, height);
+      el.style.top = `${top}px`;
+      el.style.left = `${left}px`;
+    };
+    posicionar();
+    window.addEventListener('scroll', posicionar, { capture: true, passive: true });
+    window.addEventListener('resize', posicionar);
+    return () => {
+      window.removeEventListener('scroll', posicionar, { capture: true });
+      window.removeEventListener('resize', posicionar);
+    };
+  }, [aberto]);
 
   // O foco saindo do conjunto botão + painel fecha a dica que não está fixada.
   useEffect(() => {
@@ -90,7 +127,7 @@ export function Termo({ id, children }: { id: IdTermo; children: ComponentChildr
         onClick={alternarFixado} onFocus={abrir} onPointerEnter={entrar} onPointerLeave={sair}>
         {children}
       </button>
-      <span id={idPainel} role="note" class={aDireita ? 'termo__painel termo__painel--direita' : 'termo__painel'} hidden={!aberto}
+      <span id={idPainel} role="note" class="termo__painel" ref={painel} hidden={!aberto}
         onPointerEnter={entrar} onPointerLeave={sair}>
         <strong>{termo.termo}:</strong> <MarkdownRestrito texto={termo.curto} inline />{' '}
         <a href={termo.fonte} target="_blank" rel="noopener noreferrer">Fonte</a>
