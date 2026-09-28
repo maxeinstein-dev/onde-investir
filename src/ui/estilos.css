@@ -17,6 +17,16 @@
   --aviso-fundo: #fff6d6;
   --foco: #0b5cad;
   --raio: 8px;
+  /* Gráficos (lidos pelo JS com getComputedStyle): 5 cores com contraste de 3:1 ou mais sobre o branco. */
+  --grafico-1: #0b5cad;
+  --grafico-2: #b45309;
+  --grafico-3: #1d6b3a;
+  --grafico-4: #7e22ce;
+  --grafico-5: #be123c;
+  --grafico-texto: #4a4a4a;
+  --grafico-grade: #e3e6ea;
+  --grafico-marcador: #1a1a1a;
+  --grafico-premissa: #f1f3f5;
 }
 
 *,
