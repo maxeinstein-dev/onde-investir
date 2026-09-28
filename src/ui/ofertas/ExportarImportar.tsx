@@ -26,9 +26,13 @@ const ESPERA_REPETIR_MS = 100;
 const contarOfertas = (n: number) => (n === 1 ? '1 oferta' : `${n} ofertas`);
 const contarPosicoes = (n: number) => (n === 1 ? '1 posição' : `${n} posições`);
 
-/** "1 oferta exportada.", "2 ofertas importadas." ou, com posições, "1 oferta e 2 posições importadas.". */
-function resumo(ofertas: number, posicoes: number, verbo: 'exportad' | 'importad'): string {
+/**
+ * "1 oferta exportada.", "2 posições importadas." ou, com as duas, "3 ofertas e 2 posições exportadas.". A parte
+ * com zero some; sem nenhuma das duas, fica a das ofertas ("0 ofertas importadas.").
+ */
+export function resumoDaTransferencia(ofertas: number, posicoes: number, verbo: 'exportad' | 'importad'): string {
   if (posicoes === 0) return `${contarOfertas(ofertas)} ${verbo}${ofertas === 1 ? 'a' : 'as'}.`;
+  if (ofertas === 0) return `${contarPosicoes(posicoes)} ${verbo}${posicoes === 1 ? 'a' : 'as'}.`;
   // Com as duas, o particípio concorda no feminino plural (ofertas e posições).
   return `${contarOfertas(ofertas)} e ${contarPosicoes(posicoes)} ${verbo}as.`;
 }
@@ -79,7 +83,7 @@ export function ExportarImportar({ ofertas, posicoes = [], gerarId, gerarIdPosic
 
   function exportar() {
     baixar(exportarDados(ofertas, posicoes, Date.now()), `rende-ofertas-${hoje()}.json`);
-    informar(resumo(ofertas.length, posicoes.length, 'exportad'));
+    informar(resumoDaTransferencia(ofertas.length, posicoes.length, 'exportad'));
   }
 
   function processar(texto: string) {
@@ -99,7 +103,7 @@ export function ExportarImportar({ ofertas, posicoes = [], gerarId, gerarIdPosic
       return;
     }
     onImportar(r.ofertas, r.posicoes);
-    informar(resumo(r.ofertas.length, r.posicoes.length, 'importad'));
+    informar(resumoDaTransferencia(r.ofertas.length, r.posicoes.length, 'importad'));
   }
 
   function aoEscolher(e: Event) {

@@ -8,6 +8,7 @@ import { somarDias } from '../../src/engine/datas';
 import type { OfertaCadastrada } from '../../src/engine/ofertas';
 import type { Posicao } from '../../src/engine/posicoes';
 import { hoje } from '../../src/ui/hoje';
+import { resumoDaTransferencia } from '../../src/ui/ofertas/ExportarImportar';
 import { MinhasOfertas } from '../../src/ui/ofertas/MinhasOfertas';
 
 afterEach(() => {
@@ -357,7 +358,7 @@ describe('Catálogo de ofertas', () => {
         const { criar } = stubUrl();
         render(<MinhasOfertas ofertas={[]} onChange={() => {}} posicoes={[posicao]} onImportarPosicoes={() => {}} />);
         fireEvent.click(screen.getByRole('button', { name: 'Exportar ofertas' }));
-        expect(screen.getByRole('status')).toHaveTextContent('0 ofertas e 1 posição exportadas.');
+        expect(screen.getByRole('status')).toHaveTextContent(/^1 posição exportada.$/);
         expect(JSON.parse(await criar.mock.calls[0]![0].text())).toMatchObject({ versao: 2, ofertas: [], posicoes: [posicao] });
       });
       it('passar do limite de 50 posições rejeita o arquivo inteiro', async () => {
@@ -395,5 +396,18 @@ describe('Catálogo de ofertas', () => {
       expect(await screen.findByRole('alert')).toHaveTextContent('Com as importadas seriam 31 ofertas; o limite é 30.');
       expect(aoMudar).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('resumoDaTransferencia (o status de exportar e importar)', () => {
+  it.each<[number, number, 'exportad' | 'importad', string]>([
+    [3, 0, 'exportad', '3 ofertas exportadas.'],
+    [1, 0, 'exportad', '1 oferta exportada.'],
+    [0, 2, 'importad', '2 posições importadas.'],
+    [0, 1, 'importad', '1 posição importada.'],
+    [3, 2, 'exportad', '3 ofertas e 2 posições exportadas.'],
+    [1, 1, 'importad', '1 oferta e 1 posição importadas.'],
+  ])('%i ofertas e %i posições (%s): "%s"', (ofertas, posicoes, verbo, esperado) => {
+    expect(resumoDaTransferencia(ofertas, posicoes, verbo)).toBe(esperado);
   });
 });
