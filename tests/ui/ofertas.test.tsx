@@ -2,7 +2,8 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/preact';
 import { useState } from 'preact/hooks';
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
-import { exportarOfertas, LIMITE_OFERTAS } from '../../src/armazenamento/ofertas';
+import { exportarDados } from '../../src/armazenamento/arquivo';
+import { LIMITE_OFERTAS } from '../../src/armazenamento/ofertas';
 import { somarDias } from '../../src/engine/datas';
 import type { OfertaCadastrada } from '../../src/engine/ofertas';
 import { hoje } from '../../src/ui/hoje';
@@ -305,7 +306,7 @@ describe('Catálogo de ofertas', () => {
       vi.advanceTimersByTime(1);
       expect(revogar).toHaveBeenCalledWith('blob:teste');
       vi.useRealTimers();
-      expect(JSON.parse(await blob.text()).ofertas).toEqual([cdb]);
+      expect(JSON.parse(await blob.text())).toMatchObject({ versao: 2, ofertas: [cdb], posicoes: [] });
     });
 
     it('o status é um contêiner vivo permanente; a mesma mensagem é limpa e reescrita', () => {
@@ -333,7 +334,7 @@ describe('Catálogo de ofertas', () => {
     it('importação válida acrescenta as ofertas com ids novos', async () => {
       const aoMudar = vi.fn();
       render(<ComEstado inicial={[cdb]} aoMudar={aoMudar} />);
-      importar(arquivo(exportarOfertas([cdb, lci], Date.now())));
+      importar(arquivo(exportarDados([cdb, lci], [], Date.now())));
       expect(await screen.findByText('2 ofertas importadas.')).toBe(screen.getByRole('status'));
       expect(aoMudar).toHaveBeenLastCalledWith([cdb, { ...cdb, id: 'novo-1' }, { ...lci, id: 'novo-2' }]);
       expect(screen.getAllByRole('article')).toHaveLength(3);
@@ -347,7 +348,7 @@ describe('Catálogo de ofertas', () => {
       expect(aoMudar).not.toHaveBeenCalled();
     });
 
-    it('campo extra no arquivo é rejeitado com a mensagem de importarOfertas', async () => {
+    it('campo extra no arquivo é rejeitado com a mensagem de importarDados', async () => {
       render(<ComEstado />);
       const comExtra = JSON.stringify({ versao: 1, exportadoEm: 'x', ofertas: [{ ...lci, extra: 1 }] });
       importar(arquivo(comExtra));
@@ -358,7 +359,7 @@ describe('Catálogo de ofertas', () => {
       const aoMudar = vi.fn();
       const muitas = Array.from({ length: 29 }, (_, i) => ({ ...cdb, id: `o${i}` }));
       render(<ComEstado inicial={muitas} aoMudar={aoMudar} />);
-      importar(arquivo(exportarOfertas([cdb, lci], Date.now())));
+      importar(arquivo(exportarDados([cdb, lci], [], Date.now())));
       expect(await screen.findByRole('alert')).toHaveTextContent('Com as importadas seriam 31 ofertas; o limite é 30.');
       expect(aoMudar).not.toHaveBeenCalled();
     });
