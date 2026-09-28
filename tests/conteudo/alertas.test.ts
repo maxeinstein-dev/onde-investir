@@ -53,7 +53,8 @@ describe('textoDoAlerta', () => {
     const t = textoDoAlerta(a, ofertas, horizontes);
     expect(t.titulo).toBe('Diferença pequena, garantia do Tesouro');
     expect(t.oQue).toMatch(re(String.raw`Tesouro Selic \(Banco B\) rende só ${R}12,00 \(0,1%\) a menos que CDB 102,8% do CDI \(Banco B\) em 15/01/2028 \(sua data\) e tem a garantia do Tesouro Nacional\.`));
-    expect(t.porQue).toMatch(/FGC/);
+    // O limite do FGC sai da regra versionada (regras/fgc.ts), não de um texto fixo.
+    expect(t.porQue).toBe('O FGC cobre até R$ 250 mil por pessoa em cada conglomerado financeiro se o banco quebrar, com teto de R$ 1 milhão a cada 4 anos. O título público tem a garantia do governo federal, o menor risco de crédito do país.');
     expect(t.termo).toBe('tesouro');
   });
 
@@ -101,7 +102,7 @@ describe('textoDoAlerta', () => {
   it('PRAZO_INCOMPATIVEL: prazo mínimo legal', () => {
     const a: Alerta = { tipo: 'PRAZO_INCOMPATIVEL', oferta: 4, horizonte: '2031-09-28', disponivelEm: '2027-03-28' };
     const t = textoDoAlerta(a, ofertas, horizontes);
-    expect(t.oQue).toBe('Não dá para resgatar LCI 90% do CDI (Banco B) em 5 anos. Prazo mínimo até 28/03/2027.');
+    expect(t.oQue).toBe('Não dá para resgatar LCI 90% do CDI (Banco B) em 5 anos: o resgate só é possível a partir de 28/03/2027.');
     expect(t.termo).toBe('prazo-minimo');
   });
 

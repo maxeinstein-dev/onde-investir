@@ -3,7 +3,8 @@ import type { Alerta } from '../engine/alertas';
 import type { Horizonte } from '../engine/comparacao';
 import { type DataISO, dataBR } from '../engine/datas';
 import type { OfertaCadastrada } from '../engine/ofertas';
-import { formatarMoeda, formatarPercentual } from '../formato';
+import { regraFGC } from '../engine/regras/fgc';
+import { formatarMoeda, formatarNumero, formatarPercentual } from '../formato';
 import { listar, nomeDoHorizonte, nomeOferta } from './comparacao';
 import { descreverOferta } from './motivos';
 import type { IdTermo } from './glossario';
@@ -19,6 +20,19 @@ const nome = (ofertas: readonly OfertaCadastrada[], i: number) => {
 function prazo(horizontes: readonly Horizonte[], data: DataISO): string {
   const h = horizontes.find((x) => x.data === data);
   return h ? nomeDoHorizonte(h) : dataBR(data);
+}
+
+/** "R$ 250 mil", "R$ 1 milhão", "R$ 2 milhões"; outros valores em reais. */
+function reaisRedondos(valor: number): string {
+  if (valor >= 1_000_000 && valor % 1_000_000 === 0) return `R$ ${formatarNumero(valor / 1_000_000)} ${valor === 1_000_000 ? 'milhão' : 'milhões'}`;
+  if (valor >= 1_000 && valor % 1_000 === 0) return `R$ ${formatarNumero(valor / 1_000)} mil`;
+  return formatarMoeda(valor);
+}
+
+/** O limite do FGC, pela regra vigente na data (regras/fgc.ts). */
+function textoFGC(data: DataISO): string {
+  const r = regraFGC(data);
+  return `O FGC cobre até ${reaisRedondos(r.porConglomerado)} por pessoa em cada conglomerado financeiro se o banco quebrar, com teto de ${reaisRedondos(r.tetoGlobal)} a cada ${r.janelaAnos} anos.`;
 }
 
 const dias = (n: number) => (n === 1 ? '1 dia' : `${n} dias`);
@@ -57,7 +71,7 @@ export function textoDoAlerta(a: Alerta, ofertas: readonly OfertaCadastrada[], h
         : {
           titulo: 'Diferença pequena, garantia do Tesouro',
           oQue: `${inicio} e tem a garantia do Tesouro Nacional.`,
-          porQue: 'O FGC cobre até R$ 250 mil por instituição se o banco quebrar. O título público tem a garantia do governo federal, o menor risco de crédito do país.',
+          porQue: `${textoFGC(a.horizonte)} O título público tem a garantia do governo federal, o menor risco de crédito do país.`,
           termo: 'tesouro',
         };
     }
@@ -93,21 +107,21 @@ export function textoDoAlerta(a: Alerta, ofertas: readonly OfertaCadastrada[], h
           termo: 'marcacao-mercado',
         };
       }
-      const inicio = `Não dá para resgatar ${nome(ofertas, a.oferta)} em ${prazo(horizontes, a.horizonte)}.`;
+      const naoDa = `Não dá para resgatar ${nome(ofertas, a.oferta)} em ${prazo(horizontes, a.horizonte)}`;
       if (a.disponivelEm === undefined) {
-        return { titulo: 'Prazo incompatível', oQue: inicio, porQue: 'A oferta não pode ser resgatada nessa data, e o valor dela fica fora da comparação.', termo: 'liquidez' };
+        return { titulo: 'Prazo incompatível', oQue: `${naoDa}.`, porQue: 'A oferta não pode ser resgatada nessa data, e o valor dela fica fora da comparação.', termo: 'liquidez' };
       }
       if (o?.vencimento === a.disponivelEm) {
         return {
           titulo: 'Prazo incompatível',
-          oQue: `${inicio} Só no vencimento (${dataBR(a.disponivelEm)}).`,
+          oQue: `${naoDa}. Só no vencimento (${dataBR(a.disponivelEm)}).`,
           porQue: 'Sem liquidez diária, o dinheiro só volta na data de vencimento combinada.',
           termo: 'liquidez',
         };
       }
       return {
         titulo: 'Prazo incompatível',
-        oQue: `${inicio} Prazo mínimo até ${dataBR(a.disponivelEm)}.`,
+        oQue: `${naoDa}: o resgate só é possível a partir de ${dataBR(a.disponivelEm)}.`,
         porQue: 'LCI e LCA têm um prazo mínimo legal antes do primeiro resgate, mesmo com liquidez diária.',
         termo: 'prazo-minimo',
       };
