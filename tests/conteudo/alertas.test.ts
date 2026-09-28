@@ -244,6 +244,18 @@ describe('resumirTrocas com trocas relevantes (alternância fundida)', () => {
   });
 });
 
+describe('textoDoAlerta — FGC_LIMITE (rascunho, revisão no C2/C3)', () => {
+  it('conta o conglomerado, a data, o total e o excedente, com o termo fgc', () => {
+    const a: Alerta = { tipo: 'FGC_LIMITE', oferta: 0, conglomerado: 'B', data: '2027-07-29', total: 250_010.5, limite: 250_000, excedente: 10.5 };
+    const t = textoDoAlerta(a, ofertas, horizontes);
+    expect(t.titulo).toBe('Acima do limite do FGC');
+    expect(t.oQue).toMatch(re(String.raw`Aplicando o valor da comparação em CDB 103% do CDI \(Banco B\), o que você tem no conglomerado B passa de ${R}250 mil em 29/07/2027: ${R}250\.010,50, ${R}10,50 acima do limite\.`));
+    expect(t.porQue).toMatch(/^O FGC cobre até R\$ 250 mil/);
+    expect(t.termo).toBe('fgc');
+    expect(GLOSSARIO[t.termo]).toBeDefined();
+  });
+});
+
 describe('resumo do gráfico com dados reais', () => {
   it('poupança × LCI 62% do CDI em 5 anos: a alternância mensal vira um trecho oscilante, e o resumo tem ≤ 5 frases', async () => {
     const { seriesDeValorLiquido, trocasDeLider, trocasRelevantes, lideresNoPonto } = await import('../../src/engine/serie');

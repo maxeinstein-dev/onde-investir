@@ -3,7 +3,8 @@ import { gerarAlertas, LIMIAR_QUASE_EMPATE, resgataQuandoQuiser, type Alerta } f
 import { horizontesPadrao, tabelaPorHorizonte } from '../../src/engine/comparacao';
 import { somarDias } from '../../src/engine/datas';
 import { projetar, type OfertaCadastrada, type Projecao } from '../../src/engine/ofertas';
-import type { ResultadoSimulacao } from '../../src/engine/produtos';
+import { primeiraDataAcimaDoLimite, type ItemFGC } from '../../src/engine/fgc';
+import { simular, type ResultadoSimulacao } from '../../src/engine/produtos';
 import { CEN, INI } from './cenarioPadrao';
 
 const b = { emissor: 'B', conglomerado: 'B' };
@@ -278,5 +279,67 @@ describe('gerarAlertas', () => {
     expect(gerarAlertas([cdbVenc2031], [])).toEqual([]);
     expect(() => gerarAlertas([cdbVenc2031], [], Number.NaN)).toThrow(RangeError);
     expect(() => gerarAlertas([cdbVenc2031], [], -0.01)).toThrow(RangeError);
+  });
+});
+
+describe('FGC_LIMITE', () => {
+  const carteiraFixa = (conglomerado: string, valor: number): ItemFGC => ({ conglomerado, produto: 'CDB', brutoEm: () => valor });
+  const contexto = (carteira: ItemFGC[], valor = 45_000) => ({ carteira, valor, dataAplicacao: INI, cen: CEN });
+  const comFGC = (ofertas: OfertaCadastrada[], carteira: ItemFGC[], valor = 45_000) => {
+    const colunas = tabelaPorHorizonte(ofertas, valor, INI, horizontesPadrao(INI, null), CEN, PADRAO);
+    return gerarAlertas(ofertas, colunas, LIMIAR_QUASE_EMPATE, undefined, contexto(carteira, valor));
+  };
+  /** O primeiro dia em que carteira + oferta passa de R$ 250 mil, dia a dia (a conta de referência). */
+  function primeiroDia(carteira: number, o: OfertaCadastrada, valor: number): string {
+    for (let d = somarDias(INI, 1); ; d = somarDias(d, 1)) {
+      const bruto = simular({ produto: o.produto, indexacao: o.indexacao, valor, dataAplicacao: INI }, d, CEN).valorBruto;
+      if (carteira + bruto > 250_000) return d;
+    }
+  }
+
+  it('a carteira sozinha fica abaixo do limite; com a oferta aplicada pelo valor da comparação, passa, no dia exato', () => {
+    const carteira = [carteiraFixa('  b ', 200_000)];
+    expect(primeiraDataAcimaDoLimite(carteira, [INI, '2031-09-28'])).toEqual([]);
+    const fgc = doTipo(comFGC([cdbVenc2031], carteira), 'FGC_LIMITE');
+    const data = primeiroDia(200_000, cdbVenc2031, 45_000);
+    const total = 200_000 + simular({ produto: 'CDB', indexacao: cdbVenc2031.indexacao, valor: 45_000, dataAplicacao: INI }, data, CEN).valorBruto;
+    expect(fgc).toEqual([{ tipo: 'FGC_LIMITE', oferta: 0, conglomerado: 'B', data, total, limite: 250_000, excedente: total - 250_000 }]);
+    expect(data > INI && data < '2028-09-28').toBe(true);
+  });
+  it('sem vencimento, conta até o horizonte mais distante', () => {
+    const fgc = doTipo(comFGC([cdbDiario(1)], [carteiraFixa('B', 200_000)]), 'FGC_LIMITE');
+    expect(fgc.map((a) => a.data)).toEqual([primeiroDia(200_000, cdbDiario(1), 45_000)]);
+  });
+  it('só até o vencimento: a oferta que venceria abaixo do limite não alerta', () => {
+    const curto: OfertaCadastrada = { ...cdbVenc2031, vencimento: '2027-03-01' };
+    expect(doTipo(comFGC([curto], [carteiraFixa('B', 200_000)]), 'FGC_LIMITE')).toEqual([]);
+  });
+  it('o Tesouro não gera o alerta', () => {
+    expect(doTipo(comFGC([tesouroSelic], [carteiraFixa('B', 249_000)]), 'FGC_LIMITE')).toEqual([]);
+  });
+  it('outro conglomerado não gera o alerta; o mesmo, com outra grafia, gera', () => {
+    const outro: OfertaCadastrada = { ...cdbVenc2031, conglomerado: 'Outro Banco' };
+    expect(doTipo(comFGC([outro], [carteiraFixa('B', 240_000)]), 'FGC_LIMITE')).toEqual([]);
+    const acento: OfertaCadastrada = { ...cdbVenc2031, conglomerado: 'Banco São João' };
+    expect(doTipo(comFGC([acento], [carteiraFixa('banco  sao joao', 240_000)]), 'FGC_LIMITE')).toHaveLength(1);
+  });
+  it('a carteira do conglomerado já acima: a oferta alerta na data de aplicação', () => {
+    const [a] = doTipo(comFGC([cdbVenc2031], [carteiraFixa('B', 260_000)]), 'FGC_LIMITE');
+    expect(a).toMatchObject({ oferta: 0, data: INI, total: 305_000, excedente: 55_000 });
+  });
+  it('sem o contexto, nada muda', () => {
+    const ofertas = [cdbVenc2031, cdbDiario(1.028), tesouroSelic];
+    const colunas = tabelaPorHorizonte(ofertas, 10000, INI, horizontesPadrao(INI, null), CEN, PADRAO);
+    const sem = gerarAlertas(ofertas, colunas);
+    expect(sem.some((a) => a.tipo === 'FGC_LIMITE')).toBe(false);
+    expect(gerarAlertas(ofertas, colunas, LIMIAR_QUASE_EMPATE, undefined, contexto([], 10000))).toEqual(sem);
+  });
+  it('vem por último na ordem dos tipos', () => {
+    const cdb2027: OfertaCadastrada = { ...cdbVenc2031, id: 'c', vencimento: '2027-09-01' };
+    const tipos = comFGC([cdbVenc2031, cdb2027], [carteiraFixa('B', 200_000)]).map((a) => a.tipo);
+    expect(tipos).toEqual(['IR_REINICIA', 'IOF', 'FGC_LIMITE', 'FGC_LIMITE']);
+  });
+  it('valor da comparação inválido lança', () => {
+    expect(() => gerarAlertas([cdbVenc2031], [], LIMIAR_QUASE_EMPATE, undefined, contexto([], 0))).toThrow(RangeError);
   });
 });
