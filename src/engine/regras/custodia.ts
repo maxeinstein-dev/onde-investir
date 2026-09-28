@@ -22,7 +22,13 @@ export interface EntradaCustodia {
   dataResgate: DataISO;
 }
 
-/** Custódia descontada no resgate (aproximação pela média entre aplicado e bruto). */
+/**
+ * Custódia descontada no resgate (aproximação pela média entre aplicado e bruto).
+ *
+ * Premissa: a isenção dos primeiros R$ 10 mil do Tesouro Selic é contada POR POSIÇÃO (cada simulação desconta a
+ * isenção inteira). A B3 conta a isenção sobre o saldo total do investidor em Tesouro Selic, então quem tem mais
+ * de uma posição de Tesouro Selic paga, na prática, um pouco mais de custódia do que o app mostra.
+ */
 export function custodiaTesouro(e: EntradaCustodia): number {
   const regra = resolverRegra('custódia B3 Tesouro', VERSOES_CUSTODIA, e.dataResgate);
   const media = (e.valorAplicado + e.valorBruto) / 2;

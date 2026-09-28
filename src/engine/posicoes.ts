@@ -1,6 +1,7 @@
 // src/engine/posicoes.ts
 import { type DataISO, ehDataValida, somarDias } from './datas';
 import { OfertaInvalidaError } from './erros';
+import type { ItemFGC } from './fgc';
 import type { Cenario } from './indexadores';
 import { type OfertaCadastrada, validarOfertaCadastrada } from './ofertas';
 import { simular, validarAplicacao } from './produtos';
@@ -13,7 +14,10 @@ export interface EventoPosicao { tipo: 'APORTE' | 'RESGATE'; data: DataISO; valo
  */
 export type BaseExtrato = 'BRUTO' | 'LIQUIDO';
 
-/** Uma aplicação que a pessoa já tem (spec §5.3). */
+/**
+ * Uma aplicação que a pessoa já tem (spec §5.3). Premissa: o extrato NÃO substitui o valor calculado. Ele serve
+ * para conferir (`valorAtual`) e, se for recente, para a exposição do FGC (`itemFGCDaPosicao`).
+ */
 export interface Posicao extends OfertaCadastrada {
   valorAplicado: number;
   dataAplicacao: DataISO;
@@ -114,6 +118,38 @@ export function valorAtual(p: Posicao, data: DataISO, cen: Cenario): ValorAtual 
       valor: p.valorExtrato, data: p.dataExtrato, base, calculado, diferencaPercentual,
       suspeita: !aMercado && Math.abs(diferencaPercentual) > LIMIAR_EXTRATO_SUSPEITO,
       ...(aMercado ? { motivo: 'MARCACAO_A_MERCADO' as const } : {}),
+    },
+  };
+}
+
+/** Até quantos dias corridos antes de hoje o extrato ainda vale para a exposição do FGC. */
+export const JANELA_EXTRATO_FGC_DIAS = 30;
+
+/**
+ * A posição como item do FGC (spec §3.4 e §5.3). O bruto em cada data é o calculado pelo cenário, com uma
+ * exceção: com extrato de até {@link JANELA_EXTRATO_FGC_DIAS} dias antes de `hoje`, a exposição parte do extrato
+ * e projeta daí para a frente, ou seja, a partir da data do extrato o calculado é multiplicado por
+ * `extrato / calculado na data do extrato` (na base do extrato; no extrato líquido, a proporção do líquido vale
+ * para o bruto, uma aproximação). Com extrato mais antigo, ou sem extrato, vale o calculado. Antes da aplicação,
+ * zero; depois do vencimento, o valor no vencimento. Os erros de `simular` sobem (a conta do FGC trata).
+ */
+export function itemFGCDaPosicao(p: Posicao, hoje: DataISO, cen: Cenario): ItemFGC {
+  const recente = p.valorExtrato !== undefined && p.dataExtrato !== undefined && p.dataExtrato <= hoje
+    && p.dataExtrato >= somarDias(hoje, -JANELA_EXTRATO_FGC_DIAS);
+  let proporcao: number | undefined;
+  const doExtrato = (): number => {
+    if (proporcao === undefined) {
+      const noExtrato = calcular(p, p.dataExtrato as DataISO, cen);
+      proporcao = (p.valorExtrato as number) / ((p.baseExtrato ?? 'BRUTO') === 'BRUTO' ? noExtrato.bruto : noExtrato.liquido);
+    }
+    return proporcao;
+  };
+  return {
+    conglomerado: p.conglomerado, produto: p.produto,
+    brutoEm: (data) => {
+      if (data < p.dataAplicacao) return 0;
+      const bruto = calcular(p, data, cen).bruto;
+      return recente && data >= (p.dataExtrato as DataISO) ? bruto * doExtrato() : bruto;
     },
   };
 }

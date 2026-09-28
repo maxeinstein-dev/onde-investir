@@ -149,8 +149,21 @@ Detalhes:
   Outros: "Sem garantia".
 - Limite por conglomerado conta **principal + rendimentos**. O `engine/fgc.ts` soma o
   valor bruto projetado de **ofertas e posições atuais** do mesmo conglomerado em cada
-  data e aponta a primeira data em que excede.
-- Teto global: alerta informativo.
+  data e aponta a primeira data em que excede. O alerta traz a data do cruzamento e
+  também o total e o excedente **no fim** (o vencimento da oferta ou o horizonte mais
+  distante), que mostram quanto fica de fato sem garantia. Se a carteira do
+  conglomerado já passa do limite na data de aplicação, o alerta diz isso (`jaAcima`).
+- Exposição de uma posição: o valor **calculado** pelo histórico e pelo cenário. Se a
+  posição tem extrato com data de até 30 dias atrás, a exposição de hoje parte do
+  extrato e projeta daí para a frente (o calculado vezes extrato ÷ calculado na data
+  do extrato); nos outros casos, vale o calculado.
+- Item que não pode ser calculado (regra não cadastrada para a data, dado inválido)
+  fica de fora da conta e é marcado como "não calculado", sem derrubar os alertas.
+- Teto global: alerta informativo e qualitativo. A garantia somada é
+  Σ min(exposição do conglomerado, limite por conglomerado); o alerta sai quando ela
+  passa de R$ 1 milhão. A janela de 4 anos do teto **não é calculada** (o app não sabe
+  quando nem quantas instituições quebrariam): a conta supõe o pior caso, todas na
+  mesma janela, e o texto não dá valor de excedente.
 - `conglomerado` é obrigatório em ofertas e posições (texto livre com autocompletar).
 
 ### 3.5 Calendário
@@ -272,9 +285,19 @@ O que o usuário já tem aplicado. Modelo preparado para a futura carteira compl
 `id, produto, emissor, conglomerado, indexador, taxa, dataAplicacao, vencimento,
 liquidez, valorAplicado, eventos[]` (aporte, resgate, vencimento), mais
 `valorExtrato?` com `dataExtrato`.
-- Valor atual **calculado pelo histórico real** (4.3). Quando `valorExtrato` existe,
-  ele prevalece e a UI mostra a diferença para o calculado (diferenças grandes sugerem
-  taxa digitada errada).
+- Valor atual **calculado pelo histórico real** (4.3). O extrato **não substitui** o
+  valor calculado: quando `valorExtrato` existe, a UI mostra a diferença para o
+  calculado (diferenças acima de 1% sugerem taxa ou data digitada errada). No Tesouro
+  Prefixado e no IPCA+ antes do vencimento, o extrato mostra o preço de mercado e o app
+  calcula pela curva contratada, então a diferença é normal e nunca é marcada como
+  suspeita (`motivo: MARCACAO_A_MERCADO`). Para o FGC, vale a regra de 3.4: extrato de
+  até 30 dias atrás é o ponto de partida da exposição; mais antigo, o calculado.
+- Premissas do cálculo: a isenção de custódia do Tesouro Selic (primeiros R$ 10 mil) é
+  contada **por posição**, embora a B3 a aplique ao saldo total de Tesouro Selic; o
+  reinvestimento PADRAO de prefixado e IPCA+ é num CDB 100% do CDI **sem custo extra**.
+- Poupança: a regra de rendimento é escolhida pela **data do depósito**. Depósito
+  anterior a 04/05/2012 rende 0,5% ao mês + TR sempre (Lei 8.177/1991, art. 12);
+  a partir dessa data, a regra da Lei 12.703/2012.
 - Na fase atual, as posições alimentam **FGC** e **diversificação**; não há tela de
   acompanhamento de rentabilidade.
 

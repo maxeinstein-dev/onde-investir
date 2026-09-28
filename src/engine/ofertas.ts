@@ -62,6 +62,10 @@ export function validarRegraReinvestimento(regra: RegraReinvestimento): void {
 /**
  * A oferta em que o dinheiro é reaplicado no vencimento, pela regra (sem o fallback em CDB 100%). Na mesma oferta,
  * o custo extra vai junto (mesmo lugar, mesma tarifa); no CDB 100% e na taxa fixa, sem custo.
+ *
+ * Premissa do PADRAO (spec §5.4): o pós-fixado é reaplicado na mesma oferta; o prefixado, o IPCA+ e a poupança,
+ * num CDB 100% do CDI SEM custo extra, mesmo que a oferta original tenha custo. A taxa pré e o IPCA+ de hoje não
+ * valem para a reaplicação daqui a anos, e o CDI do cenário é a referência neutra.
  */
 export function ofertaDeReinvestimento(o: Oferta, regra: RegraReinvestimento): Oferta {
   const mesma = ofertaPura(o);

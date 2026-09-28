@@ -1,7 +1,8 @@
 // tests/engine/posicoes.test.ts
 import { describe, expect, it } from 'vitest';
 import { OfertaInvalidaError } from '../../src/engine/erros';
-import { LIMIAR_EXTRATO_SUSPEITO, type Posicao, validarPosicao, valorAtual } from '../../src/engine/posicoes';
+import { JANELA_EXTRATO_FGC_DIAS, LIMIAR_EXTRATO_SUSPEITO, itemFGCDaPosicao, type Posicao, validarPosicao, valorAtual } from '../../src/engine/posicoes';
+import { somarDias } from '../../src/engine/datas';
 import { simular } from '../../src/engine/produtos';
 import { CEN } from './cenarioPadrao';
 
@@ -151,5 +152,45 @@ describe('valorAtual', () => {
     const bruto = simulado(cdb, venc).valorBruto;
     const v = valorAtual({ ...cdb, vencimento: venc, valorExtrato: bruto, dataExtrato: '2026-06-01' }, HOJE, CEN);
     expect(v.extrato).toMatchObject({ calculado: bruto, diferencaPercentual: 0, suspeita: false });
+  });
+});
+
+describe('itemFGCDaPosicao (o bruto da posição na conta do FGC)', () => {
+  const comExtrato = (dataExtrato: string, fator = 1.02): Posicao => ({ ...cdb, valorExtrato: simulado(cdb, dataExtrato).valorBruto * fator, dataExtrato });
+
+  it('sem extrato: o calculado', () => {
+    const item = itemFGCDaPosicao(cdb, HOJE, CEN);
+    expect(item).toMatchObject({ conglomerado: 'Banco X', produto: 'CDB' });
+    expect(item.brutoEm(HOJE)).toBe(simulado(cdb, HOJE).valorBruto);
+    expect(item.brutoEm('2027-03-01')).toBe(simulado(cdb, '2027-03-01').valorBruto);
+  });
+  it('extrato de até 30 dias atrás: hoje sai do extrato, e daí para a frente projeta pelo calculado', () => {
+    expect(JANELA_EXTRATO_FGC_DIAS).toBe(30);
+    for (const dataExtrato of [somarDias(HOJE, -10), somarDias(HOJE, -30)]) {
+      const item = itemFGCDaPosicao(comExtrato(dataExtrato), HOJE, CEN);
+      expect(item.brutoEm(dataExtrato)).toBeCloseTo(simulado(cdb, dataExtrato).valorBruto * 1.02, 8);
+      expect(item.brutoEm(HOJE)).toBeCloseTo(simulado(cdb, HOJE).valorBruto * 1.02, 8);
+      expect(item.brutoEm('2027-03-01')).toBeCloseTo(simulado(cdb, '2027-03-01').valorBruto * 1.02, 8);
+    }
+  });
+  it('extrato de mais de 30 dias: o calculado', () => {
+    const item = itemFGCDaPosicao(comExtrato(somarDias(HOJE, -31)), HOJE, CEN);
+    expect(item.brutoEm(HOJE)).toBe(simulado(cdb, HOJE).valorBruto);
+  });
+  it('extrato líquido: a proporção é a do líquido', () => {
+    const dataExtrato = somarDias(HOJE, -5);
+    const r = simulado(cdb, dataExtrato);
+    const item = itemFGCDaPosicao({ ...cdb, valorExtrato: r.valorLiquido * 0.99, dataExtrato, baseExtrato: 'LIQUIDO' }, HOJE, CEN);
+    expect(item.brutoEm(HOJE)).toBeCloseTo(simulado(cdb, HOJE).valorBruto * 0.99, 8);
+  });
+  it('antes da aplicação: zero; no dia da aplicação: o aplicado; depois do vencimento: o do vencimento', () => {
+    const item = itemFGCDaPosicao(cdb, HOJE, CEN);
+    expect(item.brutoEm('2025-01-01')).toBe(0);
+    expect(item.brutoEm(APLICADO_EM)).toBe(10000);
+    expect(item.brutoEm('2028-01-01')).toBe(simulado(cdb, '2027-09-29').valorBruto);
+  });
+  it('o extrato não substitui o valor atual: valorAtual continua o calculado', () => {
+    const p = comExtrato(somarDias(HOJE, -10));
+    expect(valorAtual(p, HOJE, CEN).bruto).toBe(simulado(cdb, HOJE).valorBruto);
   });
 });
