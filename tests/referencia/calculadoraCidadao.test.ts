@@ -49,6 +49,6 @@ describe('conferência com a Calculadora do Cidadão (C4)', () => {
   });
 
   it.skipIf(VALOR_CALCULADORA_CIDADAO === null)('bate com a Calculadora do Cidadão por menos de R$ 0,01', () => {
-    expect(Math.abs(brutoDoApp - (VALOR_CALCULADORA_CIDADAO as number))).toBeLessThan(0.01);
+    expect(Math.abs(brutoDoApp - (VALOR_CALCULADORA_CIDADAO ?? NaN))).toBeLessThan(0.01);
   });
 });
