@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { lideres } from '../../src/engine/comparacao';
 import { diasCorridos, somarDias } from '../../src/engine/datas';
 import { taxaDiaria } from '../../src/engine/indexadores';
 import { projetar, type OfertaCadastrada } from '../../src/engine/ofertas';
-import { datasDaSerie, seriesDeValorLiquido } from '../../src/engine/serie';
+import { datasDaSerie, lideresNoPonto, seriesDeValorLiquido, trocasDeLider, type Serie } from '../../src/engine/serie';
 import { CEN, INI } from './cenarioPadrao';
 import { cenarioReal } from './cenarioReal';
 
@@ -136,3 +137,92 @@ describe('seriesDeValorLiquido', () => {
     expect(ms).toBeLessThan(300);
   });
 });
+
+describe('trocasDeLider', () => {
+  const cdb103Diario: OfertaCadastrada = { ...cdbDiario, id: '5', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.03 } };
+
+  it('CDB 103% contra LCI 80% "só no vencimento" em 2 anos: a LCI nunca lidera antes de vencer', () => {
+    const ofertas = [cdb103Diario, lci2028];
+    const series = seriesDeValorLiquido(ofertas, 10000, INI, '2028-09-28', CEN, PADRAO);
+    const trocas = trocasDeLider(series, { ofertas, valor: 10000, dataAplicacao: INI, cen: CEN, regra: PADRAO });
+    expect(trocas.filter((t) => t.para.includes(1) && t.data < '2028-09-28')).toEqual([]);
+    expect(lideresNoPonto(series, 0)).toEqual([0]);
+    // no vencimento a LCI 80% isenta (≈ 80% do CDI) ainda perde para o CDB 103% com IR de 15% (≈ 87,6%)
+    expect(trocas).toEqual([]);
+  });
+
+  describe('prefixado 13% contra pós 100% do CDI no cenário projetado (Selic caindo)', () => {
+    const cen = cenarioReal('BASE');
+    const pre: OfertaCadastrada = { ...b, id: 'p', produto: 'CDB', indexacao: { tipo: 'PRE', taxaAA: 0.13 }, liquidez: 'DIARIA' };
+    const ofertas = [pre, cdbDiario];
+    const ctx = { ofertas, valor: 10000, dataAplicacao: INI, cen, regra: PADRAO };
+    const series = seriesDeValorLiquido(ofertas, 10000, INI, '2029-09-28', cen, PADRAO);
+    const trocas = trocasDeLider(series, ctx);
+    const lideresEm = (data: string) => lideres(ofertas.map((o) => projetar(o, 10000, INI, data, cen)));
+
+    it('o pós lidera no começo e o prefixado passa à frente uma vez', () => {
+      expect(lideresNoPonto(series, 0)).toEqual([1]);
+      expect(trocas).toHaveLength(1);
+      expect(trocas[0]?.de).toEqual([1]);
+      expect(trocas[0]?.para).toEqual([0]);
+    });
+    it('a data sai exata pela busca por dia: projetar confere no dia anterior, no dia e no dia seguinte', () => {
+      const t = trocas[0];
+      if (!t) throw new Error('sem troca');
+      // entre dois pontos semanais: sem a busca, a data seria a do ponto seguinte
+      const datas = series[0]?.pontos.map((p) => p.data) ?? [];
+      const seguinte = datas.find((d) => d >= t.data) ?? '';
+      expect(diasCorridos(t.data, seguinte)).toBeLessThan(7);
+      expect(lideresEm(somarDias(t.data, -1))).toEqual([1]);
+      expect(lideresEm(t.data)).toEqual([0]);
+      expect(lideresEm(somarDias(t.data, 1))).toEqual([0]);
+    });
+    it('sem o contexto de projeção, a troca fica no primeiro ponto da série com o novo líder', () => {
+      const [t] = trocasDeLider(series);
+      const k = series[0]?.pontos.findIndex((p) => p.data === t?.data) ?? -1;
+      expect(k).toBeGreaterThan(0);
+      expect(lideresNoPonto(series, k - 1)).toEqual([1]);
+      expect(lideresNoPonto(series, k)).toEqual([0]);
+      expect(t?.data).toBe(seguinteDoPonto(series, trocas[0]?.data ?? ''));
+    });
+  });
+
+  it('empate em centavos entra no conjunto de líderes, e a mudança de conjunto é uma troca', () => {
+    const serie = (ofertaIndice: number, valores: (number | null)[]): Serie => ({
+      ofertaIndice,
+      pontos: valores.map((v, k) => ({ data: somarDias(INI, 7 * (k + 1)), liquido: v, resgatavel: v !== null })),
+    });
+    const series = [serie(0, [101, 102.004, 103]), serie(1, [100, 102.001, 104])];
+    expect(trocasDeLider(series)).toEqual([
+      { data: somarDias(INI, 14), de: [0], para: [0, 1] },
+      { data: somarDias(INI, 21), de: [0, 1], para: [1] },
+    ]);
+  });
+
+  it('não resgatável não lidera, mesmo com valor de referência maior', () => {
+    const series: Serie[] = [
+      { ofertaIndice: 0, pontos: [{ data: '2026-10-05', liquido: 200, resgatavel: false }] },
+      { ofertaIndice: 1, pontos: [{ data: '2026-10-05', liquido: 100, resgatavel: true }] },
+    ];
+    expect(lideresNoPonto(series, 0)).toEqual([1]);
+  });
+
+  it('sem ofertas resgatáveis → nenhuma troca', () => {
+    const series = seriesDeValorLiquido([lci2028], 10000, INI, '2028-06-01', CEN, PADRAO);
+    expect(series[0]?.pontos.every((p) => !p.resgatavel)).toBe(true);
+    expect(trocasDeLider(series, { ofertas: [lci2028], valor: 10000, dataAplicacao: INI, cen: CEN, regra: PADRAO })).toEqual([]);
+    expect(trocasDeLider([])).toEqual([]);
+  });
+
+  it('ninguém resgatável no começo: a primeira oferta que fica resgatável é uma troca de [] para ela', () => {
+    const ofertas = [lci2028];
+    const series = seriesDeValorLiquido(ofertas, 10000, INI, '2029-01-01', CEN, PADRAO);
+    expect(trocasDeLider(series, { ofertas, valor: 10000, dataAplicacao: INI, cen: CEN, regra: PADRAO }))
+      .toEqual([{ data: '2028-09-28', de: [], para: [0] }]);
+  });
+});
+
+/** Primeiro ponto da série na data ou depois dela. */
+function seguinteDoPonto(series: readonly Serie[], data: string): string | undefined {
+  return series[0]?.pontos.find((p) => p.data >= data)?.data;
+}

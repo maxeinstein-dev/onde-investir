@@ -1,5 +1,6 @@
 // src/engine/serie.ts
-import { type DataISO, somarDias } from './datas';
+import { lideres } from './comparacao';
+import { type DataISO, deDia, paraDia, somarDias } from './datas';
 import { OfertaInvalidaError } from './erros';
 import type { Cenario } from './indexadores';
 import { projetar, type OfertaCadastrada, type Projecao, type RegraReinvestimento } from './ofertas';
@@ -66,4 +67,86 @@ export function seriesDeValorLiquido(
     ofertaIndice,
     pontos: datas.map((data) => ponto(projetar(o, valor, dataAplicacao, data, cen, regra), o, valor, dataAplicacao, data, cen)),
   }));
+}
+
+export interface TrocaDeLider { data: DataISO; de: number[]; para: number[] }
+
+/** O que `projetar` precisa para refinar a data de uma troca dia a dia. */
+export interface ContextoProjecao {
+  ofertas: readonly OfertaCadastrada[];
+  valor: number;
+  dataAplicacao: DataISO;
+  cen: Cenario;
+  regra: RegraReinvestimento;
+}
+
+const mesmoConjunto = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+
+/**
+ * Líderes no k-ésimo ponto: os índices de oferta com o maior líquido RESGATÁVEL, comparado em centavos (a regra
+ * de `lideres`). Empate inclui todos; sem ninguém resgatável, lista vazia.
+ */
+export function lideresNoPonto(series: readonly Serie[], k: number): number[] {
+  let maximo = -Infinity;
+  let indices: number[] = [];
+  for (const s of series) {
+    const p = s.pontos[k];
+    if (!p || !p.resgatavel || p.liquido === null) continue;
+    const centavos = Math.round(p.liquido * 100);
+    if (centavos > maximo) { maximo = centavos; indices = [s.ofertaIndice]; } else if (centavos === maximo) indices.push(s.ofertaIndice);
+  }
+  return indices.sort((a, b) => a - b);
+}
+
+/** Líderes no dia entre as ofertas envolvidas, pela mesma regra (DISPONIVEL = resgatável). */
+function lideresNoDia(ctx: ContextoProjecao, envolvidas: readonly number[], data: DataISO): number[] {
+  const projecoes = envolvidas.map((i) => projetar(ctx.ofertas[i] as OfertaCadastrada, ctx.valor, ctx.dataAplicacao, data, ctx.cen, ctx.regra));
+  return lideres(projecoes).map((j) => envolvidas[j] as number);
+}
+
+/**
+ * Trocas no intervalo (anterior, posterior], dia a dia por busca binária. A busca mantém "o conjunto ainda é o
+ * atual" no limite de baixo e "já mudou" no de cima, então sempre para num par de dias vizinhos com a troca, mesmo
+ * que o líder mude mais de uma vez no intervalo; depois continua dali até chegar ao conjunto do ponto posterior.
+ */
+function refinar(ctx: ContextoProjecao, anterior: DataISO, posterior: DataISO, de: number[], para: number[]): TrocaDeLider[] {
+  const envolvidas = [...new Set([...de, ...para])].sort((a, b) => a - b);
+  const trocas: TrocaDeLider[] = [];
+  let atual = de;
+  let lo = paraDia(anterior);
+  const fim = paraDia(posterior);
+  while (!mesmoConjunto(atual, para)) {
+    let hi = fim;
+    let noHi = para;
+    while (hi - lo > 1) {
+      const meio = (lo + hi) >> 1;
+      const noMeio = lideresNoDia(ctx, envolvidas, deDia(meio));
+      if (mesmoConjunto(noMeio, atual)) lo = meio;
+      else { hi = meio; noHi = noMeio; }
+    }
+    trocas.push({ data: deDia(hi), de: atual, para: noHi });
+    atual = noHi;
+    lo = hi;
+  }
+  return trocas;
+}
+
+/**
+ * Cada data em que o conjunto de líderes (maior líquido resgatável, em centavos) muda de um ponto para o seguinte.
+ * O conjunto do primeiro ponto é o ponto de partida, não uma troca. Com `ctx`, a data sai exata: a busca por dia
+ * entre os dois pontos chama `projetar` só para as ofertas envolvidas; sem `ctx`, fica o ponto em que a mudança
+ * aparece. As séries precisam ter as mesmas datas (as de {@link seriesDeValorLiquido}).
+ */
+export function trocasDeLider(series: readonly Serie[], ctx?: ContextoProjecao): TrocaDeLider[] {
+  const datas = series[0]?.pontos.map((p) => p.data) ?? [];
+  const trocas: TrocaDeLider[] = [];
+  let atual = lideresNoPonto(series, 0);
+  for (let k = 1; k < datas.length; k++) {
+    const novo = lideresNoPonto(series, k);
+    if (mesmoConjunto(novo, atual)) continue;
+    const data = datas[k] as DataISO;
+    trocas.push(...(ctx ? refinar(ctx, datas[k - 1] as DataISO, data, atual, novo) : [{ data, de: atual, para: novo }]));
+    atual = novo;
+  }
+  return trocas;
 }
