@@ -69,7 +69,7 @@ export function FormOfertaCadastrada({
   const [liquidez, setLiquidez] = useState<Liquidez>(inicial?.liquidez ?? 'DIARIA');
   const [vencimento, setVencimento] = useState(inicial?.vencimento ?? '');
   /** Custo extra em % ao ano; NaN com o campo vazio (sem custo). Fica fora de `oferta`: trocar o produto não o apaga. */
-  const [custo, setCusto] = useState(inicial?.custoExtraAA === undefined ? NaN : inicial.custoExtraAA * 100);
+  const [custo, setCusto] = useState(inicial?.custoExtraAA === undefined ? NaN : Math.round(inicial.custoExtraAA * 1e8) / 1e6);
   /** O erro vale para o retrato dos campos a mais em que apareceu (ver `estadoExtra`). */
   const [erroSalvo, setErroSalvo] = useState<{ texto: string; extra: string } | null>(null);
   const erro = erroSalvo !== null && erroSalvo.extra === estadoExtra ? erroSalvo.texto : null;
@@ -90,7 +90,8 @@ export function FormOfertaCadastrada({
     const base = {
       id: inicial?.id ?? '', produto: oferta.produto, indexacao: oferta.indexacao,
       emissor: emissor.trim(), conglomerado: conglomerado.trim(), liquidez: tesouro || poupanca ? 'DIARIA' as const : liquidez,
-      ...(Number.isFinite(custo) ? { custoExtraAA: custo / 100 } : {}),
+      // Arredondado a 6 casas em % (8 em fração): 0,57 / 100 daria 0,005699999999999999.
+      ...(Number.isFinite(custo) ? { custoExtraAA: Math.round(custo * 1e6) / 1e8 } : {}),
     };
     return venc === undefined ? base : { ...base, vencimento: venc };
   }

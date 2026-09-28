@@ -64,6 +64,27 @@ describe('custo extra no formulário de oferta', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }));
     expect(salvas[0]).toMatchObject({ produto: 'LC', emissor: 'Corretora W', custoExtraAA: 0.005 });
   });
+  it('sem ruído de ponto flutuante: editar para 0,29% salva exatamente 0.0029, e 0,57% fica 0.0057', () => {
+    let salvas: OfertaCadastrada[] = [];
+    render(<ComEstado inicial={[{ ...comCusto, custoExtraAA: 0.0057 }]} aoMudar={(o) => { salvas = o; }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    expect(screen.getByLabelText('Custo extra (% ao ano, opcional)')).toHaveValue(0.57);
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+    expect(salvas[0]?.custoExtraAA).toBe(0.0057);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    preencher('Custo extra (% ao ano, opcional)', '0.29');
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+    expect(salvas[0]?.custoExtraAA).toBe(0.0029);
+  });
+  it('sem ruído ao cadastrar: 0,57% salva exatamente 0.0057', () => {
+    let salvas: OfertaCadastrada[] = [];
+    render(<ComEstado aoMudar={(o) => { salvas = o; }} />);
+    preencher('Emissor', 'Banco Z');
+    preencher('Conglomerado', 'Grupo Z');
+    preencher('Custo extra (% ao ano, opcional)', '0.57');
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar oferta' }));
+    expect(salvas[0]?.custoExtraAA).toBe(0.0057);
+  });
 });
 
 describe('linha "Custo extra" na tabela da comparação', () => {
