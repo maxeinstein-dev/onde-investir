@@ -9,6 +9,7 @@ import { VERSOES_FGC } from '../../src/engine/regras/fgc';
 import { VERSOES_IOF } from '../../src/engine/regras/iof';
 import { VERSOES_IR } from '../../src/engine/regras/ir';
 import { VERSOES_POUPANCA } from '../../src/engine/regras/poupanca';
+import { VERSOES_FII, VERSOES_VENDA_ACOES } from '../../src/engine/regras/rendaVariavel';
 import { MarkdownRestrito } from '../../src/ui/MarkdownRestrito';
 
 const DOMINIOS_OFICIAIS = [
@@ -42,10 +43,13 @@ const PERCENTUAIS_DAS_REGRAS = new Set<number>([
   ...vigente(VERSOES_IOF).flat(),
   ...vigente(VERSOES_CUSTODIA).map((c) => c.taxaAA * 100),
   ...VERSOES_POUPANCA.flatMap((p) => [p.valor.taxaFixaAM * 100, (p.valor.limiarSelicAA ?? 0) * 100, (p.valor.fracaoSelic ?? 0) * 100]),
+  ...vigente(VERSOES_FII).map((f) => f.participacaoMaximaFracao * 100),
+  ...vigente(VERSOES_FII).map((f) => f.aliquotaVendaCotas * 100),
 ].map((n) => Math.round(n * 1000) / 1000));
 const REAIS_DAS_REGRAS = new Set<string>([
   ...vigente(VERSOES_FGC).flatMap((f) => [reaisRedondos(f.porConglomerado), reaisRedondos(f.tetoGlobal)]),
   ...vigente(VERSOES_CUSTODIA).map((c) => reaisRedondos(c.isencaoSelic)),
+  ...vigente(VERSOES_VENDA_ACOES).map((v) => reaisRedondos(v.limiteMensalIsento)),
 ].map((s) => s.replace(/\s/g, ' ')));
 
 export function soNumerosDasRegras(texto: string, rotulo: string) {

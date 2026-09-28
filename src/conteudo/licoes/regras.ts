@@ -7,6 +7,7 @@ import { VERSOES_IOF } from '../../engine/regras/iof';
 import { VERSOES_IR } from '../../engine/regras/ir';
 import { VERSOES_POUPANCA } from '../../engine/regras/poupanca';
 import { VERSOES_PRAZO_MINIMO } from '../../engine/regras/prazoMinimo';
+import { VERSOES_FII, VERSOES_VENDA_ACOES } from '../../engine/regras/rendaVariavel';
 import type { VersaoRegra } from '../../engine/regras/tipos';
 import { formatarData, formatarPercentual } from '../../formato';
 import { reaisRedondos } from '../alertas';
@@ -27,6 +28,8 @@ const poupanca = vigente('poupança', VERSOES_POUPANCA);
 const poupancaAnterior = VERSOES_POUPANCA.find((v) => v.vigenciaFim === poupanca.vigenciaInicio);
 if (!poupancaAnterior) throw new Error('Sem a versão anterior da regra poupança');
 const prazo = vigente('prazo mínimo', VERSOES_PRAZO_MINIMO);
+const fii = vigente('FII', VERSOES_FII);
+const vendaAcoes = vigente('venda de ações', VERSOES_VENDA_ACOES);
 
 const faixas = ir.valor;
 const pct = formatarPercentual;
@@ -89,5 +92,13 @@ export const REGRAS = {
     fonte: prazo.fonte,
     demais: prazo.valor.LCI.demais,
     lciComIPCA: prazo.valor.LCI.comIPCA,
+  },
+  rendaVariavel: {
+    fonteFII: fii.fonte,
+    minimoCotistasFII: fii.valor.minimoCotistas,
+    participacaoMaximaFII: pct(fii.valor.participacaoMaximaFracao),
+    aliquotaVendaFII: pct(fii.valor.aliquotaVendaCotas),
+    fonteVendaAcoes: vendaAcoes.fonte,
+    limiteVendaAcoes: reaisRedondos(vendaAcoes.valor.limiteMensalIsento),
   },
 } as const;

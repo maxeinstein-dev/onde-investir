@@ -4,7 +4,7 @@
 import { useMemo } from 'preact/hooks';
 import type { ObjetivoSalvo } from '../../armazenamento/objetivos';
 import { nomeOferta } from '../../conteudo/comparacao';
-import { AVISO_EDUCATIVO, descreverFatia, licaoDaFatia, textoDaFatia, textoDoFgc } from '../../conteudo/sugestao';
+import { AVISO_EDUCATIVO, descreverFatia, licaoDaFatia, notaRendaVariavel, textoDaFatia, textoDoFgc } from '../../conteudo/sugestao';
 import type { DataISO } from '../../engine/datas';
 import type { ItemFGC } from '../../engine/fgc';
 import type { OfertaCadastrada } from '../../engine/ofertas';
@@ -48,6 +48,7 @@ export function Sugestao({ objetivo, catalogo, carteira, hoje, onIrParaComparar 
     () => sugerir(objetivo.entradas, { catalogo, carteira, hoje }),
     [objetivo.entradas, catalogo, carteira, hoje],
   );
+  const nota = notaRendaVariavel(objetivo.entradas);
   return (
     <section class="sugestao" aria-labelledby="sugestao-titulo">
       <h2 id="sugestao-titulo">{objetivo.nome ?? 'Sugestão'}</h2>
@@ -56,6 +57,11 @@ export function Sugestao({ objetivo, catalogo, carteira, hoje, onIrParaComparar 
       <ul class="lista-ofertas" aria-label="Fatias sugeridas">
         {fatias.map((f, i) => <ItemFatia key={`${f.motivo}-${i}`} f={f} onIrParaComparar={onIrParaComparar} />)}
       </ul>
+      {nota && (
+        <p class="dica">
+          {nota} <LinkLicao licao="renda-variavel" />
+        </p>
+      )}
     </section>
   );
 }

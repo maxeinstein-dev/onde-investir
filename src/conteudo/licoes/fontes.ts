@@ -28,6 +28,8 @@ export const FONTES = {
   riscosAcoes: 'https://www.gov.br/investidor/pt-br/investir/tipos-de-investimentos/acoes/riscos-relacionados-aos-investimentos-em-acoes',
   /** M3c: o risco não pode ser eliminado, mas pode ser reduzido com diversificação. */
   diversificacao: 'https://www.gov.br/investidor/pt-br/investir/tipos-de-investimentos/etfs/como-reduzir-o-risco',
+  fonteFII: REGRAS.rendaVariavel.fonteFII,
+  fonteVendaAcoes: REGRAS.rendaVariavel.fonteVendaAcoes,
 } as const;
 
 /** Um link do Markdown restrito para a fonte. */

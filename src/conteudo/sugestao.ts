@@ -2,7 +2,7 @@
 // texto: aqui, cada MotivoFatia vira uma frase e uma lição, no mesmo padrão de conteudo/alertas.ts.
 // Rascunho: a revisão editorial é a Tarefa D1 do M4a.
 import type { IdLicao } from './licoes/tipos';
-import type { Fatia, MotivoFatia } from '../engine/sugestao';
+import type { Fatia, MotivoFatia, Objetivo } from '../engine/sugestao';
 import type { TipoIndexacao, TipoProduto } from '../engine/produtos';
 import { formatarMoeda } from '../formato';
 
@@ -49,4 +49,10 @@ export function descreverFatia(f: Fatia): string {
 export function textoDoFgc(f: Fatia): string | null {
   if (!f.fgc) return null;
   return `Somado ao que você já tem em ${f.fgc.conglomerado}, isso passa do limite do FGC em ${formatarMoeda(f.fgc.excedente)}. Considere outro emissor.`;
+}
+
+/** Nota fixa (sem cálculo) para a lição de renda variável, em objetivos de longo prazo (spec §9.1/§9.2). */
+export function notaRendaVariavel(objetivo: Objetivo): string | null {
+  const horizonte = objetivo.tipo === 'LONGO_PRAZO' || objetivo.tipo === 'SEM_OBJETIVO' ? objetivo.horizonteAnos : 0;
+  return horizonte > 5 ? 'Para prazos acima de 5 anos, carteiras costumam incluir renda variável.' : null;
 }
