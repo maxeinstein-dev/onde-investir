@@ -1097,3 +1097,147 @@ button:hover {
   color: var(--erro);
   font-weight: 600;
 }
+
+/* Aprender (M3c): o índice da trilha, a lição e os casos clássicos. */
+.aprender {
+  overflow-wrap: anywhere;
+}
+
+.aprender__progresso {
+  display: grid;
+  gap: 0.35rem;
+  margin: 1rem 0;
+  max-width: 28rem;
+}
+
+.aprender__progresso progress {
+  width: 100%;
+  height: 0.75rem;
+  accent-color: var(--sucesso);
+}
+
+.aprender__progresso p {
+  margin: 0;
+}
+
+.trilha {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0 1.5rem;
+  padding-left: 0;
+  list-style: none;
+}
+
+.trilha__item {
+  padding: 0.75rem 1rem;
+  background: var(--fundo-suave);
+  border-radius: var(--raio);
+}
+
+.trilha__item p {
+  margin: 0.25rem 0 0;
+}
+
+.trilha__link {
+  font-weight: 600;
+}
+
+.casos__lista {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.75rem 0 1.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.caso {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+.pagina .caso h4 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.caso details {
+  margin: 0.5rem 0 0.75rem;
+}
+
+.caso summary {
+  cursor: pointer;
+}
+
+.licao {
+  max-width: 44rem;
+}
+
+.licao__resumo {
+  font-size: 1.05rem;
+  color: var(--texto-suave);
+}
+
+.licao__secao {
+  margin: 1.25rem 0;
+}
+
+.licao__experimente {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: var(--fundo-suave);
+  border-radius: var(--raio);
+}
+
+.licao__experimente p {
+  margin: 0 0 0.75rem;
+}
+
+.licao__termos ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.licao__fontes,
+.licao__termos {
+  margin: 1.25rem 0;
+}
+
+.licao__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+  margin: 1.5rem 0;
+}
+
+/* A comparação temporária (Experimente, caso clássico ou link): o aviso acima do comparador. */
+.temporaria {
+  margin: 0 0 1.25rem;
+  padding: 0.75rem 1rem;
+  background: var(--aviso-fundo);
+  border-left: 4px solid var(--aviso-borda);
+  border-radius: var(--raio);
+  overflow-wrap: anywhere;
+}
+
+.temporaria__titulo {
+  margin: 0;
+  font-weight: 700;
+}
+
+.temporaria__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  margin: 0.75rem 0 0;
+}
+
+.temporaria .aviso {
+  display: block;
+  background: var(--fundo);
+}

@@ -25,8 +25,11 @@ function abaDoHash(ids: readonly string[], apelidos: Apelidos): string {
   return ids.includes(prefixo) ? prefixo : (ids[0] ?? '');
 }
 
-/** A aba ativa sincronizada com o hash da URL (e com o voltar do navegador), para quem precisa trocar de aba por fora. */
-export function useAbaDaUrl(ids: readonly string[], apelidos: Apelidos = {}): [string, (id: string) => void] {
+/**
+ * A aba ativa sincronizada com o hash da URL (e com o voltar do navegador), para quem precisa trocar de aba por fora.
+ * `ativar(id, sub)` põe no hash também o que vem depois da `/` (`#aprender/fgc`, a lição aberta).
+ */
+export function useAbaDaUrl(ids: readonly string[], apelidos: Apelidos = {}): [string, (id: string, sub?: string) => void] {
   const [ativa, setAtiva] = useState(() => abaDoHash(ids, apelidos));
   const atuais = useRef({ ids, apelidos });
   atuais.current = { ids, apelidos };
@@ -37,9 +40,10 @@ export function useAbaDaUrl(ids: readonly string[], apelidos: Apelidos = {}): [s
     return () => window.removeEventListener('hashchange', aoMudarHash);
   }, []);
 
-  function ativar(id: string) {
+  function ativar(id: string, sub?: string) {
     setAtiva(id);
-    if (location.hash !== `#${id}`) location.hash = id;
+    const alvo = sub === undefined || sub === '' ? id : `${id}/${sub}`;
+    if (location.hash !== `#${alvo}`) location.hash = alvo;
   }
   return [ativa, ativar];
 }

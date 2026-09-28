@@ -62,6 +62,8 @@ const EDITANDO: Fase = { tipo: 'editando' };
 /** Liderança mais curta que isto, em dias, é transitória: o gráfico e o resumo a fundem no trecho vizinho. */
 const DURACAO_MINIMA_LIDERANCA = 30;
 const PREFIXO = 'comparador';
+/** O título da tela: recebe o foco na volta da comparação temporária. */
+export const ID_TITULO_COMPARADOR = `${PREFIXO}-titulo`;
 const VAZIO = 'Adicione pelo menos duas ofertas para comparar (até 5).';
 /** Tempo com o anúncio vazio antes de reescrever a mesma mensagem, para o leitor de tela anunciar de novo. */
 const ESPERA_REPETIR_MS = 100;
@@ -163,7 +165,16 @@ export interface PropsComparador {
    * Só muda o aviso do resultado recalculado. Padrão: CARTEIRA.
    */
   motivoCarteira?: 'HISTORICO' | 'CARTEIRA';
+  /** As entradas com que o formulário abre (a comparação temporária da lição ou do link). Só valem na montagem. */
+  inicial?: EntradaInicial;
+  /** A pergunta do palpite (a da lição); padrão: "Qual lidera em …?". */
+  pergunta?: string;
+  /** Cada palpite respondido, para a taxa de acerto. Empate e horizonte sem líder não contam. */
+  onPalpite?: (acertou: boolean) => void;
 }
+
+/** O valor, as datas e a regra com que a comparação abre. */
+export interface EntradaInicial { valor: number; dataAplicacao: DataISO; suaData?: DataISO; regra: RegraReinvestimento }
 
 /** O aviso (no contêiner vivo) do resultado recalculado com a carteira nova. */
 export const RESULTADO_ATUALIZADO = {
@@ -176,13 +187,13 @@ const SEM_CARTEIRA: readonly ItemFGC[] = [];
 /** A tela de comparação: de 2 a 5 ofertas lado a lado, com palpite, linha do tempo e equivalências. */
 export function Comparador({
   catalogo, selecao, onMudarSelecao, onCriarOferta, cenario, descricaoCenario, cenarioInvalido = null, gerarId = novoIdOferta,
-  carteira = SEM_CARTEIRA, motivoCarteira = 'CARTEIRA',
+  carteira = SEM_CARTEIRA, motivoCarteira = 'CARTEIRA', inicial, pergunta, onPalpite,
 }: PropsComparador) {
-  const [valor, setValor] = useState(10000);
-  const [dataAplicacao, setDataAplicacao] = useState<DataISO>(hoje());
-  const [suaData, setSuaData] = useState<DataISO>('');
-  const [tipoRegra, setTipoRegra] = useState<TipoRegra>('PADRAO');
-  const [taxaFixa, setTaxaFixa] = useState(12);
+  const [valor, setValor] = useState(inicial?.valor ?? 10000);
+  const [dataAplicacao, setDataAplicacao] = useState<DataISO>(() => inicial?.dataAplicacao ?? hoje());
+  const [suaData, setSuaData] = useState<DataISO>(inicial?.suaData ?? '');
+  const [tipoRegra, setTipoRegra] = useState<TipoRegra>(inicial?.regra.tipo ?? 'PADRAO');
+  const [taxaFixa, setTaxaFixa] = useState(inicial?.regra.tipo === 'TAXA_FIXA' ? inicial.regra.taxaAA * 100 : 12);
   const [faseSalva, setFase] = useState<Fase>(EDITANDO);
   /** O erro vale para as entradas e o cenário em que apareceu. */
   const [erroSalvo, setErroSalvo] = useState<{ texto: string; entrada: Entrada; cenario: Cenario } | null>(null);
@@ -293,6 +304,13 @@ export function Comparador({
     }
   }
 
+  /** O palpite vira resultado; com um líder só, conta na taxa de acerto (empate não conta). */
+  function escolherPalpite(f: Extract<Fase, { tipo: 'palpite' }>, i: number) {
+    setFase({ ...f, tipo: 'resultado', palpite: i });
+    const lideres = f.colunas.at(-1)?.lideres ?? [];
+    if (lideres.length === 1) onPalpite?.(lideres[0] === i);
+  }
+
   function pularPalpites() {
     salvarPalpitesLigados(armazenamentoLocal(), false);
     setPalpitesLigados(false);
@@ -329,8 +347,8 @@ export function Comparador({
   );
 
   return (
-    <section class="comparacao" aria-labelledby={`${PREFIXO}-titulo`}>
-      <h2 id={`${PREFIXO}-titulo`}>Comparar</h2>
+    <section class="comparacao" aria-labelledby={ID_TITULO_COMPARADOR}>
+      <h2 id={ID_TITULO_COMPARADOR} tabIndex={-1}>Comparar</h2>
       <p class="dica">Cenário: {descricaoCenario}</p>
       <form onSubmit={comparar} class="formulario" noValidate>
         <fieldset class="aplicacao">
@@ -391,8 +409,8 @@ export function Comparador({
 
       {fase.tipo === 'palpite' && (
         <PalpiteAntesDeVer id={`${PREFIXO}-palpite`} refTitulo={tituloPalpite} opcoes={nomes}
-          pergunta={`Qual lidera em ${fase.colunas.at(-1) ? nomeDoHorizonte(fase.colunas.at(-1) as ColunaHorizonte) : 'seu horizonte'}?`}
-          onEscolher={(i) => setFase({ ...fase, tipo: 'resultado', palpite: i })} onPular={pularPalpites} />
+          pergunta={pergunta ?? `Qual lidera em ${fase.colunas.at(-1) ? nomeDoHorizonte(fase.colunas.at(-1) as ColunaHorizonte) : 'seu horizonte'}?`}
+          onEscolher={(i) => escolherPalpite(fase, i)} onPular={pularPalpites} />
       )}
 
       {resultado ? (
