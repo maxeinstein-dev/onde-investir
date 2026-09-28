@@ -133,7 +133,7 @@ function montarPassos(r: Omit<ResultadoSimulacao, 'passos'>): Passo[] {
 }
 
 /** Depósitos nos dias 29, 30 e 31 contam como feitos no dia 1º do mês seguinte. */
-function inicioEfetivoPoupanca(data: DataISO): DataISO {
+export function inicioEfetivoPoupanca(data: DataISO): DataISO {
   const dia = Number(data.slice(8, 10));
   return dia >= 29 ? somarMeses(`${data.slice(0, 8)}01`, 1) : data;
 }

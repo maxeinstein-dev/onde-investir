@@ -12,7 +12,7 @@ import { calcularEquivalencias } from '../../engine/equivalencia';
 import type { Cenario } from '../../engine/indexadores';
 import type { CenarioProjetado } from '../../engine/projecao';
 import { validarRegraReinvestimento, type OfertaCadastrada, type RegraReinvestimento } from '../../engine/ofertas';
-import { seriesDeValorLiquido, trocasDeLider, type Serie, type TrocaDeLider } from '../../engine/serie';
+import { seriesDeValorLiquido, trocasDeLider, trocasRelevantes, type Serie, type TrocasRelevantes } from '../../engine/serie';
 import { formatarMoeda, formatarPercentual } from '../../formato';
 import { CampoNumerico } from '../CampoNumerico';
 import { Equivalencias, EquivalenciasIndisponiveis } from '../Equivalencias';
@@ -45,7 +45,8 @@ interface Calculo {
   alertas: Alerta[];
   /** O valor líquido de cada oferta até o horizonte mais distante, para os gráficos. */
   series: Serie[];
-  trocas: TrocaDeLider[];
+  /** As trocas de líder para exibir: lideranças de menos de {@link DURACAO_MINIMA_LIDERANCA} dias fundidas. */
+  trocas: TrocasRelevantes;
   /** A partir desta data o cenário projetado é premissa do app; ausente no cenário manual. */
   inicioPremissa?: DataISO;
 }
@@ -55,6 +56,8 @@ type Fase =
   | ({ tipo: 'resultado'; palpite: number | null } & Calculo);
 
 const EDITANDO: Fase = { tipo: 'editando' };
+/** Liderança mais curta que isto, em dias, é transitória: o gráfico e o resumo a fundem no trecho vizinho. */
+const DURACAO_MINIMA_LIDERANCA = 30;
 const PREFIXO = 'comparador';
 const VAZIO = 'Adicione pelo menos duas ofertas para comparar (até 5).';
 /** Tempo com o anúncio vazio antes de reescrever a mesma mensagem, para o leitor de tela anunciar de novo. */
@@ -112,7 +115,7 @@ function calcular(ofertas: readonly OfertaCadastrada[], entrada: Entrada, cenari
     ofertas, cenario, entrada, regra, colunas, series,
     linha: linhaDoTempo(ofertas, valor, dataAplicacao, cenario, regra),
     alertas: gerarAlertas(ofertas, colunas),
-    trocas: trocasDeLider(series, { ofertas, valor, dataAplicacao, cen: cenario, regra }),
+    trocas: trocasRelevantes(trocasDeLider(series, { ofertas, valor, dataAplicacao, cen: cenario, regra }), { duracaoMinimaDias: DURACAO_MINIMA_LIDERANCA, fim }),
     ...(inicioPremissa === undefined ? {} : { inicioPremissa }),
   };
 }
@@ -370,8 +373,8 @@ export function Comparador({
           <PorQueLidera ofertas={resultado.ofertas} colunas={resultado.colunas} data={liderData} onData={setLiderData} />
           <details open class="graficos">
             <summary>Gráficos</summary>
-            <GraficoValorLiquido series={resultado.series} trocas={resultado.trocas} ofertas={resultado.ofertas}
-              inicioPremissa={resultado.inicioPremissa} />
+            <GraficoValorLiquido series={resultado.series} trocas={resultado.trocas.trocas} ofertas={resultado.ofertas}
+              inicioPremissa={resultado.inicioPremissa} {...(resultado.trocas.inicial ? { oscilacaoInicial: resultado.trocas.inicial } : {})} />
             <GraficoDiferenca series={resultado.series} ofertas={resultado.ofertas} prefixo={`${PREFIXO}-diferenca`} />
           </details>
           <LinhaDoTempo ofertas={resultado.ofertas} linha={resultado.linha} ultimaColuna={resultado.colunas.at(-1)} />

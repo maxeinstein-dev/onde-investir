@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { lideres } from '../../src/engine/comparacao';
-import { diasCorridos, somarDias } from '../../src/engine/datas';
+import { diasCorridos, somarDias, somarMeses } from '../../src/engine/datas';
 import { taxaDiaria } from '../../src/engine/indexadores';
 import { projetar, type OfertaCadastrada } from '../../src/engine/ofertas';
-import { datasDaSerie, lideresNoPonto, seriesDeValorLiquido, trocasDeLider, type Serie } from '../../src/engine/serie';
+import { datasDaSerie, lideresNoPonto, seriesDeValorLiquido, trocasDeLider, trocasRelevantes, type Serie, type TrocaDeLider } from '../../src/engine/serie';
 import { CEN, INI } from './cenarioPadrao';
 import { cenarioReal } from './cenarioReal';
 
@@ -286,5 +286,125 @@ describe('motivo do ponto não resgatável', () => {
     expect(prazo?.pontos.filter((p) => p.data >= '2027-03-28').every((p) => p.resgatavel && p.motivo === undefined)).toBe(true);
     expect(marcacao?.pontos.every((p) => p.motivo === 'MARCACAO_A_MERCADO')).toBe(true);
     expect(diario?.pontos.every((p) => !('motivo' in p))).toBe(true);
+  });
+});
+
+describe('trocas transitórias e poupança', () => {
+  const cen = cenarioReal('BASE');
+  const poupanca: OfertaCadastrada = { ...b, id: 'p', produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' }, liquidez: 'DIARIA' };
+  const lci = (percentualCDI: number): OfertaCadastrada => ({ ...b, id: `l${percentualCDI}`, produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI }, liquidez: 'DIARIA' });
+  const fim = somarDias(INI, 365);
+
+  it('datasDaSerie inclui os aniversários da poupança e a véspera de cada um', () => {
+    const datas = datasDaSerie(INI, fim, [poupanca]);
+    for (let k = 1; k <= 12; k++) {
+      expect(datas, String(k)).toContain(somarMeses(INI, k));
+      expect(datas, String(k)).toContain(somarDias(somarMeses(INI, k), -1));
+    }
+  });
+
+  /** A verdade dia a dia: `projetar` em cada dia, a partir do primeiro ponto da série. */
+  function verdade(ofertas: OfertaCadastrada[], inicio: string): TrocaDeLider[] {
+    const trocas: TrocaDeLider[] = [];
+    let atual = lideres(ofertas.map((o) => projetar(o, 10000, INI, inicio, cen)));
+    for (let d = somarDias(inicio, 1); d <= fim; d = somarDias(d, 1)) {
+      const novo = lideres(ofertas.map((o) => projetar(o, 10000, INI, d, cen)));
+      if (novo.join() !== atual.join()) trocas.push({ data: d, de: atual, para: novo });
+      atual = novo;
+    }
+    return trocas;
+  }
+
+  // 74% do CDI (o caso da revisão): no cenário real a LCI fica à frente desde o fim do prazo mínimo. Entre 58% e
+  // 64% do CDI a poupança volta a liderar a cada aniversário, e a busca antiga perdia trocas.
+  for (const pct of [0.74, 0.64, 0.62, 0.58]) {
+    it(`poupança × LCI ${Math.round(pct * 100)}% do CDI, cenário real, 1 ano: trocasDeLider bate com a verdade dia a dia`, () => {
+      const ofertas = [poupanca, lci(pct)];
+      const series = seriesDeValorLiquido(ofertas, 10000, INI, fim, cen, PADRAO);
+      const trocas = trocasDeLider(series, { ofertas, valor: 10000, dataAplicacao: INI, cen, regra: PADRAO });
+      expect(trocas).toEqual(verdade(ofertas, series[0]?.pontos[0]?.data ?? ''));
+    });
+  }
+
+  it('uma terceira oferta que lidera por poucos dias entre dois pontos entra na busca (todas as ofertas, não só as envolvidas)', () => {
+    const ofertas = [poupanca, lci(0.62), lci(0.61)];
+    const series = seriesDeValorLiquido(ofertas, 10000, INI, fim, cen, PADRAO);
+    const trocas = trocasDeLider(series, { ofertas, valor: 10000, dataAplicacao: INI, cen, regra: PADRAO });
+    expect(trocas).toEqual(verdade(ofertas, series[0]?.pontos[0]?.data ?? ''));
+  });
+
+  it('desempenho: 5 ofertas com poupança e trocas mensais, 5 anos, série + trocas < 400 ms', () => {
+    const ofertas = [poupanca, lci(0.62), lci(0.6), { ...cdbDiario, id: 'c75', indexacao: { tipo: 'POS_CDI' as const, percentualCDI: 0.75 } }, lci(0.58)];
+    const t0 = performance.now();
+    const series = seriesDeValorLiquido(ofertas, 10000, INI, '2031-09-28', cen, PADRAO);
+    const t1 = performance.now();
+    const trocas = trocasDeLider(series, { ofertas, valor: 10000, dataAplicacao: INI, cen, regra: PADRAO });
+    const t2 = performance.now();
+    console.info(`série ${(t1 - t0).toFixed(1)} ms, trocas ${(t2 - t1).toFixed(1)} ms (${trocas.length} trocas)`);
+    expect(trocas.length).toBeGreaterThan(10);
+    expect(t2 - t0).toBeLessThan(400);
+  });
+});
+
+describe('trocasRelevantes', () => {
+  const t = (data: string, de: number[], para: number[]): TrocaDeLider => ({ data, de, para });
+
+  it('sem lideranças curtas, as mesmas trocas', () => {
+    const trocas = [t('2027-01-01', [0], [1]), t('2027-06-01', [1], [0])];
+    expect(trocasRelevantes(trocas, { duracaoMinimaDias: 30 })).toEqual({ trocas });
+  });
+
+  it('A longo, B por 1 dia, A longo: some a troca e o trecho de A fica oscilante', () => {
+    const trocas = [t('2027-01-01', [0], [1]), t('2027-03-01', [1], [0]), t('2027-03-02', [0], [1])];
+    expect(trocasRelevantes(trocas, { duracaoMinimaDias: 30 })).toEqual({
+      trocas: [{ data: '2027-01-01', de: [0], para: [1], oscilante: true, alternancias: 2, alternam: [0, 1] }],
+    });
+  });
+
+  it('liderança curta logo depois do começo: o trecho inicial fica oscilante', () => {
+    const trocas = [t('2027-01-01', [0], [1]), t('2027-01-10', [1], [0])];
+    expect(trocasRelevantes(trocas, { duracaoMinimaDias: 30 })).toEqual({
+      inicial: { oscilante: true, alternancias: 2, alternam: [0, 1] }, trocas: [],
+    });
+  });
+
+  it('alternância mensal (poupança): funde as mais curtas primeiro, e quem lidera mais tempo fica', () => {
+    // 1 lidera ~20 dias, 0 (a poupança) ~10 dias a cada aniversário; no fim, 0 volta por 1 dia.
+    const trocas = [
+      t('2027-04-07', [0], [1]), t('2027-04-28', [1], [0]), t('2027-05-07', [0], [1]), t('2027-05-28', [1], [0]),
+      t('2027-06-09', [0], [1]), t('2027-06-28', [1], [0]), t('2027-07-09', [0], [1]), t('2027-09-28', [1], [0]),
+    ];
+    expect(trocasRelevantes(trocas, { duracaoMinimaDias: 30, fim: '2027-09-28' })).toEqual({
+      trocas: [{ data: '2027-04-07', de: [0], para: [1], oscilante: true, alternancias: 7, alternam: [0, 1] }],
+    });
+  });
+
+  it('o último trecho curto com um líder novo fica (não é alternância); sem `fim`, o último trecho nunca é curto', () => {
+    const trocas = [t('2027-01-01', [0], [1]), t('2029-09-10', [1], [2])];
+    expect(trocasRelevantes(trocas, { duracaoMinimaDias: 30, fim: '2029-09-28' })).toEqual({ trocas });
+    const volta = [t('2027-01-01', [0], [1]), t('2029-09-10', [1], [0])];
+    expect(trocasRelevantes(volta, { duracaoMinimaDias: 30 })).toEqual({ trocas: volta });
+  });
+
+  it('liderança curta entre líderes diferentes: fundida no trecho anterior', () => {
+    const trocas = [t('2027-01-01', [0], [1]), t('2027-06-01', [1], [2]), t('2027-06-05', [2], [0])];
+    expect(trocasRelevantes(trocas, { duracaoMinimaDias: 30 })).toEqual({
+      trocas: [
+        { data: '2027-01-01', de: [0], para: [1], oscilante: true, alternancias: 1, alternam: [1, 2] },
+        { data: '2027-06-05', de: [1], para: [0] },
+      ],
+    });
+  });
+
+  it('sem trocas, nada; duração mínima inválida lança', () => {
+    expect(trocasRelevantes([], { duracaoMinimaDias: 30 })).toEqual({ trocas: [] });
+    expect(() => trocasRelevantes([], { duracaoMinimaDias: -1 })).toThrow(RangeError);
+  });
+});
+
+describe('trocasDeLider: contexto e séries', () => {
+  it('o contexto precisa ter uma oferta por série', () => {
+    const series = seriesDeValorLiquido([cdbDiario, lci2028], 10000, INI, '2027-06-01', CEN, PADRAO);
+    expect(() => trocasDeLider(series, { ofertas: [cdbDiario], valor: 10000, dataAplicacao: INI, cen: CEN, regra: PADRAO })).toThrow(RangeError);
   });
 });

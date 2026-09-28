@@ -138,3 +138,15 @@ describe('GraficoValorLiquido', () => {
     expect(ultimo().destroy).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('GraficoValorLiquido com trocas relevantes', () => {
+  it('o resumo cita a oscilação do trecho do começo', () => {
+    montar({ trocas: [], oscilacaoInicial: { oscilante: true, alternancias: 2, alternam: [0, 1] } });
+    expect(screen.getByRole('img').getAttribute('aria-label')).toMatch(/quase o tempo todo e alterna outras 2 vezes\.$/);
+  });
+  it('trecho oscilante: a linha vertical fica, e o resumo diz que alterna', () => {
+    montar({ trocas: [{ data: D3, de: [0], para: [1], oscilante: true, alternancias: 3, alternam: [0, 1] }] });
+    expect(anotacoes().filter((a) => a.type === 'line')).toHaveLength(1);
+    expect(screen.getByText(/passa a liderar e alterna outras 3 vezes\.$/)).toBeVisible();
+  });
+});

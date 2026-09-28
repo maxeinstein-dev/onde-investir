@@ -3,7 +3,7 @@ import { nomeOferta } from '../../conteudo/comparacao';
 import { GRAFICO_VALOR, motivoSemResgate, resumirTrocas, rotuloDaTroca } from '../../conteudo/serie';
 import type { DataISO } from '../../engine/datas';
 import type { OfertaCadastrada } from '../../engine/ofertas';
-import { lideresNoPonto, type Serie, type TrocaDeLider } from '../../engine/serie';
+import { lideresNoPonto, type Oscilacao, type Serie, type TrocaRelevante } from '../../engine/serie';
 import { formatarMoeda } from '../../formato';
 import { letraDaOferta } from '../letras';
 import type { PaletaGrafico } from './cores';
@@ -14,7 +14,10 @@ import { useGrafico } from './useGrafico';
 export interface PropsGraficoValorLiquido {
   /** As de `seriesDeValorLiquido`, todas com as mesmas datas. */
   series: readonly Serie[];
-  trocas: readonly TrocaDeLider[];
+  /** As trocas relevantes (`trocasRelevantes`): as lideranças curtas já fundidas. */
+  trocas: readonly TrocaRelevante[];
+  /** A oscilação do trecho do começo, quando houver (`trocasRelevantes(...).inicial`). */
+  oscilacaoInicial?: Oscilacao;
   ofertas: readonly OfertaCadastrada[];
   /** A partir desta data a projeção é premissa do app (cenário projetado); a faixa fica sombreada. */
   inicioPremissa?: DataISO;
@@ -56,9 +59,10 @@ function montarConfig(p: PaletaGrafico, { series, trocas, ofertas, inicioPremiss
 
 /** Valor líquido de cada oferta ao longo do tempo, com as trocas de líder, o tracejado sem resgate e a premissa. */
 export function GraficoValorLiquido(props: PropsGraficoValorLiquido) {
-  const { series, trocas, ofertas, inicioPremissa } = props;
+  const { series, trocas, ofertas, inicioPremissa, oscilacaoInicial } = props;
   const canvas = useRef<HTMLCanvasElement>(null);
-  const resumo = useMemo(() => resumirTrocas(trocas, ofertas, lideresNoPonto(series, 0)), [series, trocas, ofertas]);
+  const resumo = useMemo(
+    () => resumirTrocas(trocas, ofertas, lideresNoPonto(series, 0), oscilacaoInicial), [series, trocas, ofertas, oscilacaoInicial]);
   useGrafico(canvas, (p) => montarConfig(p, props), [series, trocas, ofertas, inicioPremissa]);
   return (
     <figure class="grafico">

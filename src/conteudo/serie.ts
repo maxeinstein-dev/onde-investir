@@ -1,7 +1,7 @@
 // Textos do gráfico do valor líquido. Rascunho: a revisão editorial é a tarefa C5 do M3b.
 import { type DataISO, dataBR, somarDias } from '../engine/datas';
 import type { OfertaCadastrada } from '../engine/ofertas';
-import type { MotivoSemResgate, TrocaDeLider } from '../engine/serie';
+import type { MotivoSemResgate, Oscilacao, TrocaRelevante } from '../engine/serie';
 import { listar, nomeOferta } from './comparacao';
 
 const NINGUEM = 'nenhuma oferta pode ser resgatada';
@@ -18,20 +18,47 @@ function quemLidera(ofertas: readonly OfertaCadastrada[], indices: readonly numb
 
 const maiuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
+/** O máximo de frases do resumo. */
+export const MAXIMO_FRASES_RESUMO = 5;
+
 /**
- * Resumo acessível do gráfico (o `aria-label` do canvas e o texto abaixo dele), uma frase por item.
- * `lideresIniciais`: quem lidera no primeiro ponto da série (`lideresNoPonto(series, 0)`), porque o começo não é
- * uma troca.
+ * " e alterna outras N vezes", com "entre {líder} e {outra} por causa do aniversário da poupança" quando a
+ * alternância é entre duas ofertas e uma delas é a poupança. Vazio sem oscilação.
  */
-export function resumirTrocas(trocas: readonly TrocaDeLider[], ofertas: readonly OfertaCadastrada[], lideresIniciais: readonly number[]): string[] {
+function alternancia(ofertas: readonly OfertaCadastrada[], lideres: readonly number[], osc: Partial<Oscilacao> | undefined): string {
+  if (!osc?.oscilante || !osc.alternancias) return '';
+  const vezes = osc.alternancias === 1 ? 'outra vez' : `outras ${osc.alternancias} vezes`;
+  const alternam = osc.alternam ?? [];
+  const lider = lideres.length === 1 ? lideres[0] : undefined;
+  const outra = alternam.find((i) => i !== lider);
+  const temPoupanca = alternam.some((i) => ofertas[i]?.produto === 'POUPANCA');
+  if (alternam.length !== 2 || lider === undefined || outra === undefined || !temPoupanca) return ` e alterna ${vezes}`;
+  return ` e alterna ${vezes} entre ${nomes(ofertas, [lider])} e ${nomes(ofertas, [outra])} por causa do aniversário da poupança`;
+}
+
+/**
+ * Resumo acessível do gráfico (o `aria-label` do canvas e o texto abaixo dele), uma frase por trecho, no máximo
+ * {@link MAXIMO_FRASES_RESUMO}. Recebe as trocas relevantes (`trocasRelevantes`): um trecho oscilante ganha
+ * "e alterna outras N vezes". `lideresIniciais`: quem lidera no primeiro ponto da série
+ * (`lideresNoPonto(series, 0)`), porque o começo não é uma troca; `inicial`: a oscilação do trecho do começo.
+ */
+export function resumirTrocas(
+  trocas: readonly TrocaRelevante[], ofertas: readonly OfertaCadastrada[], lideresIniciais: readonly number[], inicial?: Oscilacao,
+): string[] {
   const primeira = trocas[0];
+  const doInicio = alternancia(ofertas, lideresIniciais, inicial);
   if (!primeira) {
-    return [lideresIniciais.length === 0 ? `${maiuscula(NINGUEM)} no período.` : `${maiuscula(quemLidera(ofertas, lideresIniciais, 'lidera'))} o tempo todo.`];
+    if (lideresIniciais.length === 0) return [`${maiuscula(NINGUEM)} no período.`];
+    const quanto = doInicio === '' ? 'o tempo todo' : 'quase o tempo todo';
+    return [`${maiuscula(quemLidera(ofertas, lideresIniciais, 'lidera'))} ${quanto}${doInicio}.`];
   }
-  return [
-    `Até ${dataBR(somarDias(primeira.data, -1))}, ${quemLidera(ofertas, lideresIniciais, 'lidera')}.`,
-    ...trocas.map((t) => `A partir de ${dataBR(t.data)}, ${quemLidera(ofertas, t.para, 'passa a liderar')}.`),
+  const frases = [
+    `Até ${dataBR(somarDias(primeira.data, -1))}, ${quemLidera(ofertas, lideresIniciais, 'lidera')}${doInicio}.`,
+    ...trocas.map((t) => `A partir de ${dataBR(t.data)}, ${quemLidera(ofertas, t.para, 'passa a liderar')}${alternancia(ofertas, t.para, t)}.`),
   ];
+  if (frases.length <= MAXIMO_FRASES_RESUMO) return frases;
+  const restantes = frases.length - (MAXIMO_FRASES_RESUMO - 1);
+  return [...frases.slice(0, MAXIMO_FRASES_RESUMO - 1), `Depois, a liderança ainda muda outras ${restantes} vezes até o fim do período.`];
 }
 
 /** Textos fixos do gráfico do valor líquido. */

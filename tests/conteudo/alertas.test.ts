@@ -141,3 +141,57 @@ describe('resumirTrocas', () => {
     ]);
   });
 });
+
+describe('resumirTrocas com trocas relevantes (alternância fundida)', () => {
+  const poupanca: OfertaCadastrada = { ...base, id: 'p', produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' }, liquidez: 'DIARIA' };
+  const lci: OfertaCadastrada = { ...lciDiaria, id: 'l', vencimento: undefined };
+  const lista = [poupanca, lci, cdbDiario];
+
+  it('trecho oscilante entre a poupança e outra oferta: cita o aniversário da poupança', () => {
+    expect(resumirTrocas([{ data: '2027-04-07', de: [0], para: [1], oscilante: true, alternancias: 11, alternam: [0, 1] }], lista, [0])).toEqual([
+      'Até 06/04/2027, Poupança (Banco B) lidera.',
+      'A partir de 07/04/2027, LCI 90% do CDI (Banco B) passa a liderar e alterna outras 11 vezes entre LCI 90% do CDI (Banco B) e Poupança (Banco B) por causa do aniversário da poupança.',
+    ]);
+  });
+
+  it('oscilação sem poupança (ou com mais de duas ofertas): texto genérico', () => {
+    expect(resumirTrocas([{ data: '2027-04-07', de: [1], para: [2], oscilante: true, alternancias: 2, alternam: [1, 2] }], lista, [1])[1])
+      .toBe('A partir de 07/04/2027, CDB 102,8% do CDI (Banco B) passa a liderar e alterna outras 2 vezes.');
+    expect(resumirTrocas([{ data: '2027-04-07', de: [0], para: [1], oscilante: true, alternancias: 1, alternam: [0, 1, 2] }], lista, [0])[1])
+      .toBe('A partir de 07/04/2027, LCI 90% do CDI (Banco B) passa a liderar e alterna outra vez.');
+  });
+
+  it('o trecho inicial oscilante, com e sem trocas depois', () => {
+    const inicial = { oscilante: true as const, alternancias: 2, alternam: [1, 2] };
+    expect(resumirTrocas([], lista, [2], inicial)).toEqual(['CDB 102,8% do CDI (Banco B) lidera quase o tempo todo e alterna outras 2 vezes.']);
+    expect(resumirTrocas([{ data: '2028-01-10', de: [2], para: [1] }], lista, [2], inicial)[0])
+      .toBe('Até 09/01/2028, CDB 102,8% do CDI (Banco B) lidera e alterna outras 2 vezes.');
+  });
+
+  it('no máximo 5 frases: o que passa disso vira uma frase só', () => {
+    const trocas = Array.from({ length: 8 }, (_, k) => ({ data: `2027-0${k + 1}-15`, de: [k % 2], para: [(k + 1) % 2] }));
+    const resumo = resumirTrocas(trocas, lista, [0]);
+    expect(resumo).toHaveLength(5);
+    expect(resumo.slice(0, 4)).toEqual(resumirTrocas(trocas.slice(0, 3), lista, [0]));
+    expect(resumo[4]).toBe('Depois, a liderança ainda muda outras 5 vezes até o fim do período.');
+  });
+});
+
+describe('resumo do gráfico com dados reais', () => {
+  it('poupança × LCI 62% do CDI em 5 anos: a alternância mensal vira um trecho oscilante, e o resumo tem ≤ 5 frases', async () => {
+    const { seriesDeValorLiquido, trocasDeLider, trocasRelevantes, lideresNoPonto } = await import('../../src/engine/serie');
+    const { cenarioReal } = await import('../engine/cenarioReal');
+    const cen = cenarioReal('BASE');
+    const poupanca: OfertaCadastrada = { ...base, id: 'p', produto: 'POUPANCA', indexacao: { tipo: 'POUPANCA' }, liquidez: 'DIARIA' };
+    const lci: OfertaCadastrada = { ...base, id: 'l', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.62 }, liquidez: 'DIARIA' };
+    const ofertas = [poupanca, lci];
+    const fim = '2031-09-28';
+    const series = seriesDeValorLiquido(ofertas, 10000, INI, fim, cen, { tipo: 'PADRAO' });
+    const todas = trocasDeLider(series, { ofertas, valor: 10000, dataAplicacao: INI, cen, regra: { tipo: 'PADRAO' } });
+    expect(todas.length).toBeGreaterThan(10);
+    const relevantes = trocasRelevantes(todas, { duracaoMinimaDias: 30, fim });
+    const resumo = resumirTrocas(relevantes.trocas, ofertas, lideresNoPonto(series, 0), relevantes.inicial);
+    expect(resumo.length).toBeLessThanOrEqual(5);
+    expect(resumo.join(' ')).toMatch(/por causa do aniversário da poupança/);
+  });
+});
