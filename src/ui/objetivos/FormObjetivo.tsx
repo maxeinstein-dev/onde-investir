@@ -3,6 +3,7 @@
 // FormOfertaCadastrada: mensagem em role="alert", nada é salvo com erro.
 import { useRef, useState } from 'preact/hooks';
 import type { ObjetivoSalvo } from '../../armazenamento/objetivos';
+import { somarDias } from '../../engine/datas';
 import { OfertaInvalidaError } from '../../engine/erros';
 import { validarObjetivo, type Objetivo } from '../../engine/sugestao';
 import { CampoNumerico } from '../CampoNumerico';
@@ -106,7 +107,8 @@ export function FormObjetivo({ tipo, onSalvar, onCancelar, inicial, id: ID = 'ob
           </div>
           <div class="campo">
             <label for={`${ID}-data`}>Data</label>
-            <input id={`${ID}-data`} type="date" min={hoje()} max={DATA_MAXIMA} value={data}
+            {/* A data precisa ser no futuro (validarObjetivo rejeita "hoje"): o seletor já começa em amanhã. */}
+            <input id={`${ID}-data`} type="date" min={somarDias(hoje(), 1)} max={DATA_MAXIMA} value={data}
               onInput={(e) => setData(e.currentTarget.value)} />
           </div>
         </>

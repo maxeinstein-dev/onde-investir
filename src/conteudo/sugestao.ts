@@ -6,12 +6,12 @@ import type { Fatia, MotivoFatia } from '../engine/sugestao';
 import type { TipoIndexacao, TipoProduto } from '../engine/produtos';
 import { formatarMoeda } from '../formato';
 
-export const AVISO_EDUCATIVO = 'Conteúdo educativo, feito a partir de regras gerais: não é uma recomendação de investimento personalizada.';
+export const AVISO_EDUCATIVO = 'Conteúdo educativo, a partir de regras gerais. Não é uma recomendação de investimento personalizada.';
 
 const TEXTO_E_LICAO: Record<MotivoFatia, { texto: string; licao: IdLicao }> = {
   RESERVA_TESOURO_SELIC: { texto: 'Garantia do Tesouro Nacional e liquidez diária, sem risco de preço se vendido antes do vencimento.', licao: 'reserva' },
   RESERVA_CDB_LIQUIDEZ: { texto: 'Garantia do FGC, com liquidez diária. Divide o dinheiro entre dois tipos de garantia diferentes.', licao: 'reserva' },
-  DATA_VENCIMENTO_CASADO: { texto: 'O vencimento bate com a sua data: não é preciso vender antes, então o preço de mercado no meio do caminho não importa.', licao: 'marcacao-mercado' },
+  DATA_VENCIMENTO_CASADO: { texto: 'O vencimento bate com a sua data, então não é preciso vender antes. O preço de mercado no meio do caminho não importa.', licao: 'marcacao-mercado' },
   DATA_SEM_CASAMENTO: { texto: 'Nenhuma oferta do catálogo vence perto da sua data. Um pós-fixado com liquidez diária atravessa a data sem risco de preço.', licao: 'liquidez' },
   LONGO_PRAZO_IPCA: { texto: 'Protege o dinheiro da inflação ao longo dos anos.', licao: 'indexadores' },
   LONGO_PRAZO_POS: { texto: 'Mantém uma parte com liquidez, acompanhando os juros.', licao: 'diversificacao' },
