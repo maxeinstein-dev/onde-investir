@@ -57,9 +57,11 @@ export interface OpcoesLinhas {
   anotacoes: Anotacoes;
   /** O texto de cada linha do tooltip. */
   rotuloTooltip: (item: TooltipItem<'line'>) => string;
+  /** O eixo y sempre mostra o zero (o gráfico da diferença). */
+  incluirZero?: boolean;
 }
 
-export function configLinhas(p: PaletaGrafico, { datasets, xMin, xMax, anotacoes, rotuloTooltip }: OpcoesLinhas): ConfigLinha {
+export function configLinhas(p: PaletaGrafico, { datasets, xMin, xMax, anotacoes, rotuloTooltip, incluirZero = false }: OpcoesLinhas): ConfigLinha {
   const eixo = { color: p.texto };
   return {
     type: 'line',
@@ -74,7 +76,10 @@ export function configLinhas(p: PaletaGrafico, { datasets, xMin, xMax, anotacoes
           type: 'linear', min: xMin, max: xMax, grid: { color: p.grade },
           ticks: { ...eixo, maxTicksLimit: 6, callback: (v) => rotuloDoEixo(Number(v)) },
         },
-        y: { grid: { color: p.grade }, ticks: { ...eixo, callback: (v) => formatarEixoMoeda(Number(v)) } },
+        y: {
+          grid: { color: p.grade }, ticks: { ...eixo, callback: (v) => formatarEixoMoeda(Number(v)) },
+          ...(incluirZero ? { suggestedMin: 0, suggestedMax: 0 } : {}),
+        },
       },
       plugins: {
         legend: { position: 'bottom', labels: { ...eixo, usePointStyle: true } },

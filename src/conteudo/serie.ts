@@ -1,5 +1,5 @@
 // Textos do gráfico do valor líquido. Rascunho: a revisão editorial é a tarefa C5 do M3b.
-import { dataBR, somarDias } from '../engine/datas';
+import { type DataISO, dataBR, somarDias } from '../engine/datas';
 import type { OfertaCadastrada } from '../engine/ofertas';
 import type { TrocaDeLider } from '../engine/serie';
 import { listar, nomeOferta } from './comparacao';
@@ -51,4 +51,38 @@ export function rotuloDaTroca(letras: readonly string[]): string {
 export function motivoSemResgate(o: OfertaCadastrada): string {
   if (o.produto === 'TESOURO_PREFIXADO' || o.produto === 'TESOURO_IPCA') return '(marcação a mercado)';
   return o.liquidez === 'NO_VENCIMENTO' ? '(só no vencimento)' : '(prazo mínimo)';
+}
+
+/** Textos fixos do gráfico da diferença entre duas ofertas. */
+export const GRAFICO_DIFERENCA = {
+  titulo: 'Diferença entre duas ofertas',
+  comparar: 'Comparar',
+  com: 'com',
+  explicacao: 'Acima do zero, a primeira oferta está à frente; abaixo, a segunda.',
+  referencia: '(valor de referência)',
+} as const;
+
+/** Quem está à frente desde `data`: a primeira oferta escolhida (A), a segunda (B) ou ninguém (empate em centavos). */
+export interface TrechoDiferenca { data: DataISO; frente: 'A' | 'B' | 'EMPATE' }
+
+/** Rótulo da linha vertical onde o sinal da diferença troca. */
+export function rotuloDaTrocaDeSinal(frente: TrechoDiferenca['frente'], letraA: string, letraB: string): string {
+  if (frente === 'EMPATE') return 'Empate';
+  return `${frente === 'A' ? letraA : letraB} à frente`;
+}
+
+/** Resumo acessível do gráfico da diferença: "{A} fica à frente até dd/mm/aaaa; depois {B}." */
+export function resumirDiferenca(trechos: readonly TrechoDiferenca[], nomeA: string, nomeB: string): string {
+  const [primeiro, ...resto] = trechos;
+  if (!primeiro) return 'Não há datas em que as duas ofertas tenham valor para comparar.';
+  const quem = (f: TrechoDiferenca['frente']) => (f === 'A' ? nomeA : nomeB);
+  const inicio = primeiro.frente === 'EMPATE' ? `${nomeA} e ${nomeB} empatam` : `${quem(primeiro.frente)} fica à frente`;
+  if (resto.length === 0) return `${inicio} o tempo todo.`;
+  const ate = (i: number) => dataBR(somarDias((trechos[i] as TrechoDiferenca).data, -1));
+  const partes = [`${inicio} até ${ate(1)}`];
+  resto.forEach((t, k) => {
+    const depois = t.frente === 'EMPATE' ? 'depois as duas empatam' : `depois ${quem(t.frente)}`;
+    partes.push(k === resto.length - 1 ? depois : `${depois}, até ${ate(k + 2)}`);
+  });
+  return `${partes.join('; ')}.`;
 }

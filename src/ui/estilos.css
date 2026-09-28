@@ -905,6 +905,17 @@ button:hover {
   max-width: 100%;
 }
 
+.grafico__escolha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin: 0.5rem 0;
+}
+
+.grafico__escolha select {
+  max-width: 100%;
+}
+
 .grafico__resumo p {
   margin: 0.25rem 0;
   overflow-wrap: anywhere;
