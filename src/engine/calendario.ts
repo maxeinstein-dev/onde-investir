@@ -43,12 +43,64 @@ export function ehDiaUtil(data: DataISO): boolean {
   return !feriadosNacionais(Number(data.slice(0, 4))).has(data);
 }
 
-/** Dias úteis em [inicio, fim): o dia inicial conta, o final não (convenção de acúmulo do CDI). */
-export function diasUteis(inicio: DataISO, fim: DataISO): number {
+const cacheDiasUteisDoAno = new Map<number, readonly DataISO[]>();
+
+/** Dias úteis do ano civil, em ordem crescente, com cache (índice para as contagens e acúmulos). */
+export function diasUteisDoAno(ano: number): readonly DataISO[] {
+  const existente = cacheDiasUteisDoAno.get(ano);
+  if (existente) return existente;
+  const dias: DataISO[] = [];
+  const fim = paraDia(`${String(ano + 1).padStart(4, '0')}-01-01`);
+  for (let d = paraDia(`${String(ano).padStart(4, '0')}-01-01`); d < fim; d++) {
+    const data = deDia(d);
+    if (ehDiaUtil(data)) dias.push(data);
+  }
+  const congelado = Object.freeze(dias);
+  cacheDiasUteisDoAno.set(ano, congelado);
+  return congelado;
+}
+
+/** Primeiro índice i com lista[i] ≥ data (datas ISO comparam como texto). */
+function primeiroIndiceNaoMenor(lista: readonly DataISO[], data: DataISO): number {
+  let lo = 0;
+  let hi = lista.length;
+  while (lo < hi) {
+    const meio = (lo + hi) >> 1;
+    if ((lista[meio] as DataISO) < data) lo = meio + 1;
+    else hi = meio;
+  }
+  return lo;
+}
+
+interface Faixa { dias: readonly DataISO[]; de: number; ate: number }
+
+/** Trechos [de, ate) dos índices anuais que cobrem os dias úteis em [inicio, fim). */
+function faixas(inicio: DataISO, fim: DataISO): Faixa[] {
   const inicioDia = paraDia(inicio);
   const fimDia = paraDia(fim);
   if (fimDia < inicioDia) throw new RangeError(`O fim (${fim}) não pode ser anterior ao início (${inicio}) na contagem de dias úteis`);
-  let total = 0;
-  for (let d = inicioDia; d < fimDia; d++) if (ehDiaUtil(deDia(d))) total++;
-  return total;
+  const trechos: Faixa[] = [];
+  const anoFim = Number(fim.slice(0, 4));
+  for (let ano = Number(inicio.slice(0, 4)); ano <= anoFim; ano++) {
+    const dias = diasUteisDoAno(ano);
+    const de = ano === Number(inicio.slice(0, 4)) ? primeiroIndiceNaoMenor(dias, inicio) : 0;
+    const ate = ano === anoFim ? primeiroIndiceNaoMenor(dias, fim) : dias.length;
+    if (ate > de) trechos.push({ dias, de, ate });
+  }
+  return trechos;
+}
+
+/** Dias úteis em [inicio, fim), em ordem: o dia inicial conta, o final não. */
+export function diasUteisEntre(inicio: DataISO, fim: DataISO): readonly DataISO[] {
+  return faixas(inicio, fim).flatMap((f) => f.dias.slice(f.de, f.ate));
+}
+
+/** Chama `visitar` para cada dia útil em [inicio, fim), em ordem, sem alocar a lista. */
+export function paraCadaDiaUtil(inicio: DataISO, fim: DataISO, visitar: (data: DataISO) => void): void {
+  for (const f of faixas(inicio, fim)) for (let i = f.de; i < f.ate; i++) visitar(f.dias[i] as DataISO);
+}
+
+/** Dias úteis em [inicio, fim): o dia inicial conta, o final não (convenção de acúmulo do CDI). */
+export function diasUteis(inicio: DataISO, fim: DataISO): number {
+  return faixas(inicio, fim).reduce((total, f) => total + (f.ate - f.de), 0);
 }

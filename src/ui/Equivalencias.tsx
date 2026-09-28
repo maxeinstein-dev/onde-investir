@@ -15,7 +15,24 @@ const doCDI = (t: number) => `${formatarPercentual(t)} do CDI`;
 const aoAno = (t: number) => `${formatarPercentual(t)} ao ano`;
 const ipcaMais = (t: number) => `IPCA + ${formatarPercentual(t)} ao ano`;
 
-export function Equivalencias({ origem, eq }: { origem: string; eq: ResultadoEquivalencia }) {
+/** A seção de equivalências quando a origem não pode ser resgatada na data: explica o motivo e não calcula nada. */
+export function EquivalenciasIndisponiveis({ origem, motivo }: { origem: string; motivo: string }) {
+  return (
+    <section class="equivalencias" aria-labelledby="eq-titulo">
+      <h2 id="eq-titulo">Equivalências de {origem}</h2>
+      <p>Não dá para calcular as equivalências nessa data. {motivo}</p>
+    </section>
+  );
+}
+
+export interface PropsEquivalencias {
+  origem: string;
+  eq: ResultadoEquivalencia;
+  /** Observação sobre a conta, logo abaixo do título. */
+  aviso?: string;
+}
+
+export function Equivalencias({ origem, eq, aviso }: PropsEquivalencias) {
   const bolso = eq.regraDeBolso;
   const exata = bolso === null ? null : bolso.destino === 'TRIBUTADO' ? eq.tributadoPosCDI : eq.isentoPosCDI;
   const pontos = bolso !== null && exata?.disponivel ? formatarNumero(Math.abs(bolso.taxa - exata.taxa) * 100) : '';
@@ -23,6 +40,7 @@ export function Equivalencias({ origem, eq }: { origem: string; eq: ResultadoEqu
     <section class="equivalencias" aria-labelledby="eq-titulo">
       <h2 id="eq-titulo">Equivalências de {origem}</h2>
       <p class="dica"><Termo id="equivalencia">O que é taxa equivalente?</Termo></p>
+      {aviso && <p class="dica">{aviso}</p>}
       <p>Para terminar com o mesmo <Termo id="valor-liquido">valor líquido</Termo> ({formatarMoeda(eq.liquidoAlvo)}), você precisaria de:</p>
       <ul>
         <Linha rotulo={<><Termo id="cdb">CDB</Termo> pós-fixado</>} eq={eq.tributadoPosCDI} formatar={doCDI} />

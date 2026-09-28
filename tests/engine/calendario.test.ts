@@ -1,6 +1,7 @@
 // tests/engine/calendario.test.ts
 import { describe, expect, it } from 'vitest';
-import { diasUteis, ehDiaUtil, feriadosNacionais, pascoa } from '../../src/engine/calendario';
+import { diasUteis, diasUteisDoAno, diasUteisEntre, ehDiaUtil, feriadosNacionais, pascoa } from '../../src/engine/calendario';
+import { deDia, paraDia } from '../../src/engine/datas';
 
 describe('calendário', () => {
   it('Páscoa 2024–2035', () => {
@@ -30,5 +31,20 @@ describe('calendário', () => {
     expect(diasUteis('2026-02-13', '2026-02-20')).toBe(3); // semana do Carnaval
     expect(diasUteis('2026-09-28', '2026-09-28')).toBe(0);
     expect(() => diasUteis('2026-09-28', '2026-09-27')).toThrow(RangeError);
+  });
+  it('índice anual: dias úteis do ano em ordem, iguais à varredura dia a dia', () => {
+    for (const ano of [2026, 2027, 2048]) {
+      const varredura: string[] = [];
+      for (let d = paraDia(`${ano}-01-01`); d < paraDia(`${ano + 1}-01-01`); d++) if (ehDiaUtil(deDia(d))) varredura.push(deDia(d));
+      expect(diasUteisDoAno(ano)).toEqual(varredura);
+    }
+    expect(diasUteisDoAno(2026)).toBe(diasUteisDoAno(2026)); // cache
+  });
+  it('diasUteisEntre: [início, fim), atravessando anos', () => {
+    expect(diasUteisEntre('2026-12-30', '2027-01-05')).toEqual(['2026-12-30', '2026-12-31', '2027-01-04']);
+    expect(diasUteisEntre('2026-09-26', '2026-09-29')).toEqual(['2026-09-28']); // começa no sábado
+    expect(diasUteisEntre('2026-09-28', '2026-09-28')).toEqual([]);
+    expect(diasUteisEntre('2026-01-01', '2029-01-01')).toHaveLength(diasUteis('2026-01-01', '2029-01-01'));
+    expect(() => diasUteisEntre('2026-09-28', '2026-09-27')).toThrow(RangeError);
   });
 });

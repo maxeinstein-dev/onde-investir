@@ -1,6 +1,6 @@
 // tests/engine/datas.test.ts
 import { describe, expect, it } from 'vitest';
-import { dataBR, deDia, diaDaSemana, diasCorridos, paraDia, somarDias, somarMeses, somarMesesPrazoLegal } from '../../src/engine/datas';
+import { dataBR, deDia, ehDataValida, diaDaSemana, diasCorridos, paraDia, somarDias, somarMeses, somarMesesPrazoLegal } from '../../src/engine/datas';
 import { DataInvalidaError } from '../../src/engine/erros';
 
 describe('datas', () => {
@@ -12,6 +12,12 @@ describe('datas', () => {
     expect(() => paraDia('2026-02-30')).toThrow(DataInvalidaError);
     expect(() => paraDia('2026-9-1')).toThrow(DataInvalidaError);
     expect(() => paraDia('28/09/2026')).toThrow(DataInvalidaError);
+  });
+  it('ehDataValida diz se a data passa em paraDia, sem lançar', () => {
+    expect(ehDataValida('2026-09-28')).toBe(true);
+    expect(ehDataValida('20277-01-01')).toBe(false);
+    expect(ehDataValida('2026-02-30')).toBe(false);
+    expect(ehDataValida('')).toBe(false);
   });
   it('soma dias e conta dias corridos', () => {
     expect(somarDias('2026-12-31', 1)).toBe('2027-01-01');

@@ -1,7 +1,8 @@
 export type IdTermo =
   | 'cdi' | 'selic' | 'ipca' | 'tr' | 'cdb' | 'lci-lca' | 'fgc' | 'tesouro' | 'ir-regressivo' | 'iof'
   | 'prazo-minimo' | 'dias-uteis' | 'liquidez' | 'custodia' | 'poupanca' | 'prefixado' | 'pos-fixado'
-  | 'ipca-mais' | 'equivalencia' | 'valor-liquido' | 'marcacao-mercado';
+  | 'ipca-mais' | 'equivalencia' | 'valor-liquido' | 'marcacao-mercado'
+  | 'focus' | 'copom' | 'cenario' | 'reinvestimento';
 
 export interface Termo { termo: string; curto: string; fonte: string }
 
@@ -27,4 +28,8 @@ export const GLOSSARIO: Record<IdTermo, Termo> = {
   equivalencia: { termo: 'Taxa equivalente', curto: 'A taxa que outro investimento precisaria ter para terminar com o mesmo valor líquido. Serve para comparar produtos com impostos diferentes.', fonte: 'https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2004/lei/l11033.htm' },
   'marcacao-mercado': { termo: 'Marcação a mercado', curto: 'Atualização diária do preço de um título pelas taxas do mercado. Quem vende antes do vencimento recebe esse preço, que pode ser maior ou menor que o previsto; quem leva até o vencimento recebe a taxa combinada.', fonte: 'https://www.gov.br/investidor/pt-br/investir/tipos-de-investimentos/titulos-publicos' },
   'valor-liquido': { termo: 'Valor líquido', curto: 'O que sobra depois de IOF, IR e taxas, e é esse número que vale para comparar.', fonte: 'https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2004/lei/l11033.htm' },
+  focus: { termo: 'Boletim Focus', curto: 'Pesquisa semanal do Banco Central com as projeções de economistas do mercado para Selic, IPCA e outros indicadores. O app usa a mediana dessas projeções.', fonte: 'https://www.bcb.gov.br/publicacoes/focus' },
+  copom: { termo: 'Copom', curto: 'Comitê de Política Monetária do Banco Central. Define a meta da Selic em reuniões ao longo do ano, e a nova taxa vale a partir do dia útil seguinte ao anúncio.', fonte: 'https://www.bcb.gov.br/controleinflacao/copom' },
+  cenario: { termo: 'Cenário', curto: 'O caminho suposto para Selic, CDI e IPCA até o resgate. O cenário base segue as medianas do **Focus**, "juros sobem" e "juros caem" se afastam delas, e o manual usa os valores constantes que você digita.', fonte: 'https://www.bcb.gov.br/publicacoes/focus' },
+  reinvestimento: { termo: 'Reinvestimento', curto: 'Quando uma aplicação vence antes da data comparada, o valor líquido é aplicado de novo, e a contagem do **IR** regressivo recomeça na faixa de 22,5%.', fonte: 'https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2004/lei/l11033.htm' },
 };

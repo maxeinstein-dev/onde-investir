@@ -1,6 +1,6 @@
 // src/engine/indexadores.ts
-import { diasUteis, ehDiaUtil } from './calendario';
-import { type DataISO, deDia, paraDia } from './datas';
+import { diasUteis, paraCadaDiaUtil } from './calendario';
+import type { DataISO } from './datas';
 import { OfertaInvalidaError } from './erros';
 
 /** Taxas vigentes em cada data (frações). No M2 ganha implementação por curva do Focus. */
@@ -49,12 +49,8 @@ export function cenarioConstante(p: ParametrosCenarioConstante): Cenario {
 export const taxaDiaria = (taxaAA: number): number => Math.pow(1 + taxaAA, 1 / 252) - 1;
 
 function acumularPorDiaUtil(inicio: DataISO, fim: DataISO, fatorDoDia: (data: DataISO) => number): number {
-  const fimDia = paraDia(fim);
   let fator = 1;
-  for (let d = paraDia(inicio); d < fimDia; d++) {
-    const data = deDia(d);
-    if (ehDiaUtil(data)) fator *= fatorDoDia(data);
-  }
+  paraCadaDiaUtil(inicio, fim, (data) => { fator *= fatorDoDia(data); });
   return fator;
 }
 

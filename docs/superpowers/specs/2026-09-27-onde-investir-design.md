@@ -172,25 +172,55 @@ Detalhes:
 | Selic por reunião do Copom | Olinda | `ExpectativasMercadoSelic` (campo `Reuniao`, ex. "R5/2026") |
 | IPCA mensal esperado | Olinda | `ExpectativaMercadoMensais` (`DataReferencia` "MM/AAAA") |
 | Selic e IPCA anuais | Olinda | `ExpectativasMercadoAnuais` |
-| Reserva | BrasilAPI | `/api/taxas/v1` |
+| Reserva | BrasilAPI | `/api/taxas/v1` (fora do M2: a cadeia cache → manual já cobre a falha) |
 
 Consultas SGS: `https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados?formato=json&dataInicial=…&dataFinal=…`
 (janelas de até 10 anos por consulta nas séries diárias). Focus: usar `baseCalculo eq 0`
 e a data de publicação mais recente.
 
+**Calendário do Copom** (verificado em 2026-09-27): endpoint oficial em JSON, com CORS
+`https://www.bcb.gov.br/api/servico/sitebcb/calendario/anual?inicioAgenda='AAAA-MM-DD'&fimAgenda='AAAA-MM-DD'&lista=Reuniões do Copom`.
+Cada reunião vem como dois itens (um por dia), fora de ordem. O dia do anúncio é o
+2º dia (use só a data de `dataEvento`). Cobre até o ano seguinte; o Focus projeta
+reuniões além disso (ex.: R6/2028). `Rn/AAAA` = n-ésima reunião do ano.
+
+Fatos confirmados (SGS, set/2026): a nova Selic meta vale **a partir do dia útil seguinte**
+ao anúncio; Selic over = CDI; CDI = Selic meta − 0,10 p.p. O Focus anual cobre o ano
+corrente + 4 (Selic = taxa de **fim de ano**); o IPCA mensal cobre o mês corrente + 24.
+
 ### 4.1 Curva projetada (cenário base)
-1. **Curto prazo:** Selic pela mediana por **reunião do Copom** (degrau na data de cada
-   reunião); IPCA pela mediana **mensal** (~18 meses).
-2. **Médio prazo:** medianas **anuais**.
-3. **Longo prazo (após o último ano do Focus):** convergência gradual para premissas
-   editáveis (padrão: IPCA na meta de 3% a.a., juro real de 5% a.a.). A UI avisa:
-   *"após 20XX a projeção é premissa, não expectativa de mercado"*.
-- CDI projetado = Selic − 0,10 p.p. (parâmetro editável).
+1. **Curto prazo:** Selic pela mediana por **reunião do Copom** (degrau no dia útil
+   seguinte a cada anúncio); IPCA pela mediana **mensal** (~25 meses).
+   - Reunião do Focus sem data oficial: data **estimada** pela mesma reunião do último
+     ano oficial + 52 semanas, marcada como "data estimada" na UI.
+2. **Médio prazo:** Selic interpolada **mês a mês, linearmente**, do valor da última
+   reunião até o fim de cada ano do Focus anual; IPCA dos meses sem Focus mensal =
+   `(1 + IPCA anual)^(1/12) − 1`.
+3. **Longo prazo (após o último ano do Focus):** convergência **linear em N anos**
+   (padrão 5, editável) até as premissas (padrão: IPCA 3% a.a., juro real 5% a.a., logo
+   Selic = 1,03 × 1,05 − 1 ≈ 8,15%). A UI avisa: *"após 20XX a projeção é premissa, não
+   expectativa de mercado"*.
+- CDI projetado = Selic − 0,10 p.p. (parâmetro editável). TR: constante no último valor
+  do SGS (o Focus não projeta TR).
 
 ### 4.2 Cenários
-**"Juros sobem" / "Base (Focus)" / "Juros caem"**, com inflação editável em cada um.
-Padrão: mediana ± 1 desvio-padrão do Focus em cada horizonte (usando também
-mínimo/máximo como limites), portanto a abertura cresce com o prazo. Tudo editável.
+**"Juros sobem" / "Base (Focus)" / "Juros caem"** + **"Manual"** (constante digitado,
+como no M1). Juros e inflação andam juntos: "Juros sobem" = Selic **e** IPCA na mediana
++ k desvios-padrão; "Juros caem" = mediana − k desvios; cada valor ajustado é limitado ao
+mínimo/máximo do Focus. Padrão k = 1, editável; premissas de longo prazo e prazo de
+convergência também editáveis.
+- **Selic:** ±k·DP em cada reunião do Copom e em cada ano do Focus anual.
+- **IPCA:** a abertura vem do desvio **anual**, nunca do mensal (somar ±k·DP a cada mês
+  acumularia cerca de 12 desvios no ano). Com `anual_k(Y)` = clamp(mediana ± k·DP, mín, máx)
+  do Focus anual do ano Y e `anual_base(Y)` = mediana anual de Y:
+  - mês coberto pelo Focus mensal: `(1 + mensal_mediana) × ((1 + anual_k(Y)) / (1 + anual_base(Y)))^(1/12) − 1`;
+    no cenário base, a própria mediana mensal;
+  - mês sem Focus mensal (inclusive o mês da data de referência e lacunas no meio do mensal):
+    `(1 + anual_k(Y))^(1/12) − 1`;
+  - ano sem Focus anual: interpolação linear entre os anos vizinhos; antes do primeiro ou depois
+    do último ano do Focus anual, o do ano mais próximo.
+  Assim o ano civil de "Juros sobem" rende ≈ anual_sobem − anual_base acima do base, e a
+  abertura cresce com o prazo porque o desvio do Focus anual cresce.
 
 ### 4.3 Histórico (posições)
 CDI/IPCA/TR realizados do SGS, desde a data da posição mais antiga, com cache
@@ -210,6 +240,32 @@ atualização; edição de cenários e premissas de longo prazo.
 Opções em avaliação: tipo, emissor, conglomerado, indexador + taxa, data de aplicação,
 vencimento (opcional em liquidez diária), liquidez, prazo mínimo, custo extra. Selo de
 garantia derivado automaticamente.
+- No M2: tipo, emissor, conglomerado, indexador + taxa, vencimento, liquidez (prazo
+  mínimo legal derivado). **Custo extra e valor próprio por oferta entram no M3**, junto
+  com o FGC, que é quem usa o valor por oferta.
+
+**Navegação (M2):** duas abas, **"Comparar ofertas"** (principal) e **"Duelo rápido"**
+(a tela do M1, com equivalência). O palpite vale nas duas; na comparação de ofertas a
+pergunta é "qual lidera no seu horizonte?". O duelo rápido passa a usar o cenário ativo
+(ou o manual).
+
+**Comparador de até 5 (M2.1, decidido em 2026-09-27; substitui as duas abas):** estilo
+"comparar celulares". Uma tela só de comparação, com **2 a 5 ofertas lado a lado em
+colunas**:
+- **"+ Adicionar"** abre um seletor com o catálogo ("Minhas ofertas") e a **criação
+  rápida** de uma oferta nova, que entra no catálogo. Cada cartão do catálogo tem
+  "Comparar". Uma coluna sai com ✕. O limite de 5 fica visível ("3 de 5").
+- **Linhas:** as características (produto e taxa, emissor, liquidez, vencimento, prazo
+  mínimo, garantia, IR/isenção) e depois o **valor líquido por horizonte** (6m, 1a, 2a,
+  3a, 5a, sua data), com o líder destacado **por linha** e o estado (indisponível,
+  marcação a mercado, reaplicado) na célula.
+- Abaixo da tabela: linha do tempo de vencimentos, "Por que?" por célula e
+  **equivalências** da oferta que o usuário escolher (o que era o duelo rápido). O
+  palpite continua ("qual lidera em <horizonte>?").
+- A seleção da comparação persiste no navegador. Ofertas removidas do catálogo saem da
+  comparação.
+- No celular, a primeira coluna (rótulos) fica fixa e as ofertas rolam na horizontal
+  dentro do contêiner.
 
 ### 5.3 Posições atuais (M3)
 O que o usuário já tem aplicado. Modelo preparado para a futura carteira completa:

@@ -87,3 +87,13 @@ export function dataBR(data: DataISO): string {
   partes(data);
   return `${data.slice(8, 10)}/${data.slice(5, 7)}/${data.slice(0, 4)}`;
 }
+
+/** A data passa em {@link paraDia}? (AAAA-MM-DD com ano de 4 dígitos e dia que existe.) Nunca lança. */
+export function ehDataValida(data: DataISO): boolean {
+  try {
+    partes(data);
+    return true;
+  } catch {
+    return false;
+  }
+}

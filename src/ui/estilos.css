@@ -110,8 +110,7 @@ summary:focus-visible {
   gap: 0.75rem 1rem;
 }
 
-.cenario .dica,
-.aplicacao .prazos {
+.cenario .dica {
   grid-column: 1 / -1;
 }
 
@@ -150,18 +149,6 @@ button {
 
 button:hover {
   background: var(--fundo-suave);
-}
-
-.prazos {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.ofertas {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
 }
 
 .oferta {
@@ -233,6 +220,8 @@ button:hover {
 
 .palpite__opcoes button {
   flex: 1 1 200px;
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: 0.75rem 1rem;
   font-weight: 600;
 }
@@ -243,6 +232,7 @@ button:hover {
 }
 
 .feedback {
+  overflow-wrap: anywhere;
   padding: 0.6rem 1rem;
   font-weight: 600;
   background: var(--fundo-suave);
@@ -257,41 +247,11 @@ button:hover {
   margin-top: 0.35rem;
 }
 
-.cartoes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  align-items: start;
-}
-
 .cartao {
   padding: 1rem;
   border: 1px solid var(--borda);
   border-radius: var(--raio);
   min-width: 0;
-}
-
-.cartao--vencedor {
-  border: 2px solid var(--sucesso);
-  background: var(--sucesso-fundo);
-}
-
-.selo {
-  display: inline-block;
-  margin-left: 0.35rem;
-  padding: 0.1rem 0.5rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #ffffff;
-  background: var(--sucesso);
-  border-radius: 999px;
-  vertical-align: middle;
-}
-
-.cartao__liquido {
-  margin: 0.25rem 0;
-  font-size: 1.75rem;
-  font-weight: 700;
 }
 
 .cartao__garantia {
@@ -357,6 +317,7 @@ button:hover {
 
 /* Termo explicado */
 .termo {
+  position: relative;
   display: inline;
 }
 
@@ -378,20 +339,37 @@ button:hover {
   color: var(--primaria);
 }
 
+/* O painel flutua abaixo do termo, sem empurrar o texto. */
 .termo__painel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10;
   display: block;
-  margin: 0.35rem 0;
+  width: max-content;
+  max-width: min(20rem, calc(100vw - 2rem));
+  margin-top: 0.25rem;
   padding: 0.6rem 0.75rem;
+  text-align: left;
+  white-space: normal;
   font-size: 0.9rem;
   font-weight: 400;
   color: var(--texto);
   background: var(--fundo-suave);
+  border: 1px solid var(--borda);
   border-left: 3px solid var(--primaria);
   border-radius: 4px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
 }
 
 .termo__painel[hidden] {
   display: none;
+}
+
+/* Termo na metade direita da tela: o painel cresce para a esquerda. */
+.termo__painel--direita {
+  right: 0;
+  left: auto;
 }
 
 /* Equivalências */
@@ -402,6 +380,10 @@ button:hover {
   border-radius: var(--raio);
 }
 
+.equivalencias h2 {
+  overflow-wrap: anywhere;
+}
+
 .equivalencias ul {
   padding-left: 1.25rem;
 }
@@ -410,18 +392,510 @@ button:hover {
   margin-top: 0.35rem;
 }
 
+/* Painel de indicadores */
+.painel {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+.painel__cenarios {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.painel__rotulo {
+  font-weight: 600;
+}
+
+.painel__opcao {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.painel__opcao input {
+  width: auto;
+  min-height: auto;
+}
+
+.painel__motivo {
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+}
+
+.painel__valores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.painel__valor {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.painel__origem {
+  margin: 0.35rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.painel__explicacao {
+  margin-bottom: 0.75rem;
+}
+
+.painel__manual {
+  margin: 0.75rem 0;
+  padding: 1rem;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  min-width: 0;
+}
+
+.painel__manual legend {
+  padding: 0 0.35rem;
+  font-weight: 600;
+}
+
+.painel__campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 0.5rem 0;
+}
+
+.painel__premissas {
+  margin-top: 0.75rem;
+}
+
+.painel__premissas > summary {
+  font-weight: 600;
+  color: var(--primaria);
+  cursor: pointer;
+}
+
+/* Abas */
+.abas__lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 2px solid var(--borda);
+}
+
+.abas__aba {
+  margin-bottom: -2px;
+  color: var(--texto-suave);
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 6px 6px 0 0;
+  font-weight: 600;
+}
+
+.abas__aba[aria-selected='true'] {
+  color: var(--primaria);
+  border-bottom-color: var(--primaria);
+}
+
+.abas__painel {
+  padding-top: 1rem;
+}
+
+.abas__painel:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+/* Catálogo de ofertas */
+.lista-ofertas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.cartao--oferta h3 {
+  overflow-wrap: anywhere;
+}
+
+.cartao__detalhe {
+  margin: 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+
+.cartao__acoes,
+.cartao__confirmacao,
+.cadastro__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cartao__confirmacao p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.cadastro h3:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.cadastro__detalhes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.cadastro__prazo,
+.cadastro__aviso {
+  grid-column: 1 / -1;
+}
+
+.exportar-importar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1rem;
+  margin: 1rem 0 2rem;
+}
+
+.exportar-importar .erro,
+.exportar-importar .dica {
+  flex-basis: 100%;
+}
+
+/* Texto só para leitores de tela. */
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Comparação */
+.comparacao h2:focus-visible,
+.palpite h2:focus-visible,
+.resultado h2:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+/* A tabela rola na horizontal dentro do contêiner, sem rolar a página. */
+.tabela-rolavel {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 1rem 0;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+.tabela-rolavel:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.tabela__data {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--texto-suave);
+}
+
+/* Posicionada para conter o texto visualmente oculto (absoluto): sem isso ele escapa do contêiner que rola
+   e alarga a página no celular. */
+.celula {
+  position: relative;
+  min-width: 10rem;
+}
+
+.celula__valor {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.celula--lider {
+  background: var(--sucesso-fundo);
+  box-shadow: inset 3px 0 0 var(--sucesso);
+}
+
+.celula__selo {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--sucesso);
+  border-radius: 999px;
+}
+
+.celula__nota,
+.celula--estado {
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+}
+
+.celula__nota {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.celula__porque {
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.celula__porque > summary {
+  color: var(--primaria);
+  cursor: pointer;
+}
+
+.celula__porque .porque {
+  min-width: 16rem;
+}
+
+.celula__reinvestimento {
+  margin: 0.75rem 0;
+  padding: 0.4rem 0.6rem;
+  background: var(--aviso-fundo);
+  border-radius: 4px;
+}
+
+/* Comparador: ofertas nas colunas, características e horizontes nas linhas. */
+.tabela-comparacao {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabela-comparacao caption {
+  padding: 0.6rem 0.75rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.tabela-comparacao th,
+.tabela-comparacao td {
+  padding: 0.6rem 0.75rem;
+  border-top: 1px solid var(--borda);
+  text-align: left;
+  vertical-align: top;
+}
+
+.tabela-comparacao thead th,
+.tabela-comparacao thead td {
+  background: var(--fundo-suave);
+}
+
+.tabela-comparacao__oferta {
+  min-width: 11rem;
+}
+
+.tabela-comparacao__oferta:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: -3px;
+}
+
+.tabela-comparacao__letra {
+  display: block;
+  font-size: 1.1rem;
+}
+
+.tabela-comparacao__nome {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+/* A linha dos botões "Tirar" fica colada à dos nomes. */
+.tabela-comparacao__acoes td {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.tabela-comparacao__tirar {
+  min-height: 2.25rem;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+/* A primeira coluna (rótulos) fica fixa quando a tabela rola na horizontal; o fundo sólido cobre o que passa por baixo. */
+.tabela-comparacao thead td:first-child,
+.tabela-comparacao tbody th[scope='row'] {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.tabela-comparacao tbody th[scope='row'] {
+  min-width: 8.5rem;
+  max-width: 10rem;
+  font-weight: 600;
+  background: var(--fundo);
+  box-shadow: inset -1px 0 0 var(--borda);
+}
+
+/* O título do bloco ocupa a largura toda; só o texto fica fixo à esquerda. */
+.tabela-comparacao__bloco th {
+  padding-top: 1rem;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--texto-suave);
+  background: var(--fundo);
+}
+
+.tabela-comparacao caption span,
+.tabela-comparacao__bloco span {
+  position: sticky;
+  left: 0.75rem;
+}
+
+.comparacao__vazio {
+  margin: 0 0 1rem;
+}
+
+/* A escolha da oferta e do prazo das equivalências, acima da seção delas. */
+.comparacao__escolha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem 1rem;
+  margin-top: 1.5rem;
+}
+
+/* "+ Adicionar oferta" e o painel do seletor */
+.adicionar {
+  margin: 1rem 0;
+}
+
+.adicionar__painel {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--borda);
+  border-left: 4px solid var(--primaria);
+  border-radius: var(--raio);
+}
+
+.adicionar__painel[hidden] {
+  display: none;
+}
+
+.adicionar__lista {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.adicionar__lista li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--borda);
+}
+
+.adicionar__nome {
+  overflow-wrap: anywhere;
+}
+
+.adicionar .cadastro {
+  margin-bottom: 0;
+}
+
+/* "Por que … lidera em …?", abaixo da tabela. Os nomes das ofertas levam o emissor, que pode não ter espaço. */
+.lideranca {
+  margin: 1.5rem 0;
+  overflow-wrap: anywhere;
+}
+
+.lideranca h3 {
+  margin: 0 0 0.5rem;
+}
+
+/* Linha do tempo: marcos, rankings e conclusão citam as ofertas pelo nome, com o emissor. */
+.linha-do-tempo {
+  overflow-wrap: anywhere;
+}
+
+.linha-do-tempo__marcos {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.marco + .marco {
+  margin-top: 1rem;
+}
+
+.marco h4 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.marco p {
+  margin: 0.25rem 0;
+}
+
+.marco__ranking {
+  margin: 0.25rem 0;
+  padding-left: 1.5rem;
+}
+
+.marco__lider {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.linha-do-tempo__conclusao {
+  margin: 1rem 0 0;
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+  background: var(--fundo-suave);
+  border-radius: var(--raio);
+}
+
 /* Celular: uma coluna só. */
 @media (max-width: 639px) {
   .pagina {
     padding: 1rem 1rem 2rem;
   }
 
-  .ofertas,
-  .cartoes {
-    grid-template-columns: 1fr;
-  }
-
   .primario {
     justify-self: stretch;
+  }
+
+  /* No celular o painel ocupa a largura da tela menos as margens, logo abaixo da linha do termo:
+     sem ancestral posicionado, left/right contam a partir da tela e o topo fica na posição natural. */
+  .termo {
+    position: static;
+  }
+
+  .termo__painel,
+  .termo__painel--direita {
+    top: auto;
+    right: 1rem;
+    left: 1rem;
+    width: auto;
   }
 }
