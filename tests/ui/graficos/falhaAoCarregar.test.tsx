@@ -23,7 +23,7 @@ describe('Chart.js que não carrega', () => {
       <GraficoValorLiquido series={[serie(0), serie(1)]} trocas={[]} ofertas={[oferta('X'), oferta('Y')]} />
       <GraficoDiferenca series={[serie(0), serie(1)]} ofertas={[oferta('X'), oferta('Y')]} />
     </div>);
-    const avisos = await screen.findAllByText('Não deu para carregar o gráfico. A tabela acima tem os mesmos dados.');
+    const avisos = await screen.findAllByText('Não deu para carregar o gráfico. A tabela acima e o resumo abaixo têm os principais dados.');
     expect(avisos).toHaveLength(2);
     for (const figura of screen.getAllByRole('figure')) expect(figura).toHaveAttribute('aria-busy', 'false');
     expect(screen.queryByText('Carregando gráfico…')).toBeNull();

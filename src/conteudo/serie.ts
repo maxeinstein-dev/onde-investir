@@ -64,7 +64,7 @@ export function resumirTrocas(
 /** O Chart.js é carregado sob demanda: o que a figura diz enquanto carrega e se o carregamento falhar. */
 export const GRAFICO_CARREGAMENTO = {
   carregando: 'Carregando gráfico…',
-  erro: 'Não deu para carregar o gráfico. A tabela acima tem os mesmos dados.',
+  erro: 'Não deu para carregar o gráfico. A tabela acima e o resumo abaixo têm os principais dados.',
 } as const;
 
 /** Textos fixos do gráfico do valor líquido. */
