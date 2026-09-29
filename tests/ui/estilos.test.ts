@@ -74,3 +74,20 @@ describe('estilos: o :root claro vem antes do escuro', () => {
     expect(claro['fundo']).toBe('#ffffff');
   });
 });
+
+describe('estilos: tokens de forma e tipografia', () => {
+  it('define escala de espaço, raios, tamanhos de fonte e alvo de toque', () => {
+    for (const k of ['espaco-1', 'espaco-2', 'espaco-3', 'espaco-4', 'espaco-6', 'espaco-8', 'raio-cartao', 'raio-controle',
+      'fonte', 'texto-pequeno', 'texto-base', 'texto-titulo', 'texto-display', 'alvo-toque']) {
+      expect(claro[k], k).toBeDefined();
+    }
+    expect(claro['alvo-toque']).toBe('3rem'); // 48px
+  });
+  it('controles usam os tokens, não valores soltos', () => {
+    // declaracoes() divide o seletor por vírgula, então 'input, select' nunca casa: consulta-se cada um.
+    for (const sel of ['input', 'select']) {
+      expect(declaracoes(sel).some((d) => /border-radius:\s*var\(--raio-controle\)/.test(d)), sel).toBe(true);
+    }
+    expect(declaracoes('button').some((d) => /min-height:\s*var\(--alvo-toque\)/.test(d))).toBe(true);
+  });
+});
