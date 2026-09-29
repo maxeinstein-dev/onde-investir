@@ -74,6 +74,15 @@ corridos já é zero pela tabela regressiva, mas a fórmula é reaproveitada tal
 reimplementar). Indisponível apenas se não houver dias úteis no período (não deveria acontecer numa
 janela de 30 dias corridos) ou se a bisseção estourar o teto de busca (`PERCENTUAL_TETO_BUSCA`).
 
+**Achado importante — carência legal da LCI/LCA:** `src/engine/regras/prazoMinimo.ts` diz que
+LCI/LCA pós-CDI têm carência mínima de 6 meses; `validarAplicacao` lança se o resgate for antes
+disso. Uma janela de 30 dias corridos SEMPRE viola essa carência. Por isso o lado `isentoPosCDI` de
+`TaxaNecessaria` é uma **taxa de referência**: usa o mesmo mecanismo de `OpcoesSimulacao.
+ignorarPrazoMinimo` que o gráfico já usa pra linha tracejada ("só para valores de referência...
+nunca para um resgate de verdade"), sem chamar `validarAplicacao` com a checagem de carência. A UI
+(seção 4) deixa explícito que essa é a taxa que a LCI precisaria ter — o saque de fato só é
+possível depois dos 6 meses de carência.
+
 ## 3. Casamento com catálogo e diversificação
 
 Diferente dos outros 4 tipos (que casam com a *primeira* oferta compatível via
@@ -101,8 +110,9 @@ Fluxo:
    fatia de 100% do principal na oferta que resolve com a taxa mais baixa entre as duas que
    resolveram (preferindo a isenta em empate, por não ter IR a considerar depois).
 4. Se nenhuma resolve sozinha, mas ambas existem no catálogo → simula as duas, 50% do principal em
-   cada, usando `simular()` (de `produtos.ts`) sobre os 30 dias corridos, soma o líquido combinado
-   e compara com `principal + rendaMensalDesejada`:
+   cada, usando `simular()` (de `produtos.ts`) sobre os 30 dias corridos — a perna isenta com
+   `{ ignorarPrazoMinimo: true }` pelo mesmo motivo da seção 2 (referência, não resgate real) — soma
+   o líquido combinado e compara com `principal + rendaMensalDesejada`:
    - Bateu → `modo: 'DIVERSIFICADA'`, as duas fatias 50/50.
    - Não bateu → `modo: 'INSUFICIENTE'`, mesmas duas fatias 50/50 (mostradas como "o melhor que dá
      pra fazer hoje") mais `faltaMensal` (quanto falta em R$, não só "não dá").
@@ -125,7 +135,9 @@ Novo formulário em `src/ui/objetivos/FormObjetivo.tsx`, 5ª aba de tipo, com do
 Em `src/ui/objetivos/Sugestao.tsx`, novo bloco de resultado para `RENDA_MENSAL`, acima da lista de
 fatias já existente:
 - Os dois %CDI necessários (tributado e isento) lado a lado — mesmo cartão comparativo visual já
-  usado na calculadora de Equivalência (M1), reaproveitando o componente se possível.
+  usado na calculadora de Equivalência (M1), reaproveitando o componente se possível. Abaixo do
+  valor isento, uma nota fixa: "A LCI/LCA tem carência legal mínima de 6 meses — esse é o %CDI de
+  referência; o saque mensal só é possível depois da carência."
 - Se `modo === 'DIVERSIFICADA'`: uma frase fixa acima das fatias — "Nenhuma oferta sozinha chega
   nessa renda; dividimos entre as duas melhores do seu catálogo."
 - Se `modo === 'INSUFICIENTE'`: as fatias (o melhor que dá pra fazer) seguidas de um aviso com o
