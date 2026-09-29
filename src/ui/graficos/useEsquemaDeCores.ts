@@ -15,6 +15,11 @@ export function useEsquemaDeCores(): EsquemaDeCores {
     if (typeof window.matchMedia !== 'function') return;
     const mql = window.matchMedia(CONSULTA);
     const aoMudar = () => setEsquema(atual());
+    // Safari anterior ao 14 só tem addListener/removeListener.
+    if (typeof mql.addEventListener !== 'function') {
+      mql.addListener(aoMudar);
+      return () => mql.removeListener(aoMudar);
+    }
     mql.addEventListener('change', aoMudar);
     return () => mql.removeEventListener('change', aoMudar);
   }, []);

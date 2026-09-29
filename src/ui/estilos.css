@@ -17,6 +17,8 @@
   --fundo-suave: #f5f8f7;
   --superficie: #f5f8f7;
   --borda: #c5cfcd;
+  --borda-controle: #767f7d;
+  --borda-controle: #767f7d;
   --primaria: #0f766e;
   --primaria-escura: #0b5a54;
   --texto-sobre-primaria: #ffffff;
@@ -60,6 +62,8 @@
     --fundo-suave: #172023;
     --superficie: #172023;
     --borda: #3a4a4d;
+    --borda-controle: #7d8f92;
+    --borda-controle: #7d8f92;
     --primaria: #2dd4bf;
     --primaria-escura: #5eead4;
     --texto-sobre-primaria: #04201d;
@@ -199,7 +203,7 @@ select {
   font: inherit;
   color: var(--texto);
   background: var(--fundo);
-  border: 1px solid var(--borda);
+  border: 1px solid var(--borda-controle);
   border-radius: var(--raio-controle);
 }
 

@@ -49,13 +49,14 @@ const contraste = (a: string, b: string) => {
 const PARES_TEXTO: [string, string][] = [
   ['texto', 'fundo'], ['texto', 'superficie'], ['texto-suave', 'fundo'], ['texto-suave', 'superficie'],
   ['primaria', 'fundo'], ['primaria', 'superficie'], ['sucesso', 'sucesso-fundo'], ['erro', 'erro-fundo'],
-  ['aviso-texto', 'aviso-fundo'], ['texto-sobre-primaria', 'primaria'],
+  ['aviso-texto', 'aviso-fundo'], ['texto-sobre-primaria', 'primaria'], ['texto-sobre-primaria', 'sucesso'],
+  ['erro', 'fundo'], ['erro', 'superficie'], ['primaria-escura', 'fundo'], ['grafico-texto', 'grafico-premissa'],
 ];
 
 describe.each([['claro', claro], ['escuro', escuro]] as const)('estilos: contraste AA no tema %s', (_nome, t) => {
   it('define todos os tokens de cor', () => {
     for (const k of ['fundo', 'superficie', 'texto', 'texto-suave', 'borda', 'primaria', 'primaria-escura', 'sucesso', 'sucesso-fundo',
-      'erro', 'erro-fundo', 'aviso-fundo', 'aviso-texto', 'aviso-borda', 'foco', 'texto-sobre-primaria', 'sombra',
+      'erro', 'erro-fundo', 'aviso-fundo', 'aviso-texto', 'aviso-borda', 'foco', 'texto-sobre-primaria', 'sombra', 'borda-controle',
       'grafico-1', 'grafico-2', 'grafico-3', 'grafico-4', 'grafico-5', 'grafico-texto', 'grafico-grade', 'grafico-marcador', 'grafico-premissa']) {
       expect(t[k], k).toBeDefined();
     }
@@ -63,9 +64,14 @@ describe.each([['claro', claro], ['escuro', escuro]] as const)('estilos: contras
   it.each(PARES_TEXTO)('texto %s sobre %s: 4,5:1 ou mais', (a, b) => {
     expect(contraste(t[a] as string, t[b] as string)).toBeGreaterThanOrEqual(4.5);
   });
-  it.each([1, 2, 3, 4, 5])('série %i do gráfico: 3:1 ou mais sobre o fundo', (n) => {
+  it.each([1, 2, 3, 4, 5])('série %i do gráfico: 3:1 ou mais sobre o fundo e a superfície', (n) => {
     expect(contraste(t[`grafico-${n}`] as string, t['fundo'] as string)).toBeGreaterThanOrEqual(3);
+    expect(contraste(t[`grafico-${n}`] as string, t['superficie'] as string)).toBeGreaterThanOrEqual(3);
   });
+  it.each([['borda-controle', 'fundo'], ['borda-controle', 'superficie'], ['foco', 'fundo'], ['foco', 'superficie'], ['aviso-borda', 'fundo']])(
+    'componente de UI %s sobre %s: 3:1 ou mais (WCAG 1.4.11)', (a, b) => {
+      expect(contraste(t[a as string] as string, t[b as string] as string)).toBeGreaterThanOrEqual(3);
+    });
 });
 
 describe('estilos: o :root claro vem antes do escuro', () => {
@@ -87,6 +93,8 @@ describe('estilos: tokens de forma e tipografia', () => {
     // declaracoes() divide o seletor por vírgula, então 'input, select' nunca casa: consulta-se cada um.
     for (const sel of ['input', 'select']) {
       expect(declaracoes(sel).some((d) => /border-radius:\s*var\(--raio-controle\)/.test(d)), sel).toBe(true);
+      // Contorno do campo é componente de UI: 3:1 (WCAG 1.4.11), por isso o token próprio, e não --borda.
+      expect(declaracoes(sel).some((d) => /border:\s*1px solid var\(--borda-controle\)/.test(d)), sel).toBe(true);
     }
     expect(declaracoes('button').some((d) => /min-height:\s*var\(--alvo-toque\)/.test(d))).toBe(true);
   });
