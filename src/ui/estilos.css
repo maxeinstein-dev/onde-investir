@@ -1,6 +1,14 @@
 /* Estilos do M1: básicos, sem dependência externa (a CSP só aceita 'self').
    Contraste AA: todas as combinações de texto e fundo abaixo ficam acima de 4,5:1. */
 
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light dark;
   --texto: #14201f;

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const css = readFileSync(new URL('../../src/ui/estilos.css', import.meta.url), 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -89,5 +89,17 @@ describe('estilos: tokens de forma e tipografia', () => {
       expect(declaracoes(sel).some((d) => /border-radius:\s*var\(--raio-controle\)/.test(d)), sel).toBe(true);
     }
     expect(declaracoes('button').some((d) => /min-height:\s*var\(--alvo-toque\)/.test(d))).toBe(true);
+  });
+});
+
+describe('estilos: fonte hospedada', () => {
+  it('@font-face aponta para um arquivo que existe em public/fonts', () => {
+    const url = /@font-face\s*\{[^}]*url\(['"]?(\/fonts\/[^'")]+)['"]?\)/.exec(cssBruto)?.[1];
+    expect(url).toBeDefined();
+    expect(existsSync(new URL(`../../public${url}`, import.meta.url))).toBe(true);
+  });
+  it('usa font-display: swap e faixa de pesos variável', () => {
+    expect(cssBruto).toMatch(/font-display:\s*swap/);
+    expect(cssBruto).toMatch(/font-weight:\s*100 900/);
   });
 });

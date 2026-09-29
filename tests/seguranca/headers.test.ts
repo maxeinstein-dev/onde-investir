@@ -17,6 +17,7 @@ describe('CSP em public/_headers', () => {
   it('o resto continua restrito', () => {
     expect(diretiva('default-src')).toEqual(['\'self\'']);
     expect(diretiva('script-src')).toEqual(['\'self\'', 'https://challenges.cloudflare.com']);
+    expect(diretiva('font-src')).toEqual(['\'self\'']); // a fonte é do próprio domínio; nada de data: nem CDN
     expect(diretiva('style-src')).toEqual(['\'self\'']);
     expect(diretiva('frame-src')).toEqual(['https://challenges.cloudflare.com']); // iframe do widget do Turnstile
     expect(diretiva('frame-ancestors')).toEqual(['\'none\'']);
