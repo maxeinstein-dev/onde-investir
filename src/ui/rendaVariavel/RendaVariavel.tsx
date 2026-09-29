@@ -8,6 +8,7 @@ import {
 import { AVISO_EDUCATIVO } from '../../conteudo/sugestao';
 import { buscarHistorico, validarTickerCliente } from '../../dados/mercado';
 import { obterSessao } from '../../dados/turnstile';
+import type { DataISO } from '../../engine/datas';
 import type { Cenario } from '../../engine/indexadores';
 import { type CandleFechamento, analisarRendaVariavel } from '../../engine/rendaVariavel';
 import { formatarData, formatarPercentual } from '../../formato';
@@ -19,9 +20,11 @@ export interface PropsRendaVariavel {
   cenario: Cenario;
   /** false enquanto o histórico de CDI e IPCA não chegou (ou é inválido): `cenario` seria o projetado. */
   cenarioRealizado: boolean;
+  /** Início do período consultado: o App carrega o histórico de CDI e IPCA desde esse ano. */
+  onPeriodo: (inicio: DataISO) => void;
 }
 
-export function RendaVariavel({ ativa, cenario, cenarioRealizado }: PropsRendaVariavel) {
+export function RendaVariavel({ ativa, cenario, cenarioRealizado, onPeriodo }: PropsRendaVariavel) {
   const [ticker, setTicker] = useState('');
   const [verificando, setVerificando] = useState(false);
   const [consultando, setConsultando] = useState(false);
@@ -29,7 +32,7 @@ export function RendaVariavel({ ativa, cenario, cenarioRealizado }: PropsRendaVa
   const [erro, setErro] = useState<string | null>(null);
   const [candles, setCandles] = useState<CandleFechamento[] | null>(null);
   // Derivada (não guardada): se o histórico chegar depois da consulta, CDI e IPCA se corrigem sozinhos.
-  const analise = useMemo(() => (candles === null || !cenarioRealizado ? null : analisarRendaVariavel(candles, cenario)), [candles, cenario, cenarioRealizado]);
+  const analise = useMemo(() => (candles === null ? null : analisarRendaVariavel(candles, cenario)), [candles, cenario]);
   const container = useRef<HTMLDivElement>(null);
   const jaDisparou = useRef(false);
 
@@ -75,8 +78,10 @@ export function RendaVariavel({ ativa, cenario, cenarioRealizado }: PropsRendaVa
       setErro(textoErroMercado(r.erro));
       return;
     }
-    if (analisarRendaVariavel(r.candles, cenario) === null) setErro(SEM_DADOS);
-    else setCandles(r.candles);
+    const a = analisarRendaVariavel(r.candles, cenario);
+    if (a === null) { setErro(SEM_DADOS); return; }
+    onPeriodo(a.inicio);
+    setCandles(r.candles);
   }
 
   return (
@@ -92,9 +97,8 @@ export function RendaVariavel({ ativa, cenario, cenarioRealizado }: PropsRendaVa
         <label for="rv-ticker">Ticker</label>
         <input id="rv-ticker" type="text" maxLength={6} autoCapitalize="characters" value={ticker}
           onInput={(e) => setTicker((e.currentTarget as HTMLInputElement).value.toUpperCase())} />
-        <button type="submit" disabled={verificando || consultando || !cenarioRealizado}>Consultar</button>
+        <button type="submit" disabled={verificando || consultando}>Consultar</button>
       </form>
-      {!cenarioRealizado && <p role="status">{SEM_HISTORICO_CDI_IPCA}</p>}
       {consultando && <p role="status">{CONSULTANDO}</p>}
       {erro !== null && <p role="alert" class="erro">{erro}</p>}
       {analise && (
@@ -105,9 +109,14 @@ export function RendaVariavel({ ativa, cenario, cenarioRealizado }: PropsRendaVa
             <dt>Volatilidade anualizada</dt>
             <dd>{analise.volatilidadeAnualizada === null ? 'sem dados suficientes' : formatarPercentual(analise.volatilidadeAnualizada)}</dd>
             <dt>Queda máxima (drawdown)</dt><dd>{formatarPercentual(analise.drawdownMaximo)}</dd>
-            <dt>CDI no mesmo período</dt><dd>{formatarPercentual(analise.cdi)}</dd>
-            <dt>IPCA no mesmo período</dt><dd>{formatarPercentual(analise.ipca)}</dd>
+            {cenarioRealizado && (
+              <>
+                <dt>CDI no mesmo período</dt><dd>{formatarPercentual(analise.cdi)}</dd>
+                <dt>IPCA no mesmo período</dt><dd>{formatarPercentual(analise.ipca)}</dd>
+              </>
+            )}
           </dl>
+          {!cenarioRealizado && <p role="status">{SEM_HISTORICO_CDI_IPCA}</p>}
           {analise.pontos < PREGOES_MINIMOS_HISTORICO && <p class="aviso">{HISTORICO_CURTO}</p>}
         </div>
       )}
