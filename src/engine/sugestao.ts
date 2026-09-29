@@ -2,14 +2,18 @@
 // como dados (não busca nada), e devolve fatias ESTRUTURADAS — nunca texto nem IdLicao,
 // no mesmo padrão de src/engine/alertas.ts. A tradução para texto fica em
 // src/conteudo/sugestao.ts.
-import { type DataISO, ehDataValida } from './datas';
+import { type DataISO, ehDataValida, somarDias } from './datas';
+import { disponivel, indisponivel, resolverPercentual, taxasDiariasCDI, type Equivalente } from './equivalencia';
 import { OfertaInvalidaError } from './erros';
 import type { ItemFGC } from './fgc';
 import { coberto, normalizarConglomerado } from './fgc';
+import type { Cenario } from './indexadores';
 import type { OfertaCadastrada } from './ofertas';
 import { garantiaDe, type TipoIndexacao, type TipoProduto } from './produtos';
+import { aliquotaIOF } from './regras/iof';
+import { aliquotaIR } from './regras/ir';
 import { regraFGC } from './regras/fgc';
-import { faixaLongoPrazo, MULTIPLICADOR_RESERVA } from './regras/sugestao';
+import { DIAS_RENDA_MENSAL, faixaLongoPrazo, MULTIPLICADOR_RESERVA } from './regras/sugestao';
 
 export type Objetivo =
   | { tipo: 'RESERVA'; gastoMensal: number; rendaEstavel: boolean }
@@ -194,6 +198,44 @@ function sugerirSemObjetivo(o: Extract<Objetivo, { tipo: 'SEM_OBJETIVO' }>, ctx:
     ];
   }
   return casarComCatalogo(base, ctx.catalogo, ctx.carteira, ctx.hoje);
+}
+
+export interface TaxaNecessaria {
+  /** %CDI necessário num CDB/RDB (tributado) para a renda mensal desejada. */
+  tributadoPosCDI: Equivalente;
+  /**
+   * %CDI necessário numa LCI/LCA (isenta) para a renda mensal desejada — taxa de REFERÊNCIA: a
+   * LCI/LCA tem carência legal mínima de 6 meses (regras/prazoMinimo.ts), então não dá pra
+   * resgatar de fato a cada 30 dias. Ver a nota da seção 2 do design do M5.
+   */
+  isentoPosCDI: Equivalente;
+}
+
+const SEM_DIAS_UTEIS_RENDA_MENSAL = 'sem dias úteis no período';
+
+/**
+ * Taxa necessária (%CDI) para que `principal` renda `rendaMensalDesejada` líquidos em
+ * {@link DIAS_RENDA_MENSAL} dias corridos a partir de `hoje`, sacando só o rendimento (o principal
+ * nunca é reduzido). Nunca lança: indisponível vira `Equivalente.disponivel === false`.
+ */
+export function calcularTaxaNecessaria(
+  principal: number, rendaMensalDesejada: number, hoje: DataISO, cen: Cenario,
+): TaxaNecessaria {
+  const dataResgate = somarDias(hoje, DIAS_RENDA_MENSAL);
+  const taxas = taxasDiariasCDI(cen, hoje, dataResgate);
+  if (taxas.length === 0) {
+    const semDias = indisponivel(SEM_DIAS_UTEIS_RENDA_MENSAL);
+    return { tributadoPosCDI: semDias, isentoPosCDI: semDias };
+  }
+
+  const isentoPosCDI = disponivel(resolverPercentual(taxas, (principal + rendaMensalDesejada) / principal));
+
+  const aIOF = aliquotaIOF(DIAS_RENDA_MENSAL, dataResgate);
+  const aIR = aliquotaIR(DIAS_RENDA_MENSAL, dataResgate);
+  const fatorAlvoTributado = 1 + rendaMensalDesejada / (principal * (1 - aIOF) * (1 - aIR));
+  const tributadoPosCDI = disponivel(resolverPercentual(taxas, fatorAlvoTributado));
+
+  return { tributadoPosCDI, isentoPosCDI };
 }
 
 /**

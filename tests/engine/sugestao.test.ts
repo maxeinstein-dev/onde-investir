@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { somarDias } from '../../src/engine/datas';
 import { OfertaInvalidaError } from '../../src/engine/erros';
+import type { Equivalente } from '../../src/engine/equivalencia';
 import type { ItemFGC } from '../../src/engine/fgc';
 import type { OfertaCadastrada } from '../../src/engine/ofertas';
+import { simular } from '../../src/engine/produtos';
 import {
-  casarComCatalogo, sugerir, validarObjetivo, valorAlvo,
+  calcularTaxaNecessaria, casarComCatalogo, sugerir, validarObjetivo, valorAlvo,
   type ContextoSugestao, type Fatia, type Objetivo,
 } from '../../src/engine/sugestao';
+import { CEN, INI } from './cenarioPadrao';
 
 const HOJE = '2026-09-29';
 
@@ -52,6 +56,48 @@ describe('validarObjetivo', () => {
     expect(() => validarObjetivo({ ...base, rendaMensalDesejada: 0 }, HOJE)).toThrow(OfertaInvalidaError);
     expect(() => validarObjetivo({ ...base, rendaMensalDesejada: -100 }, HOJE)).toThrow(OfertaInvalidaError);
     expect(() => validarObjetivo(base, HOJE)).not.toThrow();
+  });
+});
+
+function taxaOuFalha(e: Equivalente): number {
+  if (!e.disponivel) throw new Error(`indisponível: ${e.motivo}`);
+  return e.taxa;
+}
+
+describe('calcularTaxaNecessaria', () => {
+  const DATA_RESGATE = somarDias(INI, 30);
+
+  it('ida e volta: o %CDI tributado encontrado, aplicado num CDB, rende a renda mensal desejada', () => {
+    const r = calcularTaxaNecessaria(100000, 1000, INI, CEN);
+    const pct = taxaOuFalha(r.tributadoPosCDI);
+    const sim = simular({ produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: pct }, valor: 100000, dataAplicacao: INI }, DATA_RESGATE, CEN);
+    expect(sim.valorLiquido).toBeCloseTo(101000, 2);
+  });
+
+  it('ida e volta: o %CDI isento encontrado, aplicado numa LCI (ignorando a carência), rende a renda mensal desejada', () => {
+    const r = calcularTaxaNecessaria(100000, 1000, INI, CEN);
+    const pct = taxaOuFalha(r.isentoPosCDI);
+    const sim = simular(
+      { produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: pct }, valor: 100000, dataAplicacao: INI },
+      DATA_RESGATE, CEN, { ignorarPrazoMinimo: true },
+    );
+    expect(sim.valorLiquido).toBeCloseTo(101000, 2);
+  });
+
+  it('o %CDI isento necessário é menor que o tributado (sem IR a descontar)', () => {
+    const r = calcularTaxaNecessaria(100000, 1000, INI, CEN);
+    expect(taxaOuFalha(r.isentoPosCDI)).toBeLessThan(taxaOuFalha(r.tributadoPosCDI));
+  });
+
+  it('indisponível se a renda desejada for desproporcional ao principal (estoura o teto de busca)', () => {
+    // O plano original sugeria dobrar o principal em 30 dias (rendaMensalDesejada = principal),
+    // mas isso não estoura PERCENTUAL_TETO_BUSCA (1e6): com ~22 dias úteis em 30 dias corridos, o
+    // produto acumulado em p = 1e6 já alcança algo em torno de 1e59 vezes o principal, então
+    // qualquer fator-alvo abaixo disso ainda encontra taxa. Ajustado empiricamente (rodando o
+    // teste) para uma renda desejada MUITO mais desproporcional, que realmente estoura o teto.
+    const r = calcularTaxaNecessaria(100000, 1e60, INI, CEN);
+    expect(r.tributadoPosCDI.disponivel).toBe(false);
+    expect(r.isentoPosCDI.disponivel).toBe(false);
   });
 });
 
