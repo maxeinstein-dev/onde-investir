@@ -14,6 +14,8 @@ import { calcularTaxaNecessaria, sugerir, sugerirRendaMensal, type Fatia, type R
 import { LinkLicao } from '../aprender/LinkLicao';
 import { formatarMoeda, formatarPercentual } from '../../formato';
 import { GraficoObjetivo } from '../graficos/GraficoObjetivo';
+import { Destaque } from '../base/Destaque';
+import './objetivos.css';
 
 export interface PropsSugestao {
   objetivo: ObjetivoSalvo;
@@ -35,7 +37,11 @@ function ItemFatia({ f, onIrParaComparar }: { f: Fatia; onIrParaComparar: (ofert
   return (
     <li class="cartao cartao--fatia">
       <h3>{descreverFatia(f)} — {formatarPercentual(f.percentual)}</h3>
-      {f.valor !== null && <p class="cartao__detalhe">{formatarMoeda(f.valor)}</p>}
+      {f.valor !== null && (
+        <div class="obj-fatia-valor">
+          <Destaque rotulo="Aportar" valor={formatarMoeda(f.valor)} />
+        </div>
+      )}
       <p>{textoDaFatia(f)} <LinkLicao licao={licaoDaFatia(f)} /></p>
       {avisoFgc && <p class="aviso">{avisoFgc}</p>}
       {f.ofertaCatalogo && (
@@ -80,8 +86,12 @@ export function Sugestao({ objetivo, catalogo, carteira, hoje, cenario, onIrPara
       <p class="aviso">{AVISO_EDUCATIVO}</p>
       {rendaMensal && (
         <div class="cartao cartao--taxa-necessaria">
-          <h3>%CDI necessário para a renda mensal desejada</h3>
-          <p>CDB/RDB (tributado): {formatarTaxaNecessaria(rendaMensal.necessaria.tributadoPosCDI)}</p>
+          <h3>Renda mensal desejada</h3>
+          <Destaque
+            rotulo="%CDI necessário para a renda mensal desejada"
+            valor={formatarTaxaNecessaria(rendaMensal.necessaria.tributadoPosCDI)}
+            frase="CDB/RDB (tributado)"
+          />
           <p>LCI/LCA (isento): {formatarTaxaNecessaria(rendaMensal.necessaria.isentoPosCDI)}</p>
           <p class="cartao__detalhe">
             A LCI/LCA tem carência mínima de 6 meses antes do primeiro resgate, então o %CDI isento

@@ -9,6 +9,14 @@ afterEach(cleanup);
 const preencher = (rotulo: string, valor: string) => fireEvent.input(screen.getByLabelText(rotulo), { target: { value: valor } });
 const salvar = () => fireEvent.click(screen.getByRole('button', { name: /Salvar/ }));
 
+describe('FormObjetivo — layout', () => {
+  it('o formulário leva a classe obj-form (campo por linha e radios de 48px por CSS)', () => {
+    render(<FormObjetivo tipo="RESERVA" onSalvar={vi.fn()} onCancelar={vi.fn()} />);
+    expect(screen.getByRole('radiogroup')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Novo objetivo/ }).closest('form')?.className).toContain('obj-form');
+  });
+});
+
 describe('FormObjetivo — RESERVA', () => {
   it('preenche e salva', () => {
     const onSalvar = vi.fn();

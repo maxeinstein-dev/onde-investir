@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor, fireEvent } from '@testing-library/preact';
+import { cleanup, render, screen, waitFor, fireEvent, within } from '@testing-library/preact';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ObjetivoSalvo } from '../../../src/armazenamento/objetivos';
 import { CEN } from '../../engine/cenarioPadrao';
@@ -34,6 +34,16 @@ describe('Sugestao', () => {
     expect(screen.getByText(/Conteúdo educativo/)).toBeInTheDocument();
     expect(screen.getAllByText(/R\$\s?6\.000,00/).length).toBeGreaterThan(0);
     expect(screen.getAllByRole('link', { name: /Ver lição/ }).length).toBe(2);
+  });
+
+  it('o valor por fatia é um Destaque menor dentro do cartão da fatia (li filho direto da lista)', async () => {
+    render(<Sugestao objetivo={objetivoReserva} catalogo={[]} carteira={[]} hoje={HOJE} cenario={CEN} onIrParaComparar={() => {}} />);
+    await carregou();
+    const lista = screen.getByRole('list', { name: 'Fatias sugeridas' });
+    expect(lista.children).toHaveLength(2);
+    const grupo = within(lista).getAllByRole('group', { name: /Aportar/i })[0] as HTMLElement;
+    expect(grupo.closest('li')?.parentElement).toBe(lista);
+    expect(grupo.parentElement?.className).toContain('obj-fatia-valor');
   });
 
   it('mostra "Já disponível" e o botão Comparar quando há oferta casada', async () => {
@@ -116,6 +126,19 @@ describe('Sugestao — RENDA_MENSAL', () => {
     expect(screen.getAllByText(/carência/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/6 meses/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/Falta/)).not.toBeInTheDocument();
+  });
+
+  it('mostra o %CDI necessário em destaque (grupo nomeado) mantendo os dois valores', async () => {
+    render(
+      <Sugestao objetivo={objetivoRendaMensal} catalogo={[lciSuficiente]} carteira={[]} hoje={HOJE} cenario={CEN}
+        onIrParaComparar={() => {}} />,
+    );
+    await carregou();
+    const grupo = screen.getByRole('group', { name: /CDI necessário/i });
+    expect(grupo.className).toContain('destaque');
+    expect(grupo.textContent).toMatch(/%/);
+    expect(grupo.closest('.cartao--taxa-necessaria')).not.toBeNull();
+    expect(screen.getByText(/LCI\/LCA \(isento\)/)).toBeInTheDocument();
   });
 
   it('catálogo insuficiente: mostra a fatia possível, o aviso com o quanto falta e o link para renda variável', async () => {

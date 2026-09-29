@@ -1,0 +1,23 @@
+/* src/ui/objetivos/objetivos.css: tela Objetivos. Só tokens, nenhuma cor solta. */
+.cartao--taxa-necessaria .destaque__valor { color: var(--primaria); }
+.obj-fatia-valor .destaque__valor { font-size: var(--texto-titulo); }
+.obj-fatia-valor .destaque__rotulo { font-size: var(--texto-pequeno); }
+
+/* Formulário: um campo por linha no celular, radios com alvo de 48px. */
+.obj-form .campo { min-width: 0; }
+.obj-form .campo__opcao {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-2);
+  min-height: var(--alvo-toque);
+}
+.obj-form .campo__opcao input[type='radio'] {
+  width: var(--alvo-toque);
+  min-height: var(--alvo-toque);
+  flex: none;
+  margin: 0;
+}
+@media (max-width: 639px) {
+  .obj-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--espaco-3); }
+  .obj-form > * { grid-column: 1 / -1; }
+}
