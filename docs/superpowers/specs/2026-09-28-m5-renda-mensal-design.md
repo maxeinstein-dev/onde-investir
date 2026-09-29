@@ -45,7 +45,7 @@ rendimento todo mês desde o início. Isso é conservador: se a pessoa mantiver 
 anos, a alíquota real cai para 15% e a renda líquida real fica acima do que o app promete — nunca
 abaixo.
 
-Nova função em `src/engine/rendaMensal.ts` (motor puro, mesmo padrão de `equivalencia.ts`):
+Novas funções direto em `src/engine/sugestao.ts`, junto das outras 4 (evita import circular: rendaMensal.ts precisaria de `Fatia`/`MotivoFatia`/`ContextoSugestao`/`excedenteFGC` de sugestao.ts, e sugestao.ts precisaria da nova função no dispatcher `sugerir()`):
 
 ```ts
 export interface TaxaNecessaria {
@@ -89,13 +89,14 @@ Diferente dos outros 4 tipos (que casam com a *primeira* oferta compatível via
 `primeiraCompativel`), aqui o casamento busca a **melhor** oferta de cada regime — maior
 `percentualCDI` entre as ofertas pós-CDI do catálogo, separadas por `ehIsentoIR(produto)`.
 
-Nova função em `src/engine/rendaMensal.ts`:
+Nova função, também em `src/engine/sugestao.ts` (`excedenteFGC` passa a ser exportada, para reaproveitar sem duplicar):
 
 ```ts
 export type ResultadoRendaMensal =
   | { modo: 'UNICA'; fatia: Fatia }
   | { modo: 'DIVERSIFICADA'; fatias: [Fatia, Fatia] }
-  | { modo: 'INSUFICIENTE'; fatias: [Fatia, Fatia]; faltaMensal: number };
+  // 0, 1 ou 2 fatias: pode faltar oferta num dos regimes, ou o catálogo estar vazio.
+  | { modo: 'INSUFICIENTE'; fatias: Fatia[]; faltaMensal: number };
 
 export function sugerirRendaMensal(
   o: Extract<Objetivo, { tipo: 'RENDA_MENSAL' }>, ctx: ContextoSugestao,
@@ -126,6 +127,16 @@ Cada `Fatia` usa `casarComCatalogo` (ou o equivalente já existente de checagem 
 `excedenteFGC`) para preencher `fgc`, exatamente como os outros 4 tipos.
 
 `MotivoFatia` ganha dois valores novos: `RENDA_MENSAL_TRIBUTADO`, `RENDA_MENSAL_ISENTO`.
+
+### 3.1 `Cenario` chega até o motor
+
+Diferente dos outros 4 tipos, `calcularTaxaNecessaria`/`sugerirRendaMensal` precisam de um
+`Cenario` (CDI diário) — algo que `ContextoSugestao` hoje não carrega, e que nenhum dos outros
+tipos de objetivo usa. Para não quebrar as 4 assinaturas/chamadas existentes, `sugerir()` ganha um
+**3º parâmetro opcional**, `cen?: Cenario`, usado só no novo `case 'RENDA_MENSAL'` (lança um erro
+comum, não `OfertaInvalidaError`, se ausente — é um erro de quem chama, não de dado do usuário). O
+`Cenario` já existe hoje em `App.tsx` (`ativo.cenario`) e precisa ser passado adiante:
+`App.tsx` → `<Objetivos cenario={ativo.cenario} ...>` → `<Sugestao cenario={cenario} ...>`.
 
 ## 4. UI
 
