@@ -9,6 +9,7 @@ import { lerPreferencias, salvarPreferencias, type PreferenciasCenario } from '.
 import {
   contarVisita, dispensarDica, lerProgresso, marcarConcluida, type Progresso, registrarPalpite, salvarProgresso,
 } from '../armazenamento/progresso';
+import { AVISO_TURNSTILE } from '../conteudo/rendaVariavel';
 import { explicarCenario } from '../conteudo/comparacao';
 import { type CasoClassico, type IdLicao, type Licao, montarExperimente } from '../conteudo/licoes/tipos';
 import { idLicaoValido } from '../conteudo/licoes/titulos';
@@ -347,12 +348,7 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
     <main class="pagina">
       <header>
         <h1>Rende</h1>
-        <p>Compare investimentos pelo que sobra no bolso e entenda o porquê de cada resultado.</p>
-        <p class="aviso">Conteúdo educativo: não é recomendação de investimento.</p>
-        <p class="aviso">
-          Algumas áreas usam Cloudflare Turnstile pra bloquear tráfego automatizado, sem exigir
-          login. Ele analisa sinais do navegador, sem usar cookies de rastreamento.
-        </p>
+        <p>Compare investimentos pelo que sobra no bolso.</p>
       </header>
 
       {falhouAoGravar && <p role="alert" class="erro">{FALHA_AO_GRAVAR}</p>}
@@ -431,6 +427,10 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
           ),
         },
       ]} />
+      <footer class="rodape">
+        <p class="aviso">Conteúdo educativo: não é recomendação de investimento.</p>
+        <p class="aviso">{AVISO_TURNSTILE}</p>
+      </footer>
     </main>
   );
 }

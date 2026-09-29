@@ -106,3 +106,12 @@
     padding-bottom: calc(var(--alvo-toque) + env(safe-area-inset-bottom) + var(--espaco-4));
   }
 }
+
+/* Rodapé com os avisos: fica no fluxo, acima da barra inferior (o .pagina já reserva o espaço). */
+.rodape {
+  margin-top: var(--espaco-4);
+  padding-top: var(--espaco-3);
+  border-top: 1px solid var(--borda);
+  color: var(--texto-suave);
+  overflow-wrap: anywhere;
+}
