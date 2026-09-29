@@ -66,13 +66,13 @@ const CUSTO_EXTRA = {
   valor: (o: OfertaCadastrada) => ((o.custoExtraAA ?? 0) > 0 ? `${formatarPercentual(o.custoExtraAA as number)} ao ano` : 'Sem custo'),
 };
 
-function Celula({ p, lider }: { p: Projecao; lider: boolean }) {
+function Celula({ p, lider, rotulo }: { p: Projecao; lider: boolean; rotulo: string }) {
   // Os passos só são renderizados quando o "Por que?" abre (e ficam depois): a tabela tem até 5 × 6 células.
   const [aberto, setAberto] = useState(false);
   const texto = descreverProjecao(p);
-  if (p.estado !== 'DISPONIVEL') return <td class="celula celula--estado">{texto}</td>;
+  if (p.estado !== 'DISPONIVEL') return <td class="celula celula--estado" data-label={rotulo}>{texto}</td>;
   return (
-    <td class={lider ? 'celula celula--lider' : 'celula'}>
+    <td class={lider ? 'celula celula--lider' : 'celula'} data-label={rotulo}>
       <span class="celula__valor">{formatarMoeda(p.liquido)}</span>
       {lider && (
         <>
@@ -144,7 +144,7 @@ export function TabelaComparacao({ ofertas, colunas, dataAplicacao, onRemover }:
           {caracteristicas.map((c) => (
             <tr key={c.rotulo}>
               <th scope="row">{c.rotulo}</th>
-              {ofertas.map((o) => <td key={o.id}>{c.valor(o, dataAplicacao)}</td>)}
+              {ofertas.map((o, i) => <td key={o.id} data-label={nomes[i]}>{c.valor(o, dataAplicacao)}</td>)}
             </tr>
           ))}
         </tbody>
@@ -159,7 +159,7 @@ export function TabelaComparacao({ ofertas, colunas, dataAplicacao, onRemover }:
                 </th>
                 {ofertas.map((o, i) => {
                   const p = c.projecoes[i];
-                  return p ? <Celula key={o.id} p={p} lider={c.lideres.includes(i)} /> : <td key={o.id} />;
+                  return p ? <Celula key={o.id} p={p} lider={c.lideres.includes(i)} rotulo={nomes[i] ?? ''} /> : <td key={o.id} />;
                 })}
               </tr>
             ))}
