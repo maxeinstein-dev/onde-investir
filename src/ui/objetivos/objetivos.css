@@ -21,3 +21,6 @@
   .obj-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--espaco-3); }
   .obj-form > * { grid-column: 1 / -1; }
 }
+
+/* Renda inviável: quanto seria preciso aplicar. */
+.obj-principal-necessario { display: grid; gap: var(--espaco-3); }

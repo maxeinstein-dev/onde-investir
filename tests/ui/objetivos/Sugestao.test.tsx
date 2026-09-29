@@ -3,6 +3,8 @@ import { cleanup, render, screen, waitFor, fireEvent, within } from '@testing-li
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ObjetivoSalvo } from '../../../src/armazenamento/objetivos';
 import { CEN } from '../../engine/cenarioPadrao';
+import { principalNecessario } from '../../../src/engine/sugestao';
+import { formatarMoeda } from '../../../src/formato';
 import type { ItemFGC } from '../../../src/engine/fgc';
 import type { OfertaCadastrada } from '../../../src/engine/ofertas';
 import { Sugestao } from '../../../src/ui/objetivos/Sugestao';
@@ -153,6 +155,58 @@ describe('Sugestao — RENDA_MENSAL', () => {
     const linksLicao = screen.getAllByRole('link', { name: /renda variável/i });
     expect(linksLicao.length).toBeGreaterThan(0);
     expect(linksLicao[0]).toHaveAttribute('href', '#aprender/renda-variavel');
+  });
+});
+
+describe('Sugestao — RENDA_MENSAL inviável: quanto seria preciso aplicar', () => {
+  const objetivoInviavel: ObjetivoSalvo = {
+    id: 'orm2', nome: 'Renda de 3 mil', criadoEm: HOJE,
+    entradas: { tipo: 'RENDA_MENSAL', principal: 50000, rendaMensalDesejada: 3000 },
+  };
+  const cdb110: OfertaCadastrada = {
+    id: 'cdb110', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.1 },
+    emissor: 'Banco Alfa', conglomerado: 'Banco Alfa', liquidez: 'DIARIA',
+  };
+  const renderizar = (catalogo: OfertaCadastrada[], objetivo = objetivoInviavel) => render(
+    <Sugestao objetivo={objetivo} catalogo={catalogo} carteira={[]} hoje={HOJE} cenario={CEN} onIrParaComparar={() => {}} />,
+  );
+
+  it('sem catálogo: mostra o principal necessário num CDB a 100% do CDI, bem acima do que a pessoa tem', async () => {
+    renderizar([]);
+    await carregou();
+    const grupo = screen.getByRole('group', { name: /Principal necessário.*CDB a 100% do CDI/i });
+    const esperado = principalNecessario(3000, 'CDB', 1, HOJE, CEN) as number;
+    expect(esperado).toBeGreaterThan(50000);
+    expect(grupo.textContent).toContain(formatarMoeda(esperado));
+    expect(grupo.textContent).toContain(formatarMoeda(50000));
+    expect(screen.queryByText(/melhor oferta/i)).not.toBeInTheDocument();
+  });
+
+  it('com oferta no catálogo: mostra também o valor pela melhor oferta, menor que o da referência', async () => {
+    renderizar([cdb110]);
+    await carregou();
+    const linha = screen.getByText(/Com a sua melhor oferta/i);
+    expect(linha.textContent).toContain('CDB 110% do CDI');
+    expect(linha.textContent).toContain('Banco Alfa');
+    const porOferta = principalNecessario(3000, 'CDB', 1.1, HOJE, CEN) as number;
+    const referencia = principalNecessario(3000, 'CDB', 1, HOJE, CEN) as number;
+    expect(porOferta).toBeLessThan(referencia);
+    expect(linha.textContent).toContain(formatarMoeda(porOferta));
+  });
+
+  it('continua mostrando o quanto falta e o aviso educativo', async () => {
+    renderizar([cdb110]);
+    await carregou();
+    expect(screen.getByText(/Falta/)).toBeInTheDocument();
+    expect(screen.getByText(/Conteúdo educativo/)).toBeInTheDocument();
+  });
+
+  it('quando a renda cabe no principal (fatia única), o bloco não aparece', async () => {
+    const cabe: ObjetivoSalvo = { id: 'orm3', nome: 'Cabe', criadoEm: HOJE, entradas: { tipo: 'RENDA_MENSAL', principal: 100000, rendaMensalDesejada: 1000 } };
+    const lci: OfertaCadastrada = { id: 'lci1', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.95 }, emissor: 'Banco Y', conglomerado: 'Banco Y', liquidez: 'DIARIA' };
+    renderizar([lci], cabe);
+    await carregou();
+    expect(screen.queryByRole('group', { name: /Principal necessário/i })).not.toBeInTheDocument();
   });
 });
 

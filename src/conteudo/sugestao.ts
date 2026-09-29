@@ -4,7 +4,7 @@
 import type { IdLicao } from './licoes/tipos';
 import type { Fatia, MotivoFatia, Objetivo } from '../engine/sugestao';
 import type { TipoIndexacao, TipoProduto } from '../engine/produtos';
-import { formatarMoeda } from '../formato';
+import { formatarMoeda, formatarPercentual } from '../formato';
 
 export const AVISO_EDUCATIVO = 'Conteúdo educativo, a partir de regras gerais. Não é uma recomendação de investimento personalizada.';
 
@@ -57,4 +57,17 @@ export function textoDoFgc(f: Fatia): string | null {
 export function notaRendaVariavel(objetivo: Objetivo): string | null {
   const horizonte = objetivo.tipo === 'LONGO_PRAZO' || objetivo.tipo === 'SEM_OBJETIVO' ? objetivo.horizonteAnos : 0;
   return horizonte > 5 ? 'Para prazos acima de 5 anos, carteiras costumam incluir renda variável.' : null;
+}
+
+/** Rótulo do destaque do principal necessário: a referência é sempre um CDB a 100% do CDI, fácil de achar. */
+export const ROTULO_PRINCIPAL_NECESSARIO = 'Principal necessário (CDB a 100% do CDI)';
+
+/** Frase abaixo do número em destaque: só formata valores que o motor já calculou. */
+export function fraseReferenciaPrincipal(rendaMensal: number, principalAtual: number): string {
+  return `Uma oferta fácil de encontrar. Com ${formatarMoeda(principalAtual)}, a renda de ${formatarMoeda(rendaMensal)} por mês não fecha.`;
+}
+
+/** A mesma conta pela melhor oferta do catálogo da pessoa. */
+export function fraseMelhorOferta(nomeDaOferta: string, percentualCDI: number, valor: number): string {
+  return `Com a sua melhor oferta (${nomeDaOferta}, ${formatarPercentual(percentualCDI)} do CDI): cerca de ${formatarMoeda(valor)}.`;
 }

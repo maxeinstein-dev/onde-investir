@@ -285,10 +285,35 @@ export function calcularTaxaNecessaria(
   return { tributadoPosCDI, isentoPosCDI };
 }
 
+const VALOR_REFERENCIA = 100_000;
+
+/**
+ * Principal que rende `rendaMensal` LÍQUIDA em {@link DIAS_RENDA_MENSAL} dias, sacando só o rendimento (mesma janela e
+ * mesmo IOF/IR de calcularTaxaNecessaria). O retorno pós-CDI é linear no valor aplicado (IR/IOF só dependem do prazo),
+ * então simula um valor de referência e escala. LCI/LCA ignora a carência: é uma referência, como em
+ * TaxaNecessaria.isentoPosCDI. Devolve null se o rendimento líquido não for positivo.
+ */
+export function principalNecessario(
+  rendaMensal: number, produto: TipoProduto, percentualCDI: number, hoje: DataISO, cen: Cenario,
+): number | null {
+  const r = simular(
+    { produto, indexacao: { tipo: 'POS_CDI', percentualCDI }, valor: VALOR_REFERENCIA, dataAplicacao: hoje },
+    somarDias(hoje, DIAS_RENDA_MENSAL), cen, { ignorarPrazoMinimo: ehIsentoIR(produto) },
+  );
+  const rendimento = r.valorLiquido - VALOR_REFERENCIA;
+  return rendimento > 0 ? (rendaMensal * VALOR_REFERENCIA) / rendimento : null;
+}
+
+/** Quanto seria preciso aplicar para a renda desejada: num CDB a 100% do CDI (referência fácil de achar) e na melhor oferta do catálogo. */
+export interface PrincipalNecessario {
+  referencia: number | null;
+  catalogo: { oferta: OfertaCadastrada; valor: number } | null;
+}
+
 export type ResultadoRendaMensal =
   | { modo: 'UNICA'; fatia: Fatia }
   // 0 ou 1 fatia: 0 só se o catálogo estiver vazio nos dois regimes.
-  | { modo: 'INSUFICIENTE'; fatias: Fatia[]; faltaMensal: number };
+  | { modo: 'INSUFICIENTE'; fatias: Fatia[]; faltaMensal: number; principalNecessario: PrincipalNecessario };
 
 function melhorOfertaPosCDI(catalogo: readonly OfertaCadastrada[], isenta: boolean): OfertaCadastrada | undefined {
   let melhor: OfertaCadastrada | undefined;
@@ -349,8 +374,10 @@ export function sugerirRendaMensal(
   if (melhorTributada) candidatas.push({ oferta: melhorTributada, motivo: 'RENDA_MENSAL_TRIBUTADO' });
   if (melhorIsenta) candidatas.push({ oferta: melhorIsenta, motivo: 'RENDA_MENSAL_ISENTO' });
 
+  const referencia = principalNecessario(o.rendaMensalDesejada, 'CDB', 1, ctx.hoje, cen);
+
   if (candidatas.length === 0) {
-    return { modo: 'INSUFICIENTE', fatias: [], faltaMensal: o.rendaMensalDesejada };
+    return { modo: 'INSUFICIENTE', fatias: [], faltaMensal: o.rendaMensalDesejada, principalNecessario: { referencia, catalogo: null } };
   }
 
   const dataResgate = somarDias(ctx.hoje, DIAS_RENDA_MENSAL);
@@ -358,7 +385,11 @@ export function sugerirRendaMensal(
   const melhor = rendimentos.reduce((a, b) => (b.liquido > a.liquido ? b : a));
   const fatia = construirFatiaRendaMensal(melhor.oferta, 1, o.principal, melhor.motivo, ctx.carteira, ctx.hoje);
   const faltaMensal = Math.max(0, o.rendaMensalDesejada - (melhor.liquido - o.principal));
-  return { modo: 'INSUFICIENTE', fatias: [fatia], faltaMensal };
+  const valorCatalogo = principalNecessario(
+    o.rendaMensalDesejada, melhor.oferta.produto, (melhor.oferta.indexacao as { percentualCDI: number }).percentualCDI, ctx.hoje, cen,
+  );
+  const catalogo = valorCatalogo === null ? null : { oferta: melhor.oferta, valor: valorCatalogo };
+  return { modo: 'INSUFICIENTE', fatias: [fatia], faltaMensal, principalNecessario: { referencia, catalogo } };
 }
 
 /**
