@@ -23,7 +23,7 @@ export interface PropsObjetivos {
   gerarId?: () => string;
 }
 
-const TIPOS: readonly Objetivo['tipo'][] = ['RESERVA', 'COM_DATA', 'LONGO_PRAZO', 'SEM_OBJETIVO', 'RENDA_MENSAL'];
+const TIPOS: readonly Objetivo['tipo'][] = ['RESERVA', 'COM_DATA', 'LONGO_PRAZO', 'SEM_OBJETIVO', 'RENDA_MENSAL', 'CARTEIRA_COMBINADA'];
 
 /** Um resumo de uma linha: o valor-alvo (reserva, com data), o horizonte (longo prazo, sem objetivo) ou o principal/renda desejada (renda mensal). */
 function resumoObjetivo(o: ObjetivoSalvo): string {
