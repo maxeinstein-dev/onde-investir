@@ -18,6 +18,7 @@ describe('CSP em public/_headers', () => {
     expect(diretiva('default-src')).toEqual(['\'self\'']);
     expect(diretiva('script-src')).toEqual(['\'self\'', 'https://challenges.cloudflare.com']);
     expect(diretiva('style-src')).toEqual(['\'self\'']);
+    expect(diretiva('frame-src')).toEqual(['https://challenges.cloudflare.com']); // iframe do widget do Turnstile
     expect(diretiva('frame-ancestors')).toEqual(['\'none\'']);
   });
 });

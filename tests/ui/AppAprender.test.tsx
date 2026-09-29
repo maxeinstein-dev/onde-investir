@@ -61,7 +61,7 @@ describe('App: aba Aprender', () => {
   it('é a última aba; #aprender abre o índice e #aprender/<lição> abre a lição', async () => {
     history.replaceState(null, '', '/#aprender');
     render(<App />);
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Comparar', 'Catálogo', 'Carteira', 'Objetivos', 'Aprender']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Comparar', 'Catálogo', 'Carteira', 'Objetivos', 'Renda variável', 'Aprender']);
     expect(aba('Aprender')).toHaveAttribute('aria-selected', 'true');
     expect(within(painelAtivo()).getByRole('heading', { level: 2, name: 'Aprender' })).toBeInTheDocument();
     cleanup();

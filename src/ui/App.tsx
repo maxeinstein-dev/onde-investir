@@ -30,6 +30,7 @@ import {
 } from './comparacao/temporaria';
 import { MinhasOfertas, novoIdOferta } from './ofertas/MinhasOfertas';
 import { Objetivos } from './objetivos/Objetivos';
+import { RendaVariavel } from './rendaVariavel/RendaVariavel';
 import { hoje } from './hoje';
 import { PainelIndicadores } from './PainelIndicadores';
 import { type CarregarHistorico, useHistorico } from './useHistorico';
@@ -39,7 +40,7 @@ const CARREGANDO = 'Enquanto os indicadores carregam, vale o cenário manual.';
 const FALHA_AO_GRAVAR = 'Não deu para salvar neste navegador. Exporte suas ofertas para não perdê-las.';
 const LINK_INVALIDO = 'Este link de comparação não pôde ser aberto.';
 
-const ABAS = ['comparar', 'catalogo', 'carteira', 'objetivos', ABA_APRENDER] as const;
+const ABAS = ['comparar', 'catalogo', 'carteira', 'objetivos', 'renda-variavel', ABA_APRENDER] as const;
 /** As abas do M2 ("Comparar ofertas" e "Duelo rápido") viraram a tela única de comparação. */
 const APELIDOS = { duelo: 'comparar', ofertas: 'comparar' };
 
@@ -407,6 +408,12 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
           id: 'objetivos', rotulo: 'Objetivos', conteudo: (
             <Objetivos objetivos={objetivos} onChange={mudarObjetivos} catalogo={ofertas} carteira={carteiraFGC.itens}
               hoje={dataHoje} cenario={ativo.cenario} onIrParaComparar={irParaComparar} />
+          ),
+        },
+        {
+          id: 'renda-variavel', rotulo: 'Renda variável', conteudo: (
+            <RendaVariavel ativa={aba === 'renda-variavel'} cenario={daCarteira.cenario}
+              cenarioRealizado={series !== null && !daCarteira.invalido} />
           ),
         },
         {
