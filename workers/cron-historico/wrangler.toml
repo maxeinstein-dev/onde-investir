@@ -1,0 +1,13 @@
+name = "rende-cron-historico"
+main = "src/index.ts"
+compatibility_date = "2026-09-29"
+
+[[kv_namespaces]]
+binding = "MERCADO_KV"
+id = "MESMO_ID_DO_NAMESPACE_MERCADO_KV_DO_PAGES" # ver Tarefa 3 — mesmo namespace, dois bindings
+
+[triggers]
+# Toda segunda às 6h UTC. Semanal por simplicidade (sintaxe de cron não expressa "a cada 8
+# semanas" de forma direta); a maioria das execuções não faz nada de verdade, porque
+# precisaAtualizarHistorico() só deixa passar os tickers realmente desatualizados.
+crons = ["0 6 * * 1"]
