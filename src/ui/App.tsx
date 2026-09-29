@@ -345,6 +345,7 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
   }
 
   return (
+    <>
     <main class="pagina">
       <header>
         <h1>Rende</h1>
@@ -427,10 +428,12 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
           ),
         },
       ]} />
-      <footer class="rodape">
-        <p class="aviso">Conteúdo educativo: não é recomendação de investimento.</p>
-        <p class="aviso">{AVISO_TURNSTILE}</p>
-      </footer>
     </main>
+    {/* Fora do <main>: só assim o <footer> é o landmark contentinfo. */}
+    <footer class="rodape">
+      <p class="aviso">Conteúdo educativo: não é recomendação de investimento.</p>
+      <p class="aviso">{AVISO_TURNSTILE}</p>
+    </footer>
+    </>
   );
 }

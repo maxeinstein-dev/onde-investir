@@ -21,4 +21,17 @@ describe('useEhCelular', () => {
     act(() => ouvinte?.());
     expect(result.current).toBe(false);
   });
+  it('Safari antigo (sem addEventListener): usa addListener/removeListener', () => {
+    let ouvinte: (() => void) | undefined;
+    const removeListener = vi.fn();
+    const mql = { matches: true, media: '(max-width: 639px)', addListener: (f: () => void) => { ouvinte = f; }, removeListener };
+    vi.stubGlobal('matchMedia', () => mql);
+    const { result, unmount } = renderHook(() => useEhCelular());
+    expect(result.current).toBe(true);
+    mql.matches = false;
+    act(() => ouvinte?.());
+    expect(result.current).toBe(false);
+    unmount();
+    expect(removeListener).toHaveBeenCalledWith(ouvinte);
+  });
 });

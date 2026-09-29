@@ -5,3 +5,8 @@
 .destaque__frase { margin: 0; color: var(--texto-suave); overflow-wrap: anywhere; }
 .selo { display: inline-block; padding: 0 var(--espaco-2); border-radius: 999px; background: var(--sucesso); color: var(--texto-sobre-primaria); font-size: var(--texto-pequeno); font-weight: 600; }
 .detalhes > summary { min-height: var(--alvo-toque); display: flex; align-items: center; cursor: pointer; font-weight: 600; }
+/* O rodapé fica fora do <main> (landmark contentinfo): repete a largura da página e, no celular, sobe acima da barra fixa. */
+.rodape { max-width: 960px; margin-inline: auto; padding-inline: var(--espaco-4); }
+@media (max-width: 639px) {
+  .rodape { padding-bottom: calc(var(--alvo-toque) + env(safe-area-inset-bottom) + var(--espaco-4)); }
+}

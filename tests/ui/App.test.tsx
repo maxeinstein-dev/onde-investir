@@ -93,6 +93,9 @@ describe('App', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Rende' })).toBeInTheDocument();
     expect(within(screen.getByRole('contentinfo')).getByText(/não é recomendação de investimento/)).toBeInTheDocument();
     expect(within(screen.getByRole('contentinfo')).getByText(/Cloudflare Turnstile/)).toBeInTheDocument();
+    // Landmark de verdade: o footer é irmão do main, não descendente dele.
+    expect(screen.getByRole('contentinfo').parentElement).toBe(screen.getByRole('main').parentElement);
+    expect(screen.getByRole('main')).not.toContainElement(screen.getByRole('contentinfo'));
     expect(within(document.querySelector('header') as HTMLElement).queryByText(/Turnstile/)).toBeNull();
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Comparar', 'Catálogo', 'Carteira', 'Objetivos', 'Renda variável', 'Aprender']);
     expect(aba('Comparar')).toHaveAttribute('aria-selected', 'true');

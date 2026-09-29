@@ -7,7 +7,7 @@ export function PainelRecolhivel({ resumo, children }: { resumo: string; childre
   const id = useId();
   const botao = useRef<HTMLButtonElement>(null);
   return (
-    <div class="recolhivel" onKeyDown={(e) => { if (e.key === 'Escape' && aberto) { setAberto(false); botao.current?.focus(); } }}>
+    <div class="recolhivel" onKeyDown={(e) => { if (e.key === 'Escape' && aberto && !(e.target instanceof HTMLSelectElement)) { setAberto(false); botao.current?.focus(); } }}>
       <button ref={botao} type="button" class="recolhivel__resumo" aria-expanded={aberto} aria-controls={id} onClick={() => setAberto(!aberto)}>
         <span>{resumo}</span>
         <span aria-hidden="true">{aberto ? '▴' : '▾'}</span>

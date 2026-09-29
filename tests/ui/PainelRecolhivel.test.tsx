@@ -32,6 +32,13 @@ describe('PainelRecolhivel', () => {
     expect(botao).toHaveAttribute('aria-expanded', 'false');
     expect(botao).toHaveFocus();
   });
+  it('Esc vindo de um <select> aberto não fecha o painel', () => {
+    render(<PainelRecolhivel resumo="Cenário: Base"><select aria-label="lista do painel"><option>a</option></select></PainelRecolhivel>);
+    const botao = screen.getByRole('button', { name: /Cenário: Base/ });
+    fireEvent.click(botao);
+    fireEvent.keyDown(screen.getByLabelText('lista do painel'), { key: 'Escape' });
+    expect(botao).toHaveAttribute('aria-expanded', 'true');
+  });
   it('o valor digitado sobrevive a fechar e reabrir', () => {
     render(<PainelRecolhivel resumo="Cenário: Base"><Conteudo /></PainelRecolhivel>);
     const botao = screen.getByRole('button', { name: /Cenário: Base/ });
