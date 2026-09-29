@@ -14,6 +14,7 @@ import { type CasoClassico, type IdLicao, type Licao, montarExperimente } from '
 import { idLicaoValido } from '../conteudo/licoes/titulos';
 import { cenarioAtivo, usaSoManual, type CenarioAtivo } from '../dados/cenarios';
 import type { IndicadoresCarregados } from '../dados/indicadores';
+import type { DataISO } from '../engine/datas';
 import { cenarioComHistorico } from '../engine/historico';
 import type { OfertaCadastrada } from '../engine/ofertas';
 import { itemFGCDaPosicao, type Posicao } from '../engine/posicoes';
@@ -145,8 +146,9 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
   const cenarioDoLink = useCenarioDoLink(preferencias, ativo);
   const cenarioDoLinkTemporaria = useCenarioDoLink(prefsTemporaria, ativoTemporaria);
 
-  // O histórico do Banco Central, uma vez quando há posições, desde a aplicação mais antiga.
-  const desde = posicoes.reduce<string | null>((min, p) => (min === null || p.dataAplicacao < min ? p.dataAplicacao : min), null);
+  // O histórico do Banco Central, uma vez quando há posições (ou uma consulta de renda variável), desde a data mais antiga.
+  const [periodoRV, setPeriodoRV] = useState<DataISO | null>(null);
+  const desde = posicoes.reduce<string | null>((min, p) => (min === null || p.dataAplicacao < min ? p.dataAplicacao : min), periodoRV);
   const { estado: historico, tentarDeNovo: tentarHistoricoDeNovo } = useHistorico(desde, carregarHistorico);
   const series = historico.fase === 'pronto' ? historico.carregado.series : null;
   /** O cenário da carteira: o realizado onde há histórico e o cenário ativo no resto. */
@@ -413,7 +415,7 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
         {
           id: 'renda-variavel', rotulo: 'Renda variável', conteudo: (
             <RendaVariavel ativa={aba === 'renda-variavel'} cenario={daCarteira.cenario}
-              cenarioRealizado={series !== null && !daCarteira.invalido} />
+              cenarioRealizado={series !== null && !daCarteira.invalido} onPeriodo={setPeriodoRV} />
           ),
         },
         {

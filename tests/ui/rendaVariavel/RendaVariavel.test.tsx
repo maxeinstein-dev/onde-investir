@@ -19,6 +19,7 @@ const candles = [
   { data: '2026-09-29', fechamento: 110 },
 ];
 const sessao = vi.mocked(obterSessao);
+const onPeriodo = vi.fn();
 const historico = vi.mocked(buscarHistorico);
 
 async function consultar(ticker: string) {
@@ -29,6 +30,7 @@ async function consultar(ticker: string) {
 }
 
 beforeEach(() => {
+  onPeriodo.mockReset();
   sessao.mockReset().mockResolvedValue({ ok: true });
   historico.mockReset().mockResolvedValue({ ok: true, candles });
 });
@@ -36,28 +38,28 @@ afterEach(cleanup);
 
 describe('RendaVariavel', () => {
   it('não chama o Turnstile com a aba inativa', () => {
-    render(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado />);
+    render(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
     expect(sessao).not.toHaveBeenCalled();
   });
 
   it('chama uma vez ao ficar ativa', async () => {
-    const { rerender } = render(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado />);
-    rerender(<RendaVariavel ativa cenario={cen} cenarioRealizado />);
+    const { rerender } = render(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
+    rerender(<RendaVariavel ativa cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
     await waitFor(() => expect(sessao).toHaveBeenCalledTimes(1));
-    rerender(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado />);
-    rerender(<RendaVariavel ativa cenario={cen} cenarioRealizado />);
+    rerender(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
+    rerender(<RendaVariavel ativa cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
     expect(sessao).toHaveBeenCalledTimes(1);
   });
 
   it('ticker inválido não chama a API', async () => {
-    render(<RendaVariavel ativa cenario={cen} cenarioRealizado />);
+    render(<RendaVariavel ativa cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
     await consultar('XX');
     expect(await screen.findByRole('alert')).toHaveTextContent('Código inválido');
     expect(historico).not.toHaveBeenCalled();
   });
 
   it('renderiza rentabilidade, volatilidade, drawdown, CDI e IPCA', async () => {
-    render(<RendaVariavel ativa cenario={cen} cenarioRealizado />);
+    render(<RendaVariavel ativa cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
     await consultar('petr4');
     expect(await screen.findByText('Rentabilidade no período')).toBeInTheDocument();
     expect(historico).toHaveBeenCalledWith('PETR4');
@@ -70,7 +72,7 @@ describe('RendaVariavel', () => {
 
   it('SEM_SESSAO renova a sessão uma vez e repete a consulta', async () => {
     historico.mockResolvedValueOnce({ ok: false, erro: 'SEM_SESSAO' });
-    render(<RendaVariavel ativa cenario={cen} cenarioRealizado />);
+    render(<RendaVariavel ativa cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
     await waitFor(() => expect(sessao).toHaveBeenCalledTimes(1));
     await consultar('PETR4');
     expect(await screen.findByText('Rentabilidade no período')).toBeInTheDocument();
@@ -80,20 +82,29 @@ describe('RendaVariavel', () => {
 
   it('erro do Turnstile mostra "Tentar de novo"', async () => {
     sessao.mockResolvedValueOnce({ ok: false, erro: 'TURNSTILE_INDISPONIVEL' });
-    render(<RendaVariavel ativa cenario={cen} cenarioRealizado />);
+    render(<RendaVariavel ativa cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Tentar de novo' }));
     await waitFor(() => expect(sessao).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Tentar de novo' })).toBeNull());
   });
 
-  it('sem histórico de CDI e IPCA: avisa e não deixa consultar', () => {
-    render(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado={false} />);
-    expect(screen.getByText(/Aguardando o histórico de CDI e IPCA/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Consultar' })).toBeDisabled();
+  it('informa o início do período ao App ao consultar', async () => {
+    render(<RendaVariavel ativa cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
+    await consultar('PETR4');
+    await screen.findByText('Rentabilidade no período');
+    expect(onPeriodo).toHaveBeenCalledWith('2026-07-01');
+  });
+
+  it('sem histórico de CDI e IPCA: consulta funciona, sem CDI e IPCA, com aviso', async () => {
+    render(<RendaVariavel ativa cenario={cen} cenarioRealizado={false} onPeriodo={onPeriodo} />);
+    await consultar('PETR4');
+    expect(await screen.findByText('Rentabilidade no período')).toBeInTheDocument();
+    expect(screen.queryByText('CDI no mesmo período')).toBeNull();
+    expect(screen.getByText(/Carregando o histórico de CDI e IPCA/)).toBeInTheDocument();
   });
 
   it('mostra o aviso educativo e o link da lição', () => {
-    render(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado />);
+    render(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
     expect(screen.getByText(/Conteúdo educativo/)).toBeInTheDocument();
     expect(screen.getByText(/não indica ações/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Ver lição/ })).toHaveAttribute('href', '#aprender/renda-variavel');
