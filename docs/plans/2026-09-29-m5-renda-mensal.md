@@ -3,14 +3,16 @@
 > **Para o Claude:** Use `${SUPERPOWERS_SKILLS_ROOT}/skills/collaboration/executing-plans/SKILL.md` para executar este plano tarefa por tarefa.
 
 **Objetivo:** Adicionar um 5º tipo de Objetivo — "Renda Mensal" — que, dado um principal e uma
-renda mensal desejada, calcula o %CDI necessário (tributado e isento) e sugere a(s) oferta(s) do
-catálogo que chegam lá, diversificando quando nenhuma sozinha basta.
+renda mensal desejada, calcula o %CDI necessário (tributado e isento) e sugere a oferta do catálogo
+que chega lá — ou, quando nenhuma basta sozinha, a que mais se aproxima, com o quanto falta.
 
 **Arquitetura:** Tudo entra em `src/engine/sugestao.ts` (sem arquivo novo — evita import circular
 com os tipos `Fatia`/`MotivoFatia`/`ContextoSugestao` já definidos lá). Duas funções puras novas:
 `calcularTaxaNecessaria` (resolve o %CDI por bisseção, reaproveitando `resolverPercentual` e
 `taxasDiariasCDI` de `equivalencia.ts`, agora exportadas) e `sugerirRendaMensal` (casa com o
-catálogo e decide entre fatia única, diversificação 50/50, ou aviso de insuficiência). A UI ganha
+catálogo e decide entre fatia única suficiente ou fatia única insuficiente com o valor que falta —
+sem diversificar: misturar duas ofertas pós-CDI nunca supera a melhor das duas isoladas, porque o
+retorno é linear no valor aplicado; a prova está na seção 3 do design). A UI ganha
 um novo prop `cenario: Cenario`, encadeado de `App.tsx` até `Sugestao.tsx`, porque esse tipo de
 objetivo é o primeiro a precisar do CDI diário para o próprio cálculo (os outros 4 só mexem com
 percentuais fixos).
@@ -304,18 +306,20 @@ describe('sugerirRendaMensal', () => {
     }
   });
 
-  it('nenhuma sozinha resolve, mas a combinação 50/50 (melhor tributada + melhor isenta) resolve: diversifica', () => {
-    // %CDI necessário tributado é maior que o isento (sem IR); nenhuma oferta abaixo bate sozinha,
-    // mas juntas (50% cada) passam da meta.
+  it('nenhuma sozinha resolve: usa 100% na que rende mais de verdade (não faz sentido misturar — ver nota do design)', () => {
+    // Nem CDB a 50% do CDI nem LCI a 90% do CDI batem a meta sozinhos (o necessário é bem maior),
+    // mas a LCI (isenta, sem IR) rende mais de verdade que o CDB nessa janela — ela é escolhida.
     const catalogo = [
-      catalogoBase({ id: 'cdb', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.3 } }),
-      catalogoBase({ id: 'lci', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.1 } }),
+      catalogoBase({ id: 'cdb', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.5 } }),
+      catalogoBase({ id: 'lci', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.9 } }),
     ];
     const r = sugerirRendaMensal(objetivo, { ...ctxBase, catalogo }, CEN);
-    expect(r.modo).toBe('DIVERSIFICADA');
-    if (r.modo === 'DIVERSIFICADA') {
-      expect(r.fatias).toHaveLength(2);
-      expect(r.fatias.every((f) => f.percentual === 0.5)).toBe(true);
+    expect(r.modo).toBe('INSUFICIENTE');
+    if (r.modo === 'INSUFICIENTE') {
+      expect(r.fatias).toHaveLength(1);
+      expect(r.fatias[0]?.produto).toBe('LCI');
+      expect(r.fatias[0]?.percentual).toBe(1);
+      expect(r.faltaMensal).toBeGreaterThan(0);
     }
   });
 
@@ -341,11 +345,6 @@ describe('sugerirRendaMensal', () => {
 });
 ```
 
-Ajuste os números dos casos de "diversifica" se, ao rodar, a combinação escolhida não bater
-exatamente o cenário pretendido (o objetivo do teste é só provar que o modo `DIVERSIFICADA`
-funciona quando nenhuma oferta isolada resolve mas a soma resolve — os percentuais de %CDI acima
-são um ponto de partida, ajuste-os empiricamente rodando o teste se precisar).
-
 **Passo 2: Rodar e confirmar que falha**
 
 Rodar: `npx vitest run tests/engine/sugestao.test.ts`
@@ -359,8 +358,7 @@ Em `src/engine/sugestao.ts`, adicione (depois de `calcularTaxaNecessaria`, antes
 ```ts
 export type ResultadoRendaMensal =
   | { modo: 'UNICA'; fatia: Fatia }
-  | { modo: 'DIVERSIFICADA'; fatias: [Fatia, Fatia] }
-  // 0, 1 ou 2 fatias: pode faltar oferta num dos regimes, ou o catálogo estar vazio.
+  // 0 ou 1 fatia: 0 só se o catálogo estiver vazio nos dois regimes.
   | { modo: 'INSUFICIENTE'; fatias: Fatia[]; faltaMensal: number };
 
 function melhorOfertaPosCDI(catalogo: readonly OfertaCadastrada[], isenta: boolean): OfertaCadastrada | undefined {
@@ -415,26 +413,23 @@ export function sugerirRendaMensal(
     return { modo: 'UNICA', fatia: construirFatiaRendaMensal(oferta, 1, o.principal, motivo, ctx.carteira, ctx.hoje) };
   }
 
-  const participantes: { oferta: OfertaCadastrada; motivo: MotivoFatia }[] = [];
-  if (melhorTributada) participantes.push({ oferta: melhorTributada, motivo: 'RENDA_MENSAL_TRIBUTADO' });
-  if (melhorIsenta) participantes.push({ oferta: melhorIsenta, motivo: 'RENDA_MENSAL_ISENTO' });
+  // Nenhuma resolve sozinha. NÃO tem sentido misturar (ver a nota do design, seção 3): o retorno de
+  // qualquer oferta pós-CDI é linear no valor aplicado (IR/IOF só dependem do prazo), então uma
+  // mistura nunca supera a melhor das duas isoladas. Usa 100% na que render mais de verdade.
+  const candidatas: { oferta: OfertaCadastrada; motivo: MotivoFatia }[] = [];
+  if (melhorTributada) candidatas.push({ oferta: melhorTributada, motivo: 'RENDA_MENSAL_TRIBUTADO' });
+  if (melhorIsenta) candidatas.push({ oferta: melhorIsenta, motivo: 'RENDA_MENSAL_ISENTO' });
 
-  if (participantes.length === 0) {
+  if (candidatas.length === 0) {
     return { modo: 'INSUFICIENTE', fatias: [], faltaMensal: o.rendaMensalDesejada };
   }
 
-  const percentual = 1 / participantes.length;
   const dataResgate = somarDias(ctx.hoje, DIAS_RENDA_MENSAL);
-  const liquidoTotal = participantes.reduce(
-    (soma, p) => soma + liquidoNaJanela(p.oferta, o.principal * percentual, ctx.hoje, dataResgate, cen), 0,
-  );
-  const fatias = participantes.map((p) => construirFatiaRendaMensal(p.oferta, percentual, o.principal, p.motivo, ctx.carteira, ctx.hoje));
-  const rendaObtida = liquidoTotal - o.principal;
-
-  if (participantes.length === 2 && rendaObtida >= o.rendaMensalDesejada) {
-    return { modo: 'DIVERSIFICADA', fatias: fatias as [Fatia, Fatia] };
-  }
-  return { modo: 'INSUFICIENTE', fatias, faltaMensal: Math.max(0, o.rendaMensalDesejada - rendaObtida) };
+  const rendimentos = candidatas.map((c) => ({ ...c, liquido: liquidoNaJanela(c.oferta, o.principal, ctx.hoje, dataResgate, cen) }));
+  const melhor = rendimentos.reduce((a, b) => (b.liquido > a.liquido ? b : a));
+  const fatia = construirFatiaRendaMensal(melhor.oferta, 1, o.principal, melhor.motivo, ctx.carteira, ctx.hoje);
+  const faltaMensal = Math.max(0, o.rendaMensalDesejada - (melhor.liquido - o.principal));
+  return { modo: 'INSUFICIENTE', fatias: [fatia], faltaMensal };
 }
 ```
 
@@ -445,14 +440,13 @@ já estar, pelo resto do arquivo) e só acrescente o que faltar, sem duplicar.
 **Passo 4: Rodar e confirmar que passa**
 
 Rodar: `npx vitest run tests/engine/sugestao.test.ts`
-Esperado: PASS. Se o caso "diversifica" não bater, ajuste os `percentualCDI` do catálogo do teste
-(comentário no Passo 1 já avisa disso).
+Esperado: PASS.
 
 **Passo 5: Commit**
 
 ```bash
 git add src/engine/sugestao.ts tests/engine/sugestao.test.ts
-git commit -m "feat(sugestao): sugerirRendaMensal com fatia unica, diversificacao 50/50 e aviso de insuficiencia"
+git commit -m "feat(sugestao): sugerirRendaMensal com fatia unica e aviso de insuficiencia"
 ```
 
 ---
@@ -640,13 +634,12 @@ noutras telas (`tests/engine/cenarioPadrao.ts` — `CEN`) e reaproveite o mesmo 
 Em `tests/ui/objetivos/Sugestao.test.tsx`, adicione um novo prop `cenario={CEN}` (importado de
 `../../engine/cenarioPadrao` ou caminho equivalente) em toda chamada de `render(<Sugestao ... />)`
 já existente no arquivo (senão o TypeScript vai reclamar de prop obrigatória faltando). Adicione um
-`describe`/conjunto de `it`s novo para `RENDA_MENSAL`, cobrindo os três `modo`:
+`describe`/conjunto de `it`s novo para `RENDA_MENSAL`, cobrindo os dois `modo`:
 - Um objetivo `RENDA_MENSAL` cujo catálogo tem uma oferta isenta suficiente → aparece 1 fatia, o
   cartão com os dois %CDI necessários, e a nota da carência da LCI.
-- Um objetivo cujo catálogo só resolve diversificando → aparecem 2 fatias e a frase "Nenhuma oferta
-  sozinha chega nessa renda...".
-- Um objetivo sem catálogo suficiente → aparece o aviso com o valor de `faltaMensal` formatado em
-  R$ e um `LinkLicao` para `'renda-variavel'`.
+- Um objetivo sem catálogo suficiente → aparece a fatia única (a melhor que dá pra fazer, se
+  houver alguma oferta) mais o aviso com o valor de `faltaMensal` formatado em R$ e um `LinkLicao`
+  para `'renda-variavel'`.
 
 Em `tests/ui/objetivos/Objetivos.test.tsx`, adicione `cenario={CEN}` em toda chamada de
 `render(<Objetivos ... />)`, e um teste confirmando que `'RENDA_MENSAL'` aparece como opção no
@@ -687,12 +680,10 @@ Em `src/ui/objetivos/Sugestao.tsx`:
   dentro do mesmo `useMemo`, para não recalcular a bisseção duas vezes), formatados com
   `formatarPercentual`, e a nota fixa da carência da LCI/LCA (texto do design, seção 4). Se
   `taxa.disponivel === false`, mostre `taxa.motivo` no lugar do percentual.
-- Se `resultado.modo === 'DIVERSIFICADA'`, mostre a frase "Nenhuma oferta sozinha chega nessa
-  renda; dividimos entre as duas melhores do seu catálogo." acima da lista de fatias.
-- Se `resultado.modo === 'INSUFICIENTE'`, mostre, abaixo da lista de fatias (que pode estar vazia),
-  um aviso com `resultado.faltaMensal` formatado em R$ e `<LinkLicao licao="renda-variavel" />`
-  (mesmo padrão do bloco `{nota && (...)}` já existente no fim do componente, para
-  `notaRendaVariavel`).
+- Se `resultado.modo === 'INSUFICIENTE'`, mostre, abaixo da lista de fatias (que pode estar vazia,
+  se o catálogo não tiver nenhuma oferta pós-CDI), um aviso com `resultado.faltaMensal` formatado
+  em R$ e `<LinkLicao licao="renda-variavel" />` (mesmo padrão do bloco `{nota && (...)}` já
+  existente no fim do componente, para `notaRendaVariavel`).
 
 Em `src/ui/App.tsx`, no JSX de `<Objetivos ...>` (linha ~404), acrescente `cenario={ativo.cenario}`.
 
@@ -722,8 +713,8 @@ npm run lint
 ```
 
 **Passo 2:** Revisão editorial (via /vozmax ou equivalente) dos textos novos e rascunhados neste
-plano: os dois textos de `TEXTO_E_LICAO` (Tarefa 5), a frase da diversificação e o texto do aviso
-de insuficiência (Tarefa 7), a nota da carência da LCI/LCA (Tarefa 7), e os rótulos do formulário
+plano: os dois textos de `TEXTO_E_LICAO` (Tarefa 5), o texto do aviso de insuficiência (Tarefa 7),
+a nota da carência da LCI/LCA (Tarefa 7), e os rótulos do formulário
 (Tarefa 6). Mostrar ao usuário para aprovação antes do PR, no mesmo fluxo de todos os marcos
 anteriores.
 
