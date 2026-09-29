@@ -35,24 +35,30 @@
   .abas__lista {
     display: flex;
     flex-wrap: nowrap;
-    flex: 1;
+    flex: 4 1 0;
+    min-width: 0;
     gap: 0;
     border-bottom: none;
   }
 
   .abas__lista .abas__aba,
   .abas__botao-mais {
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
     min-height: var(--alvo-toque);
     margin-bottom: 0;
-    padding: 0 var(--espaco-2);
+    padding: 0 var(--espaco-1);
     border-radius: 0;
+    font-size: var(--texto-pequeno);
+    line-height: 1.2;
+    text-align: center;
   }
 
   .abas__mais {
     position: relative;
     display: flex;
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
   }
 
   .abas__botao-mais {
