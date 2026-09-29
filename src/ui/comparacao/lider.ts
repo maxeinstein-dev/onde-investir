@@ -1,4 +1,4 @@
-import { listar, nomesDistintos } from '../../conteudo/comparacao';
+import { listar, nomeDoHorizonte, nomesDistintos } from '../../conteudo/comparacao';
 import type { ColunaHorizonte } from '../../engine/comparacao';
 import type { OfertaCadastrada } from '../../engine/ofertas';
 import { formatarMoeda } from '../../formato';
@@ -22,7 +22,7 @@ export function frasesDoLider(ofertas: readonly OfertaCadastrada[], colunas: rea
   const lideres = ranking.filter((x) => x.lider);
   const [primeiro] = lideres;
   if (!primeiro) return null;
-  const rotulo = 'Valor líquido do líder';
+  const rotulo = `Valor líquido do líder em ${nomeDoHorizonte(coluna)}`;
   const valor = formatarMoeda(primeiro.p.liquido);
   if (lideres.length > 1) return { rotulo, valor, frase: `Empate técnico entre ${listar(lideres.map((x) => x.nome))}.` };
   const segundo = ranking.filter((x) => !x.lider).sort((a, b) => b.p.liquido - a.p.liquido)[0];

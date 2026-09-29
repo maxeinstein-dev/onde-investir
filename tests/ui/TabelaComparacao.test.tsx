@@ -156,4 +156,18 @@ describe('TabelaComparacao', () => {
     expect(rolagem).toHaveClass('tabela-rolavel');
     expect(rolagem).toContainElement(tabela());
   });
+
+  it('marca os papéis de tabela de forma explícita (o CSS do celular vira cartões)', () => {
+    montar();
+    expect(tabela().getAttribute('role')).toBe('table');
+    const linhas = Array.from(tabela().querySelectorAll('tr'));
+    expect(linhas.length).toBeGreaterThan(0);
+    for (const tr of linhas) expect(tr.getAttribute('role')).toBe('row');
+    for (const g of Array.from(tabela().querySelectorAll('thead, tbody'))) expect(g.getAttribute('role')).toBe('rowgroup');
+    for (const th of Array.from(tabela().querySelectorAll('th'))) {
+      expect(th.getAttribute('role')).toBe(th.getAttribute('scope') === 'col' ? 'columnheader' : 'rowheader');
+    }
+    // Todo td com conteúdo é célula; só o canto vazio do cabeçalho (oculto no celular) fica sem papel.
+    for (const td of Array.from(tabela().querySelectorAll('tbody td'))) expect(td.getAttribute('role')).toBe('cell');
+  });
 });

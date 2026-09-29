@@ -70,9 +70,9 @@ function Celula({ p, lider, rotulo }: { p: Projecao; lider: boolean; rotulo: str
   // Os passos só são renderizados quando o "Por que?" abre (e ficam depois): a tabela tem até 5 × 6 células.
   const [aberto, setAberto] = useState(false);
   const texto = descreverProjecao(p);
-  if (p.estado !== 'DISPONIVEL') return <td class="celula celula--estado" data-label={rotulo}>{texto}</td>;
+  if (p.estado !== 'DISPONIVEL') return <td role="cell" class="celula celula--estado" data-label={rotulo}>{texto}</td>;
   return (
-    <td class={lider ? 'celula celula--lider' : 'celula'} data-label={rotulo}>
+    <td role="cell" class={lider ? 'celula celula--lider' : 'celula'} data-label={rotulo}>
       <span class="celula__valor">{formatarMoeda(p.liquido)}</span>
       {lider && (
         <>
@@ -98,8 +98,8 @@ function Celula({ p, lider, rotulo }: { p: Projecao; lider: boolean; rotulo: str
 /** Título de um bloco de linhas, que ocupa a largura toda; o texto fica fixo à esquerda quando a tabela rola. */
 function TituloDoBloco({ id, colunas, children }: { id: string; colunas: number; children: string }) {
   return (
-    <tr class="tabela-comparacao__bloco">
-      <th id={id} scope="rowgroup" colSpan={colunas}><span>{children}</span></th>
+    <tr role="row" class="tabela-comparacao__bloco">
+      <th role="rowheader" id={id} scope="rowgroup" colSpan={colunas}><span>{children}</span></th>
     </tr>
   );
 }
@@ -114,23 +114,23 @@ export function TabelaComparacao({ ofertas, colunas, dataAplicacao, onRemover }:
   return (
     // No celular a tabela rola dentro deste contêiner, sem rolar a página; tabindex para rolar pelo teclado.
     <div class="tabela-rolavel" role="region" aria-labelledby={ID_LEGENDA} tabIndex={0}>
-      <table class="tabela-comparacao">
+      <table role="table" class="tabela-comparacao">
         <caption id={ID_LEGENDA}><span>Comparação de {n} {n === 1 ? 'oferta' : 'ofertas'}</span></caption>
-        <thead>
-          <tr>
+        <thead role="rowgroup">
+          <tr role="row">
             <td />
             {ofertas.map((o, i) => (
-              <th key={o.id} scope="col" id={idColuna(i)} tabIndex={-1} class="tabela-comparacao__oferta">
+              <th key={o.id} role="columnheader" scope="col" id={idColuna(i)} tabIndex={-1} class="tabela-comparacao__oferta">
                 <span class="tabela-comparacao__letra">{letraDaOferta(i)}</span>
                 <span class="tabela-comparacao__nome">{nomes[i]}</span>
               </th>
             ))}
           </tr>
           {/* Os botões ficam numa linha própria, fora do th: o nome da coluna é só a letra e o nome da oferta. */}
-          <tr class="tabela-comparacao__acoes">
+          <tr role="row" class="tabela-comparacao__acoes">
             <td />
             {ofertas.map((o, i) => (
-              <td key={o.id}>
+              <td key={o.id} role="cell">
                 <button type="button" class="tabela-comparacao__tirar" aria-label={`Tirar da comparação: ${nomes[i] ?? ''}`}
                   onClick={() => onRemover(o.id)}>
                   ✕ Tirar da comparação
@@ -139,27 +139,27 @@ export function TabelaComparacao({ ofertas, colunas, dataAplicacao, onRemover }:
             ))}
           </tr>
         </thead>
-        <tbody aria-labelledby={idCaracteristicas}>
+        <tbody role="rowgroup" aria-labelledby={idCaracteristicas}>
           <TituloDoBloco id={idCaracteristicas} colunas={n + 1}>Características</TituloDoBloco>
           {caracteristicas.map((c) => (
-            <tr key={c.rotulo}>
-              <th scope="row">{c.rotulo}</th>
-              {ofertas.map((o, i) => <td key={o.id} data-label={nomes[i]}>{c.valor(o, dataAplicacao)}</td>)}
+            <tr key={c.rotulo} role="row">
+              <th role="rowheader" scope="row">{c.rotulo}</th>
+              {ofertas.map((o, i) => <td key={o.id} role="cell" data-label={nomes[i]}>{c.valor(o, dataAplicacao)}</td>)}
             </tr>
           ))}
         </tbody>
         {colunas.length > 0 && (
-          <tbody aria-labelledby={idValores}>
+          <tbody role="rowgroup" aria-labelledby={idValores}>
             <TituloDoBloco id={idValores} colunas={n + 1}>Valor líquido</TituloDoBloco>
             {colunas.map((c) => (
-              <tr key={c.data}>
-                <th scope="row">
+              <tr key={c.data} role="row">
+                <th role="rowheader" scope="row">
                   {nomeDoHorizonte(c)}
                   {c.rotulo !== 'Sua data' && <span class="tabela__data">{dataBR(c.data)}</span>}
                 </th>
                 {ofertas.map((o, i) => {
                   const p = c.projecoes[i];
-                  return p ? <Celula key={o.id} p={p} lider={c.lideres.includes(i)} rotulo={nomes[i] ?? ''} /> : <td key={o.id} />;
+                  return p ? <Celula key={o.id} p={p} lider={c.lideres.includes(i)} rotulo={nomes[i] ?? ''} /> : <td key={o.id} role="cell" />;
                 })}
               </tr>
             ))}
