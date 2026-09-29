@@ -15,7 +15,8 @@ export type Objetivo =
   | { tipo: 'RESERVA'; gastoMensal: number; rendaEstavel: boolean }
   | { tipo: 'COM_DATA'; valorAlvo: number; data: DataISO }
   | { tipo: 'LONGO_PRAZO'; horizonteAnos: number }
-  | { tipo: 'SEM_OBJETIVO'; horizonteAnos: number };
+  | { tipo: 'SEM_OBJETIVO'; horizonteAnos: number }
+  | { tipo: 'RENDA_MENSAL'; principal: number; rendaMensalDesejada: number };
 
 export type MotivoFatia =
   | 'RESERVA_TESOURO_SELIC' | 'RESERVA_CDB_LIQUIDEZ'
@@ -52,6 +53,8 @@ export function valorAlvo(objetivo: Objetivo): number | null {
     case 'LONGO_PRAZO':
     case 'SEM_OBJETIVO':
       return null;
+    case 'RENDA_MENSAL':
+      return null;
   }
 }
 
@@ -70,6 +73,10 @@ export function validarObjetivo(o: Objetivo, hoje: DataISO): void {
       if (!Number.isInteger(o.horizonteAnos) || o.horizonteAnos <= 0) {
         throw new OfertaInvalidaError('Informe um horizonte em anos inteiro, maior que zero.');
       }
+      break;
+    case 'RENDA_MENSAL':
+      if (!Number.isFinite(o.principal) || o.principal <= 0) throw new OfertaInvalidaError('Preencha o principal, maior que zero.');
+      if (!Number.isFinite(o.rendaMensalDesejada) || o.rendaMensalDesejada <= 0) throw new OfertaInvalidaError('Preencha a renda mensal desejada, maior que zero.');
       break;
   }
 }
@@ -201,5 +208,8 @@ export function sugerir(objetivo: Objetivo, ctx: ContextoSugestao): Fatia[] {
     case 'COM_DATA': return sugerirComData(objetivo, ctx);
     case 'LONGO_PRAZO': return sugerirLongoPrazo(objetivo, ctx);
     case 'SEM_OBJETIVO': return sugerirSemObjetivo(objetivo, ctx);
+    // TEMPORÁRIO: destrava a Tarefa 2 (checagem de exaustividade do switch). A Tarefa 5
+    // substitui isso pela implementação de verdade.
+    case 'RENDA_MENSAL': throw new Error('não implementado ainda');
   }
 }

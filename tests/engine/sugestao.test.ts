@@ -21,6 +21,9 @@ describe('valorAlvo', () => {
     expect(valorAlvo({ tipo: 'LONGO_PRAZO', horizonteAnos: 15 })).toBeNull();
     expect(valorAlvo({ tipo: 'SEM_OBJETIVO', horizonteAnos: 3 })).toBeNull();
   });
+  it('renda mensal: sem valor-alvo (é o principal que importa, não um alvo a atingir)', () => {
+    expect(valorAlvo({ tipo: 'RENDA_MENSAL', principal: 100000, rendaMensalDesejada: 1000 })).toBeNull();
+  });
 });
 
 describe('validarObjetivo', () => {
@@ -41,6 +44,14 @@ describe('validarObjetivo', () => {
     expect(() => validarObjetivo({ tipo: 'LONGO_PRAZO', horizonteAnos: 0 }, HOJE)).toThrow(OfertaInvalidaError);
     expect(() => validarObjetivo({ tipo: 'LONGO_PRAZO', horizonteAnos: 5.5 }, HOJE)).toThrow(OfertaInvalidaError);
     expect(() => validarObjetivo({ tipo: 'SEM_OBJETIVO', horizonteAnos: 10 }, HOJE)).not.toThrow();
+  });
+  it('renda mensal: principal e renda desejada precisam ser positivos', () => {
+    const base: Objetivo = { tipo: 'RENDA_MENSAL', principal: 100000, rendaMensalDesejada: 1000 };
+    expect(() => validarObjetivo({ ...base, principal: 0 }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo({ ...base, principal: Number.NaN }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo({ ...base, rendaMensalDesejada: 0 }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo({ ...base, rendaMensalDesejada: -100 }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo(base, HOJE)).not.toThrow();
   });
 });
 
