@@ -364,7 +364,7 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
           onChange={mudarPreferencias} onCenarioInvalido={setCenarioInvalido} />
       </PainelRecolhivel>
 
-      <Abas rotulo="O que você quer fazer" ativa={aba} onAtivar={trocarAba} abas={[
+      <Abas rotulo="O que você quer fazer" ativa={aba} onAtivar={trocarAba} secundarias={['catalogo', ABA_APRENDER]} abas={[
         {
           id: 'comparar', rotulo: 'Comparar', conteudo: (
             <>
