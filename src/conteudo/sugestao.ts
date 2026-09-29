@@ -64,10 +64,30 @@ export const ROTULO_PRINCIPAL_NECESSARIO = 'Principal necessário (CDB a 100% do
 
 /** Frase abaixo do número em destaque: só formata valores que o motor já calculou. */
 export function fraseReferenciaPrincipal(rendaMensal: number, principalAtual: number): string {
-  return `Uma oferta fácil de encontrar. Com ${formatarMoeda(principalAtual)}, a renda de ${formatarMoeda(rendaMensal)} por mês não fecha.`;
+  return `Referência de cálculo: um CDB pagando 100% do CDI. Com ${formatarMoeda(principalAtual)}, a renda de ${formatarMoeda(rendaMensal)} por mês não fecha.`;
 }
 
 /** A mesma conta pela melhor oferta do catálogo da pessoa. */
 export function fraseMelhorOferta(nomeDaOferta: string, percentualCDI: number, valor: number): string {
-  return `Com a sua melhor oferta (${nomeDaOferta}, ${formatarPercentual(percentualCDI)} do CDI): cerca de ${formatarMoeda(valor)}.`;
+  return `Pela sua melhor oferta (${nomeDaOferta}, ${formatarPercentual(percentualCDI)} do CDI), o principal necessário é de cerca de ${formatarMoeda(valor)}.`;
 }
+
+/** Rótulo do destaque da renda que o principal informado já rende. */
+export const ROTULO_RENDA_ESTIMADA = 'Renda estimada com o que você tem';
+
+export function fraseRendaEstimada(principalAtual: number): string {
+  return `Por mês, já descontado o imposto, com ${formatarMoeda(principalAtual)} num CDB a 100% do CDI (referência de cálculo).`;
+}
+
+/** A renda estimada pela melhor oferta do catálogo. */
+export function fraseRendaMelhorOferta(nomeDaOferta: string, percentualCDI: number, renda: number): string {
+  return `Renda com a sua melhor oferta (${nomeDaOferta}, ${formatarPercentual(percentualCDI)} do CDI): cerca de ${formatarMoeda(renda)} por mês.`;
+}
+
+/** O que ainda falta da meta, depois de descontar a renda que o principal já rende. */
+export function fraseFalta(faltaMensal: number, rendaDesejada: number): string {
+  return `Faltam ${formatarMoeda(faltaMensal)}/mês para chegar na renda desejada de ${formatarMoeda(rendaDesejada)}.`;
+}
+
+/** Quando a melhor oferta é LCI/LCA, os valores ignoram a carência: só valem como referência. */
+export const NOTA_CARENCIA_REFERENCIA = 'LCI/LCA tem carência mínima de 6 meses antes do primeiro resgate: os valores desta oferta são só uma referência.';

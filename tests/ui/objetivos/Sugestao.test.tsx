@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor, fireEvent, within } from '@testing-li
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ObjetivoSalvo } from '../../../src/armazenamento/objetivos';
 import { CEN } from '../../engine/cenarioPadrao';
-import { principalNecessario } from '../../../src/engine/sugestao';
+import { principalNecessario, rendaComPrincipal } from '../../../src/engine/sugestao';
 import { formatarMoeda } from '../../../src/formato';
 import type { ItemFGC } from '../../../src/engine/fgc';
 import type { OfertaCadastrada } from '../../../src/engine/ofertas';
@@ -171,9 +171,8 @@ describe('Sugestao — RENDA_MENSAL inviável: quanto seria preciso aplicar', ()
     <Sugestao objetivo={objetivo} catalogo={catalogo} carteira={[]} hoje={HOJE} cenario={CEN} onIrParaComparar={() => {}} />,
   );
 
-  it('sem catálogo: mostra o principal necessário num CDB a 100% do CDI, bem acima do que a pessoa tem', async () => {
+  it('sem catálogo: mostra o principal necessário num CDB a 100% do CDI, bem acima do que a pessoa tem', () => {
     renderizar([]);
-    await carregou();
     const grupo = screen.getByRole('group', { name: /Principal necessário.*CDB a 100% do CDI/i });
     const esperado = principalNecessario(3000, 'CDB', 1, HOJE, CEN) as number;
     expect(esperado).toBeGreaterThan(50000);
@@ -185,7 +184,7 @@ describe('Sugestao — RENDA_MENSAL inviável: quanto seria preciso aplicar', ()
   it('com oferta no catálogo: mostra também o valor pela melhor oferta, menor que o da referência', async () => {
     renderizar([cdb110]);
     await carregou();
-    const linha = screen.getByText(/Com a sua melhor oferta/i);
+    const linha = screen.getByText(/Pela sua melhor oferta/i);
     expect(linha.textContent).toContain('CDB 110% do CDI');
     expect(linha.textContent).toContain('Banco Alfa');
     const porOferta = principalNecessario(3000, 'CDB', 1.1, HOJE, CEN) as number;
@@ -194,11 +193,57 @@ describe('Sugestao — RENDA_MENSAL inviável: quanto seria preciso aplicar', ()
     expect(linha.textContent).toContain(formatarMoeda(porOferta));
   });
 
-  it('continua mostrando o quanto falta e o aviso educativo', async () => {
+  it('mostra a renda estimada com o que a pessoa tem, e o que falta é a meta menos essa renda (não a meta inteira)', () => {
+    renderizar([]);
+    const renda = rendaComPrincipal(50000, 'CDB', 1, HOJE, CEN);
+    expect(renda).toBeGreaterThan(0);
+    expect(renda).toBeLessThan(3000);
+    const grupo = screen.getByRole('group', { name: /Renda estimada/i });
+    expect(grupo.textContent).toContain(formatarMoeda(renda));
+    const falta = screen.getByText(/Faltam/);
+    expect(falta.textContent).toContain(formatarMoeda(3000 - renda));
+    expect(falta.textContent).not.toContain(formatarMoeda(3000) + '/mês para');
+    expect(screen.getByText(/Conteúdo educativo/)).toBeInTheDocument();
+  });
+
+  it('com oferta no catálogo, a renda estimada também aparece pela melhor oferta', async () => {
     renderizar([cdb110]);
     await carregou();
-    expect(screen.getByText(/Falta/)).toBeInTheDocument();
-    expect(screen.getByText(/Conteúdo educativo/)).toBeInTheDocument();
+    const linha = screen.getByText(/renda com a sua melhor oferta/i);
+    expect(linha.textContent).toContain(formatarMoeda(rendaComPrincipal(50000, 'CDB', 1.1, HOJE, CEN)));
+  });
+
+  it('quando a melhor oferta é LCI/LCA, lembra que a carência de 6 meses torna os valores só uma referência', async () => {
+    const lci: OfertaCadastrada = { id: 'lci9', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.9 }, emissor: 'Banco Y', conglomerado: 'Banco Y', liquidez: 'DIARIA' };
+    renderizar([lci]);
+    await carregou();
+    const bloco = document.querySelector('.obj-principal-necessario') as HTMLElement;
+    expect(within(bloco).getByText(/carência mínima de 6 meses.*referência/i)).toBeInTheDocument();
+  });
+
+  it('com CDB no catálogo, não mostra o lembrete de carência dentro do bloco de renda', async () => {
+    renderizar([cdb110]);
+    await carregou();
+    expect(document.querySelector('.obj-principal-necessario')?.textContent ?? '').not.toMatch(/carência/i);
+  });
+
+  it('o texto da referência é neutro: não afirma que a oferta é fácil de achar nem recomenda nada', () => {
+    renderizar([]);
+    expect(screen.queryByText(/fácil de encontrar/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /Principal necessário/i }).textContent).toMatch(/Referência de cálculo/);
+  });
+
+  it('sem fatias (catálogo vazio), não desenha o gráfico vazio', () => {
+    renderizar([]);
+    expect(screen.queryByText('Distribuição sugerida')).not.toBeInTheDocument();
+    expect(document.querySelector('canvas')).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Fatias sugeridas' })).not.toBeInTheDocument();
+  });
+
+  it('com fatias, o gráfico aparece', async () => {
+    renderizar([cdb110]);
+    await carregou();
+    expect(screen.getByText('Distribuição sugerida')).toBeInTheDocument();
   });
 
   it('quando a renda cabe no principal (fatia única), o bloco não aparece', async () => {
