@@ -5,17 +5,16 @@ import { useMemo } from 'preact/hooks';
 import type { ObjetivoSalvo } from '../../armazenamento/objetivos';
 import { nomeOferta } from '../../conteudo/comparacao';
 import {
-  AVISO_EDUCATIVO, descreverFatia, fraseMelhorOferta, fraseReferenciaPrincipal, licaoDaFatia, notaRendaVariavel,
-  ROTULO_PRINCIPAL_NECESSARIO, textoDaFatia, textoDoFgc,
+  AVISO_EDUCATIVO, descreverFatia, fraseFalta, fraseMelhorOferta, fraseReferenciaPrincipal, fraseRendaEstimada,
+  fraseRendaMelhorOferta, licaoDaFatia, NOTA_CARENCIA_REFERENCIA, notaRendaVariavel, ROTULO_PRINCIPAL_NECESSARIO,
+  ROTULO_RENDA_ESTIMADA, textoDaFatia, textoDoFgc,
 } from '../../conteudo/sugestao';
 import type { DataISO } from '../../engine/datas';
 import type { Equivalente } from '../../engine/equivalencia';
 import type { ItemFGC } from '../../engine/fgc';
 import type { Cenario } from '../../engine/indexadores';
 import type { OfertaCadastrada } from '../../engine/ofertas';
-import {
-  calcularTaxaNecessaria, sugerir, sugerirRendaMensal, type Fatia, type PrincipalNecessario as ValoresPrincipal, type ResultadoRendaMensal,
-} from '../../engine/sugestao';
+import { calcularTaxaNecessaria, sugerir, sugerirRendaMensal, type Fatia, type ResultadoRendaMensal } from '../../engine/sugestao';
 import { LinkLicao } from '../aprender/LinkLicao';
 import { formatarMoeda, formatarPercentual } from '../../formato';
 import { GraficoObjetivo } from '../graficos/GraficoObjetivo';
@@ -59,20 +58,39 @@ function ItemFatia({ f, onIrParaComparar }: { f: Fatia; onIrParaComparar: (ofert
   );
 }
 
-/** Renda inviável com o principal informado: quanto seria preciso aplicar, num CDB a 100% do CDI e na melhor oferta do catálogo. */
-function PrincipalNecessario({ principalNecessario, rendaMensal, principalAtual }: {
-  principalNecessario: ValoresPrincipal; rendaMensal: number; principalAtual: number;
+const percentualDaOferta = (o: OfertaCadastrada): number => (o.indexacao as { percentualCDI: number }).percentualCDI;
+const ehLciLca = (o: OfertaCadastrada): boolean => o.produto === 'LCI' || o.produto === 'LCA';
+
+/**
+ * Renda inviável com o principal informado: quanto o principal já rende por mês e quanto seria preciso aplicar para
+ * chegar na renda desejada, num CDB a 100% do CDI (referência de cálculo) e na melhor oferta do catálogo.
+ */
+function RendaInviavel({ resultado, principal, rendaDesejada }: {
+  resultado: Extract<ResultadoRendaMensal, { modo: 'INSUFICIENTE' }>; principal: number; rendaDesejada: number;
 }) {
+  const { principalNecessario, rendaComPrincipal } = resultado;
   const { referencia, catalogo } = principalNecessario;
-  if (referencia === null && catalogo === null) return null;
+  if (referencia === null && catalogo === null && rendaComPrincipal.referencia === null) return null;
   return (
     <div class="cartao obj-principal-necessario">
+      {rendaComPrincipal.referencia !== null && (
+        <Destaque
+          rotulo={ROTULO_RENDA_ESTIMADA} valor={`${formatarMoeda(rendaComPrincipal.referencia)}/mês`}
+          frase={fraseRendaEstimada(principal)}
+        />
+      )}
+      {catalogo !== null && rendaComPrincipal.catalogo !== null && (
+        <p class="cartao__detalhe">
+          {fraseRendaMelhorOferta(nomeOferta(catalogo.oferta), percentualDaOferta(catalogo.oferta), rendaComPrincipal.catalogo)}
+        </p>
+      )}
       {referencia !== null && (
-        <Destaque rotulo={ROTULO_PRINCIPAL_NECESSARIO} valor={formatarMoeda(referencia)} frase={fraseReferenciaPrincipal(rendaMensal, principalAtual)} />
+        <Destaque rotulo={ROTULO_PRINCIPAL_NECESSARIO} valor={formatarMoeda(referencia)} frase={fraseReferenciaPrincipal(rendaDesejada, principal)} />
       )}
       {catalogo !== null && (
-        <p class="cartao__detalhe">{fraseMelhorOferta(nomeOferta(catalogo.oferta), (catalogo.oferta.indexacao as { percentualCDI: number }).percentualCDI, catalogo.valor)}</p>
+        <p class="cartao__detalhe">{fraseMelhorOferta(nomeOferta(catalogo.oferta), percentualDaOferta(catalogo.oferta), catalogo.valor)}</p>
       )}
+      {catalogo !== null && ehLciLca(catalogo.oferta) && <p class="cartao__detalhe">{NOTA_CARENCIA_REFERENCIA}</p>}
     </div>
   );
 }
@@ -91,12 +109,14 @@ export function Sugestao({ objetivo, catalogo, carteira, hoje, cenario, onIrPara
   // Renda mensal precisa do Cenario (CDI diário) para calcular a taxa necessária, e do `modo`/`faltaMensal`
   // que `sugerir()` não expõe — então usa `sugerirRendaMensal` direto. `calcularTaxaNecessaria` é chamado
   // no mesmo useMemo, para os dois %CDI do cartão, sem recalcular a bisseção fora daqui.
-  const rendaMensal = useMemo<{ necessaria: ReturnType<typeof calcularTaxaNecessaria>; resultado: ResultadoRendaMensal } | null>(() => {
+  const rendaMensal = useMemo<{
+    necessaria: ReturnType<typeof calcularTaxaNecessaria>; resultado: ResultadoRendaMensal; principal: number; rendaDesejada: number;
+  } | null>(() => {
     if (objetivo.entradas.tipo !== 'RENDA_MENSAL') return null;
     const entradas = objetivo.entradas;
     const necessaria = calcularTaxaNecessaria(entradas.principal, entradas.rendaMensalDesejada, hoje, cenario);
     const resultado = sugerirRendaMensal(entradas, { catalogo, carteira, hoje }, cenario);
-    return { necessaria, resultado };
+    return { necessaria, resultado, principal: entradas.principal, rendaDesejada: entradas.rendaMensalDesejada };
   }, [objetivo.entradas, catalogo, carteira, hoje, cenario]);
 
   const fatias = rendaMensal
@@ -122,21 +142,19 @@ export function Sugestao({ objetivo, catalogo, carteira, hoje, cenario, onIrPara
           </p>
         </div>
       )}
-      <GraficoObjetivo fatias={fatias} />
-      <ul class="lista-ofertas" aria-label="Fatias sugeridas">
-        {fatias.map((f, i) => <ItemFatia key={`${f.motivo}-${i}`} f={f} onIrParaComparar={onIrParaComparar} />)}
-      </ul>
       {rendaMensal && rendaMensal.resultado.modo === 'INSUFICIENTE' && (
-        <PrincipalNecessario
-          principalNecessario={rendaMensal.resultado.principalNecessario}
-          rendaMensal={(objetivo.entradas as { rendaMensalDesejada: number }).rendaMensalDesejada}
-          principalAtual={(objetivo.entradas as { principal: number }).principal}
-        />
+        <RendaInviavel resultado={rendaMensal.resultado} principal={rendaMensal.principal} rendaDesejada={rendaMensal.rendaDesejada} />
+      )}
+      {/* Sem fatias (catálogo vazio), não há o que distribuir: um gráfico vazio só deixaria um bloco em branco. */}
+      {fatias.length > 0 && <GraficoObjetivo fatias={fatias} />}
+      {fatias.length > 0 && (
+        <ul class="lista-ofertas" aria-label="Fatias sugeridas">
+          {fatias.map((f, i) => <ItemFatia key={`${f.motivo}-${i}`} f={f} onIrParaComparar={onIrParaComparar} />)}
+        </ul>
       )}
       {rendaMensal && rendaMensal.resultado.modo === 'INSUFICIENTE' && (
         <p class="aviso">
-          Falta {formatarMoeda(rendaMensal.resultado.faltaMensal)}/mês para chegar na renda desejada com as ofertas
-          do catálogo. <LinkLicao licao="renda-variavel" />
+          {fraseFalta(rendaMensal.resultado.faltaMensal, rendaMensal.rendaDesejada)} <LinkLicao licao="renda-variavel" />
         </p>
       )}
       {nota && (

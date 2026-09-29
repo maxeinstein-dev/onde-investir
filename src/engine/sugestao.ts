@@ -294,14 +294,29 @@ const VALOR_REFERENCIA = 100_000;
  * TaxaNecessaria.isentoPosCDI. Devolve null se o rendimento líquido não for positivo.
  */
 export function principalNecessario(
-  rendaMensal: number, produto: TipoProduto, percentualCDI: number, hoje: DataISO, cen: Cenario,
+  rendaMensal: number, produto: TipoProduto, percentualCDI: number, hoje: DataISO, cen: Cenario, custoExtraAA?: number,
 ): number | null {
+  const porReal = rendimentoLiquidoPorReal(produto, percentualCDI, hoje, cen, custoExtraAA);
+  return porReal > 0 ? rendaMensal / porReal : null;
+}
+
+/**
+ * Renda LÍQUIDA que `principal` rende em {@link DIAS_RENDA_MENSAL} dias (a mesma conta de principalNecessario,
+ * no sentido inverso). 0 se o rendimento líquido não for positivo.
+ */
+export function rendaComPrincipal(
+  principal: number, produto: TipoProduto, percentualCDI: number, hoje: DataISO, cen: Cenario, custoExtraAA?: number,
+): number {
+  return Math.max(0, principal * rendimentoLiquidoPorReal(produto, percentualCDI, hoje, cen, custoExtraAA));
+}
+
+/** Rendimento líquido de R$ 1 em {@link DIAS_RENDA_MENSAL} dias: linear no valor aplicado (IR/IOF só dependem do prazo). */
+function rendimentoLiquidoPorReal(produto: TipoProduto, percentualCDI: number, hoje: DataISO, cen: Cenario, custoExtraAA?: number): number {
   const r = simular(
-    { produto, indexacao: { tipo: 'POS_CDI', percentualCDI }, valor: VALOR_REFERENCIA, dataAplicacao: hoje },
+    { produto, indexacao: { tipo: 'POS_CDI', percentualCDI }, ...(custoExtraAA === undefined ? {} : { custoExtraAA }), valor: VALOR_REFERENCIA, dataAplicacao: hoje },
     somarDias(hoje, DIAS_RENDA_MENSAL), cen, { ignorarPrazoMinimo: ehIsentoIR(produto) },
   );
-  const rendimento = r.valorLiquido - VALOR_REFERENCIA;
-  return rendimento > 0 ? (rendaMensal * VALOR_REFERENCIA) / rendimento : null;
+  return (r.valorLiquido - VALOR_REFERENCIA) / VALOR_REFERENCIA;
 }
 
 /** Quanto seria preciso aplicar para a renda desejada: num CDB a 100% do CDI (referência fácil de achar) e na melhor oferta do catálogo. */
@@ -313,7 +328,14 @@ export interface PrincipalNecessario {
 export type ResultadoRendaMensal =
   | { modo: 'UNICA'; fatia: Fatia }
   // 0 ou 1 fatia: 0 só se o catálogo estiver vazio nos dois regimes.
-  | { modo: 'INSUFICIENTE'; fatias: Fatia[]; faltaMensal: number; principalNecessario: PrincipalNecessario };
+  | {
+    modo: 'INSUFICIENTE'; fatias: Fatia[];
+    /** O que ainda falta da renda desejada, descontado o que o principal informado já rende (na melhor oferta do catálogo, ou no CDB a 100% do CDI se o catálogo está vazio). */
+    faltaMensal: number;
+    principalNecessario: PrincipalNecessario;
+    /** Quanto o principal INFORMADO rende por mês (líquido): num CDB a 100% do CDI e na melhor oferta do catálogo. */
+    rendaComPrincipal: { referencia: number | null; catalogo: number | null };
+  };
 
 function melhorOfertaPosCDI(catalogo: readonly OfertaCadastrada[], isenta: boolean): OfertaCadastrada | undefined {
   let melhor: OfertaCadastrada | undefined;
@@ -340,7 +362,7 @@ function construirFatiaRendaMensal(
 function liquidoNaJanela(oferta: OfertaCadastrada, valor: number, hoje: DataISO, dataResgate: DataISO, cen: Cenario): number {
   const ix = oferta.indexacao as { tipo: 'POS_CDI'; percentualCDI: number };
   return simular(
-    { produto: oferta.produto, indexacao: ix, valor, dataAplicacao: hoje }, dataResgate, cen,
+    { produto: oferta.produto, indexacao: ix, ...(oferta.custoExtraAA === undefined ? {} : { custoExtraAA: oferta.custoExtraAA }), valor, dataAplicacao: hoje }, dataResgate, cen,
     { ignorarPrazoMinimo: ehIsentoIR(oferta.produto) },
   ).valorLiquido;
 }
@@ -375,9 +397,14 @@ export function sugerirRendaMensal(
   if (melhorIsenta) candidatas.push({ oferta: melhorIsenta, motivo: 'RENDA_MENSAL_ISENTO' });
 
   const referencia = principalNecessario(o.rendaMensalDesejada, 'CDB', 1, ctx.hoje, cen);
+  const rendaReferencia = rendaComPrincipal(o.principal, 'CDB', 1, ctx.hoje, cen);
 
   if (candidatas.length === 0) {
-    return { modo: 'INSUFICIENTE', fatias: [], faltaMensal: o.rendaMensalDesejada, principalNecessario: { referencia, catalogo: null } };
+    return {
+      modo: 'INSUFICIENTE', fatias: [], faltaMensal: Math.max(0, o.rendaMensalDesejada - rendaReferencia),
+      principalNecessario: { referencia, catalogo: null },
+      rendaComPrincipal: { referencia: rendaReferencia, catalogo: null },
+    };
   }
 
   const dataResgate = somarDias(ctx.hoje, DIAS_RENDA_MENSAL);
@@ -387,9 +414,13 @@ export function sugerirRendaMensal(
   const faltaMensal = Math.max(0, o.rendaMensalDesejada - (melhor.liquido - o.principal));
   const valorCatalogo = principalNecessario(
     o.rendaMensalDesejada, melhor.oferta.produto, (melhor.oferta.indexacao as { percentualCDI: number }).percentualCDI, ctx.hoje, cen,
+    melhor.oferta.custoExtraAA,
   );
   const catalogo = valorCatalogo === null ? null : { oferta: melhor.oferta, valor: valorCatalogo };
-  return { modo: 'INSUFICIENTE', fatias: [fatia], faltaMensal, principalNecessario: { referencia, catalogo } };
+  return {
+    modo: 'INSUFICIENTE', fatias: [fatia], faltaMensal, principalNecessario: { referencia, catalogo },
+    rendaComPrincipal: { referencia: rendaReferencia, catalogo: melhor.liquido - o.principal },
+  };
 }
 
 /**

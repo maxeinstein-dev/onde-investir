@@ -4,6 +4,10 @@ Registro das mudanças do Rende por marco de entrega. Formato livre, em portugu�
 muda pra quem usa o app — não é um changelog técnico linha a linha (isso já fica no histórico do
 git e nos PRs).
 
+## Renda mensal inviável: renda estimada com o que você tem
+
+A sugestão de renda mensal ficou mais útil quando o valor informado não chega na meta. Em vez de "Falta R$ 3.000/mês", o app mostra quanto o seu dinheiro já renderia por mês, líquido de imposto, num CDB a 100% do CDI e na sua melhor oferta do catálogo, e o que ainda falta de verdade (a meta menos essa renda). O valor necessário também considera o custo extra da oferta, e vem com um lembrete de carência quando a melhor oferta é uma LCI/LCA. Sem ofertas no catálogo, o gráfico vazio (que aparecia como um bloco em branco) não é mais desenhado, e o aviso educativo ganhou espaçamento.
+
 ## Sugestão de renda mensal inviável — quanto seria preciso aplicar
 
 Quando a renda mensal desejada não cabe no valor informado (por exemplo, R$ 3 mil por mês com R$ 50 mil), a sugestão de Objetivos agora mostra quanto seria preciso aplicar num CDB a 100% do CDI, uma oferta fácil de encontrar, e, se houver oferta melhor no catálogo, o valor por ela também. O cálculo usa o cenário ativo, com IR e IOF de 30 dias.

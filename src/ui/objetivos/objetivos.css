@@ -24,3 +24,7 @@
 
 /* Renda inviável: quanto seria preciso aplicar. */
 .obj-principal-necessario { display: grid; gap: var(--espaco-3); }
+
+/* Respiro entre os blocos da sugestão: o aviso e os cartões não ficam colados. */
+.sugestao > * + * { margin-top: var(--espaco-4); }
+.sugestao > .aviso { display: block; }
