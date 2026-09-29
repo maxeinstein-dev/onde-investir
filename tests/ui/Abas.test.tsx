@@ -122,4 +122,9 @@ describe('Abas', () => {
     expect(aba('Comparar ofertas')).toHaveAttribute('aria-selected', 'true');
     expect(location.hash).toBe('#ofertas');
   });
+  it('sem matchMedia, mesmo com secundarias, todas as abas aparecem (layout de desktop)', () => {
+    render(<Abas rotulo="Seções" abas={ABAS} secundarias={['duelo']} />);
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: /Mais/ })).toBeNull();
+  });
 });

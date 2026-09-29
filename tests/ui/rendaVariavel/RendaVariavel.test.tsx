@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AVISO_TURNSTILE } from '../../../src/conteudo/rendaVariavel';
 import { cenarioConstante } from '../../../src/engine/indexadores';
 import { RendaVariavel } from '../../../src/ui/rendaVariavel/RendaVariavel';
 
@@ -49,6 +50,11 @@ describe('RendaVariavel', () => {
     rerender(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
     rerender(<RendaVariavel ativa cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
     expect(sessao).toHaveBeenCalledTimes(1);
+  });
+
+  it('mostra o aviso do Turnstile dentro da aba', () => {
+    render(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
+    expect(screen.getByText(AVISO_TURNSTILE)).toBeInTheDocument();
   });
 
   it('ticker inválido não chama a API', async () => {

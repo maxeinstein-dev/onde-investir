@@ -9,6 +9,7 @@ import { lerPreferencias, salvarPreferencias, type PreferenciasCenario } from '.
 import {
   contarVisita, dispensarDica, lerProgresso, marcarConcluida, type Progresso, registrarPalpite, salvarProgresso,
 } from '../armazenamento/progresso';
+import { AVISO_TURNSTILE } from '../conteudo/rendaVariavel';
 import { explicarCenario } from '../conteudo/comparacao';
 import { type CasoClassico, type IdLicao, type Licao, montarExperimente } from '../conteudo/licoes/tipos';
 import { idLicaoValido } from '../conteudo/licoes/titulos';
@@ -34,6 +35,8 @@ import { Objetivos } from './objetivos/Objetivos';
 import { RendaVariavel } from './rendaVariavel/RendaVariavel';
 import { hoje } from './hoje';
 import { PainelIndicadores } from './PainelIndicadores';
+import { PainelRecolhivel } from './PainelRecolhivel';
+import { textoResumoCenario } from './ResumoCenario';
 import { type CarregarHistorico, useHistorico } from './useHistorico';
 import { SEM_INDICADORES, useIndicadores } from './useIndicadores';
 
@@ -342,25 +345,23 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
   }
 
   return (
+    <>
     <main class="pagina">
       <header>
         <h1>Rende</h1>
-        <p>Compare investimentos pelo que sobra no bolso e entenda o porquê de cada resultado.</p>
-        <p class="aviso">Conteúdo educativo: não é recomendação de investimento.</p>
-        <p class="aviso">
-          Algumas áreas usam Cloudflare Turnstile pra bloquear tráfego automatizado, sem exigir
-          login. Ele analisa sinais do navegador, sem usar cookies de rastreamento.
-        </p>
+        <p>Compare investimentos pelo que sobra no bolso.</p>
       </header>
 
       {falhouAoGravar && <p role="alert" class="erro">{FALHA_AO_GRAVAR}</p>}
 
       <VoceSabia indiceVisita={progresso.visitas - 1} onVerLicao={abrirLicao} />
 
-      <PainelIndicadores indicadores={indicadores} preferencias={preferencias} ativo={ativo} explicacao={explicacao}
-        onChange={mudarPreferencias} onCenarioInvalido={setCenarioInvalido} />
+      <PainelRecolhivel resumo={textoResumoCenario(indicadores, preferencias, ativo)}>
+        <PainelIndicadores indicadores={indicadores} preferencias={preferencias} ativo={ativo} explicacao={explicacao}
+          onChange={mudarPreferencias} onCenarioInvalido={setCenarioInvalido} />
+      </PainelRecolhivel>
 
-      <Abas rotulo="O que você quer fazer" ativa={aba} onAtivar={trocarAba} abas={[
+      <Abas rotulo="O que você quer fazer" ativa={aba} onAtivar={trocarAba} secundarias={['catalogo', ABA_APRENDER]} abas={[
         {
           id: 'comparar', rotulo: 'Comparar', conteudo: (
             <>
@@ -428,5 +429,11 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
         },
       ]} />
     </main>
+    {/* Fora do <main>: só assim o <footer> é o landmark contentinfo. */}
+    <footer class="rodape">
+      <p class="aviso">Conteúdo educativo: não é recomendação de investimento.</p>
+      <p class="aviso">{AVISO_TURNSTILE}</p>
+    </footer>
+    </>
   );
 }

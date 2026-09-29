@@ -64,7 +64,13 @@ afterEach(() => {
   graficos.length = 0;
 });
 
-const painel = () => screen.getByRole('region', { name: 'Indicadores e cenário' });
+/** O painel de cenário começa recolhido: abre (uma vez) e devolve a região "Indicadores e cenário". */
+function abrirPainel(): HTMLElement {
+  const botao = screen.getByRole('button', { name: /^Cenário:/ });
+  if (botao.getAttribute('aria-expanded') === 'false') fireEvent.click(botao);
+  return screen.getByRole('region', { name: 'Indicadores e cenário' });
+}
+const painel = abrirPainel;
 const aba = (nome: string) => screen.getByRole('tab', { name: nome });
 
 const base = { conglomerado: 'G', liquidez: 'DIARIA' };
@@ -85,7 +91,12 @@ describe('App', () => {
     vi.stubGlobal('fetch', fetchForaDoAr);
     render(<App />);
     expect(screen.getByRole('heading', { level: 1, name: 'Rende' })).toBeInTheDocument();
-    expect(within(document.querySelector('header') as HTMLElement).getByText(/não é recomendação de investimento/)).toBeInTheDocument();
+    expect(within(screen.getByRole('contentinfo')).getByText(/não é recomendação de investimento/)).toBeInTheDocument();
+    expect(within(screen.getByRole('contentinfo')).getByText(/Cloudflare Turnstile/)).toBeInTheDocument();
+    // Landmark de verdade: o footer é irmão do main, não descendente dele.
+    expect(screen.getByRole('contentinfo').parentElement).toBe(screen.getByRole('main').parentElement);
+    expect(screen.getByRole('main')).not.toContainElement(screen.getByRole('contentinfo'));
+    expect(within(document.querySelector('header') as HTMLElement).queryByText(/Turnstile/)).toBeNull();
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Comparar', 'Catálogo', 'Carteira', 'Objetivos', 'Renda variável', 'Aprender']);
     expect(aba('Comparar')).toHaveAttribute('aria-selected', 'true');
     expect(within(painelAtivo()).getByRole('heading', { level: 2, name: 'Comparar' })).toBeInTheDocument();

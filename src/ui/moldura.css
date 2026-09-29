@@ -1,0 +1,130 @@
+/* Moldura: painel de cenário recolhido (Fase 2). */
+.recolhivel__resumo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espaco-2, 0.5rem);
+  width: 100%;
+  min-height: var(--alvo-toque);
+  padding: 0 var(--espaco-3, 0.75rem);
+  background: var(--superficie);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-cartao);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.recolhivel__conteudo[hidden] {
+  display: none;
+}
+
+/* Barra de navegação inferior no celular. */
+@media (max-width: 639px) {
+  .abas__barra,
+  .abas > .abas__lista {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 10;
+    display: flex;
+    background: var(--fundo);
+    border-top: 1px solid var(--borda);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .abas > .abas__lista {
+    flex-wrap: nowrap;
+    gap: 0;
+    border-bottom: none;
+  }
+
+  /* Com o "Mais", as abas viram itens da própria barra e dividem o espaço por igual com ele. */
+  .abas__barra > .abas__lista {
+    display: contents;
+  }
+
+  .abas__lista .abas__aba,
+  .abas__botao-mais {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: var(--alvo-toque);
+    margin-bottom: 0;
+    padding: 0 var(--espaco-1);
+    border-radius: 0;
+    font-size: var(--texto-pequeno);
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  .abas__mais {
+    position: relative;
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .abas__botao-mais {
+    width: 100%;
+    color: var(--texto-suave);
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    font-weight: 600;
+  }
+
+  .abas__botao-mais[aria-current='true'] {
+    color: var(--primaria);
+    border-bottom-color: var(--primaria);
+  }
+
+  .abas__menu {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    position: absolute;
+    right: 0;
+    bottom: 100%;
+    min-width: 12rem;
+    display: flex;
+    flex-direction: column;
+    background: var(--fundo);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio-cartao);
+    overflow: hidden;
+  }
+
+  .abas__item {
+    width: 100%;
+    min-height: var(--alvo-toque);
+    padding: 0 var(--espaco-4);
+    color: var(--texto);
+    background: var(--fundo);
+    border: none;
+    border-bottom: 1px solid var(--borda);
+    text-align: left;
+    font-weight: 600;
+  }
+
+  .abas__menu li:last-child .abas__item {
+    border-bottom: none;
+  }
+
+  .abas__item[aria-current='true'] {
+    color: var(--primaria);
+    background: var(--fundo-suave);
+  }
+
+  /* O painel focado não fica atrás da barra fixa. */
+  .abas__painel {
+    scroll-margin-bottom: calc(var(--alvo-toque) + env(safe-area-inset-bottom));
+  }
+}
+
+/* Rodapé com os avisos: fica no fluxo, depois do <main>; no celular o padding-bottom dele (base.css) o mantém acima da barra fixa. */
+.rodape {
+  margin-top: var(--espaco-4);
+  padding-top: var(--espaco-3);
+  border-top: 1px solid var(--borda);
+  color: var(--texto-suave);
+  overflow-wrap: anywhere;
+}

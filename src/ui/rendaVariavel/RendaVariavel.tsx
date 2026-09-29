@@ -2,7 +2,7 @@
 // CDI e IPCA no mesmo período. O Turnstile só dispara quando a aba fica ativa (todas as abas ficam montadas).
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
-  CONSULTANDO, ERRO_TICKER, HISTORICO_CURTO, INTRO_RENDA_VARIAVEL, NAO_INDICA, PREGOES_MINIMOS_HISTORICO,
+  AVISO_TURNSTILE, CONSULTANDO, ERRO_TICKER, HISTORICO_CURTO, INTRO_RENDA_VARIAVEL, NAO_INDICA, PREGOES_MINIMOS_HISTORICO,
   SEM_DADOS, SEM_HISTORICO_CDI_IPCA, TITULO_RENDA_VARIAVEL, VERIFICANDO_ACESSO, textoErroMercado, textoErroSessao,
 } from '../../conteudo/rendaVariavel';
 import { AVISO_EDUCATIVO } from '../../conteudo/sugestao';
@@ -120,6 +120,7 @@ export function RendaVariavel({ ativa, cenario, cenarioRealizado, onPeriodo }: P
           {analise.pontos < PREGOES_MINIMOS_HISTORICO && <p class="aviso">{HISTORICO_CURTO}</p>}
         </div>
       )}
+      <p class="aviso">{AVISO_TURNSTILE}</p>
       <p class="aviso">{AVISO_EDUCATIVO}</p>
       <p class="aviso">{NAO_INDICA} <LinkLicao licao="renda-variavel" /></p>
     </section>

@@ -18,6 +18,13 @@ import { graficos } from './graficos/mockChart';
 vi.mock('chart.js', () => import('./graficos/mockChart'));
 vi.mock('chartjs-plugin-annotation', () => ({ default: { id: 'annotation' } }));
 
+/** O painel de cenário começa recolhido: abre (uma vez) e devolve a região "Indicadores e cenário". */
+function abrirPainel(): HTMLElement {
+  const botao = screen.getByRole('button', { name: /^Cenário:/ });
+  if (botao.getAttribute('aria-expanded') === 'false') fireEvent.click(botao);
+  return screen.getByRole('region', { name: 'Indicadores e cenário' });
+}
+
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-09-28T12:00:00-03:00'));
@@ -135,7 +142,7 @@ describe('M3c de ponta a ponta', () => {
     history.replaceState(null, '', `/#comparar/${await codificar(estado)}`);
     render(<App />);
     await screen.findByText('Comparação compartilhada com 2 ofertas.');
-    const painel = screen.getByRole('region', { name: 'Indicadores e cenário' });
+    const painel = abrirPainel();
     await within(painel).findByText(/medianas do Focus/);
     expect(within(painelAtivo()).getByText(/^Cenário: Juros sobem: /)).toBeInTheDocument();
     expect(within(painel).getByRole('radio', { name: /Base/ })).toBeChecked();

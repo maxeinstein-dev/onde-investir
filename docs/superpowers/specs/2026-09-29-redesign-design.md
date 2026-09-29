@@ -36,7 +36,7 @@ Cada fase é um ou mais PRs pequenos, mesclados em produção separadamente. Nen
 - **Celular (até 639 px):** barra fixa inferior com **Comparar, Carteira, Objetivos, Renda variável** e um botão **Mais** que abre uma folha com **Catálogo** e **Aprender**. A barra respeita a área segura do aparelho e o conteúdo ganha margem inferior para nada ficar atrás dela.
 - **Desktop (640 px ou mais):** as seis abas no topo, como hoje.
 - **Mesmo mecanismo por baixo.** Hash (`#carteira`, `#aprender/fgc`), apelidos, link compartilhável e a regra "todas as abas ficam montadas" não mudam. Os itens da barra mantêm `role="tab"`; o "Mais" é um menu com `aria-expanded`.
-- **Cenário recolhido.** O `PainelIndicadores` sai do topo. Em seu lugar, uma linha-resumo (cenário, CDI, IPCA, data de atualização). Tocar nela abre o painel completo num diálogo: prende o foco, fecha com Esc, devolve o foco ao botão. O conteúdo do painel não muda.
+- **Cenário recolhido.** O `PainelIndicadores` sai do topo. Em seu lugar, uma linha-resumo (cenário, CDI, IPCA, data de atualização). Tocar nela abre o painel completo como painel de revelação (não `<dialog>`): o botão tem `aria-expanded`, o conteúdo fica sempre montado e escondido quando fechado, Esc fecha e devolve o foco ao botão. O conteúdo do painel não muda.
 - **Cabeçalho:** encolhe para nome do app e uma frase curta. Os avisos (conteúdo educativo, Turnstile) vão para um rodapé ao fim do conteúdo; o aviso do Turnstile também aparece dentro da aba Renda variável, onde ele age. Nenhum texto some.
 - **Testes a adaptar:** `App`, `AppAprender`, `AppCarteira`, `PainelIndicadores` (contagem de abas, localização do painel).
 
@@ -63,6 +63,6 @@ Novas funcionalidades, animações elaboradas, ilustrações próprias, botão m
 
 ## Riscos
 
-- **Barra inferior e diálogo** mexem em foco e em teclado; exigem teste de acessibilidade real, não só de renderização.
+- **Barra inferior e painel de revelação** mexem em foco e em teclado; exigem teste de acessibilidade real, não só de renderização.
 - **Muitas telas com CSS acoplado** (1340 linhas num arquivo): a Fase 1 deve manter nomes de classe existentes e trocar valores por tokens antes de reescrever componentes, para o PR não virar uma reescrita.
 - **Fonte hospedada** soma alguns KB ao carregamento inicial; usar `font-display: swap` e só os pesos necessários.
