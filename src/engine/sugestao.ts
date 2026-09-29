@@ -198,6 +198,9 @@ function sugerirCarteiraCombinada(o: Extract<Objetivo, { tipo: 'CARTEIRA_COMBINA
       valor: restante * faixa.pos, percentual: (restante * faixa.pos) / o.principal,
     },
   ];
+  // liquidezDiaria: true também restringe as fatias de longo prazo deste lote a ofertas de
+  // liquidez diária — casarComCatalogo casa o lote inteiro com a mesma opção, então não dá pra
+  // exigir liquidez só na reserva. Simplificação aceitável (design M6 §3, item 5).
   return casarComCatalogo(base, ctx.catalogo, ctx.carteira, ctx.hoje, { liquidezDiaria: true });
 }
 
