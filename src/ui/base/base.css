@@ -1,0 +1,7 @@
+/* src/ui/base/base.css: componentes base do redesign. Só tokens, nenhuma cor solta. */
+.destaque { display: grid; gap: var(--espaco-1); }
+.destaque__rotulo { margin: 0; color: var(--texto-suave); font-size: var(--texto-pequeno); }
+.destaque__valor { margin: 0; font-size: var(--texto-display); font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.destaque__frase { margin: 0; color: var(--texto-suave); overflow-wrap: anywhere; }
+.selo { display: inline-block; padding: 0 var(--espaco-2); border-radius: 999px; background: var(--sucesso); color: var(--texto-sobre-primaria); font-size: var(--texto-pequeno); font-weight: 600; }
+.detalhes > summary { min-height: var(--alvo-toque); display: flex; align-items: center; cursor: pointer; font-weight: 600; }
