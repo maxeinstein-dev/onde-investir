@@ -183,7 +183,7 @@ export function Abas({ abas, rotulo, apelidos, ativa: ativaExterna, onAtivar, se
               aria-label={abaSecundariaAtiva ? `Mais: ${abaSecundariaAtiva.rotulo}` : undefined}
               aria-current={abaSecundariaAtiva ? 'true' : undefined}
               onClick={() => (menuAberto ? fecharMenu() : setMenuAberto(true))}>
-              {abaSecundariaAtiva ? abaSecundariaAtiva.rotulo : 'Mais'}
+              Mais
             </button>
             {menuAberto && (
               <ul id={idLista} class="abas__menu">

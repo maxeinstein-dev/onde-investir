@@ -118,13 +118,9 @@
   .abas__painel {
     scroll-margin-bottom: calc(var(--alvo-toque) + env(safe-area-inset-bottom));
   }
-
-  .pagina {
-    padding-bottom: calc(var(--alvo-toque) + env(safe-area-inset-bottom) + var(--espaco-4));
-  }
 }
 
-/* Rodapé com os avisos: fica no fluxo, acima da barra inferior (o .pagina já reserva o espaço). */
+/* Rodapé com os avisos: fica no fluxo, depois do <main>; no celular o padding-bottom dele (base.css) o mantém acima da barra fixa. */
 .rodape {
   margin-top: var(--espaco-4);
   padding-top: var(--espaco-3);
