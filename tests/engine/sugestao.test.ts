@@ -163,6 +163,38 @@ describe('sugerirRendaMensal', () => {
       expect(r.faltaMensal).toBeGreaterThan(0);
     }
   });
+
+  it('só a oferta tributada resolve sozinha (sem nenhuma isenta no catálogo): fatia única tributada', () => {
+    const necessaria = calcularTaxaNecessaria(objetivo.principal, objetivo.rendaMensalDesejada, ctxBase.hoje, CEN);
+    const taxaTributadaNecessaria = taxaOuFalha(necessaria.tributadoPosCDI);
+    const catalogo = [
+      catalogoBase({ id: 'cdb', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: taxaTributadaNecessaria + 0.1 } }),
+    ];
+    const r = sugerirRendaMensal(objetivo, { ...ctxBase, catalogo }, CEN);
+    expect(r.modo).toBe('UNICA');
+    if (r.modo === 'UNICA') {
+      expect(r.fatia.produto).toBe('CDB');
+      expect(r.fatia.percentual).toBe(1);
+      expect(r.fatia.motivo).toBe('RENDA_MENSAL_TRIBUTADO');
+    }
+  });
+
+  it('quando tributada e isenta resolvem sozinhas, a isenta é sempre preferida (não precisa de IR, então nunca perde o desempate)', () => {
+    const necessaria = calcularTaxaNecessaria(objetivo.principal, objetivo.rendaMensalDesejada, ctxBase.hoje, CEN);
+    const taxaTributadaNecessaria = taxaOuFalha(necessaria.tributadoPosCDI);
+    const taxaIsentaNecessaria = taxaOuFalha(necessaria.isentoPosCDI);
+    const catalogo = [
+      catalogoBase({ id: 'cdb', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: taxaTributadaNecessaria + 0.1 } }),
+      catalogoBase({ id: 'lci', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: taxaIsentaNecessaria + 0.001 } }),
+    ];
+    const r = sugerirRendaMensal(objetivo, { ...ctxBase, catalogo }, CEN);
+    expect(r.modo).toBe('UNICA');
+    if (r.modo === 'UNICA') {
+      expect(r.fatia.produto).toBe('LCI');
+      expect(r.fatia.percentual).toBe(1);
+      expect(r.fatia.motivo).toBe('RENDA_MENSAL_ISENTO');
+    }
+  });
 });
 
 describe('casarComCatalogo', () => {
