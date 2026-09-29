@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useId, useRef, useState } from 'preact/hooks';
 import { useEhCelular } from './useEhCelular';
 
 export interface Aba { id: string; rotulo: string; conteudo: ComponentChildren }
@@ -72,6 +72,8 @@ export function Abas({ abas, rotulo, apelidos, ativa: ativaExterna, onAtivar, se
   const botoes = useRef<Record<string, HTMLButtonElement | null>>({});
   const botaoMais = useRef<HTMLButtonElement | null>(null);
   const itens = useRef<Record<string, HTMLButtonElement | null>>({});
+  const focoPendente = useRef<string | null>(null);
+  const idLista = useId();
   const [menuAberto, setMenuAberto] = useState(false);
 
   const visiveis = celular ? abas.filter((a) => !secundarias.includes(a.id)) : abas;
@@ -82,6 +84,20 @@ export function Abas({ abas, rotulo, apelidos, ativa: ativaExterna, onAtivar, se
   useEffect(() => {
     if (!celular) setMenuAberto(false);
   }, [celular]);
+
+  // Ao abrir a lista, o foco vai para o primeiro item.
+  useEffect(() => {
+    if (!menuAberto) return;
+    const primeiro = menu[0];
+    if (primeiro) itens.current[primeiro.id]?.focus();
+  }, [menuAberto]);
+
+  // Depois de escolher na lista, o painel só recebe o foco quando já perdeu o `hidden` (render da nova aba).
+  useEffect(() => {
+    if (focoPendente.current !== ativa) return;
+    focoPendente.current = null;
+    document.getElementById(`painel-${ativa}`)?.focus();
+  }, [ativa]);
 
   useEffect(() => {
     if (!menuAberto) return;
@@ -111,25 +127,25 @@ export function Abas({ abas, rotulo, apelidos, ativa: ativaExterna, onAtivar, se
     ativar(aba.id, true);
   }
 
-  function abrirMenu() {
-    setMenuAberto(true);
-    setTimeout(() => { const primeiro = menu[0]; if (primeiro) itens.current[primeiro.id]?.focus(); }, 0);
-  }
-
   function fecharMenu() {
     setMenuAberto(false);
     botaoMais.current?.focus();
   }
 
   function escolher(id: string) {
-    trocar(id);
     setMenuAberto(false);
-    setTimeout(() => document.getElementById(`painel-${id}`)?.focus(), 0);
+    if (id === ativa) { document.getElementById(`painel-${id}`)?.focus(); return; }
+    focoPendente.current = id;
+    trocar(id);
   }
 
-  function aoTeclarMenu(e: KeyboardEvent) {
+  /** Esc fecha (com o foco no Mais ou na lista); Tab dentro da lista a fecha e segue; setas percorrem os itens. */
+  function aoTeclarMais(e: KeyboardEvent) {
+    if (!menuAberto) return;
     if (e.key === 'Escape') { e.preventDefault(); fecharMenu(); return; }
-    if (e.key === 'Tab') { setMenuAberto(false); return; }
+    const naLista = (e.target as Element | null)?.closest('.abas__menu');
+    if (!naLista) return;
+    if (e.key === 'Tab') { fecharMenu(); return; }
     const n = menu.length;
     const atual = menu.findIndex((a) => itens.current[a.id] === document.activeElement);
     const destino = e.key === 'ArrowDown' ? (atual + 1) % n
@@ -161,23 +177,27 @@ export function Abas({ abas, rotulo, apelidos, ativa: ativaExterna, onAtivar, se
       {celular && menu.length > 0 ? (
         <div class="abas__barra">
           {lista}
-          <div class="abas__mais">
-            <button type="button" ref={botaoMais} class="abas__aba abas__botao-mais" aria-haspopup="menu" aria-expanded={menuAberto}
+          <div class="abas__mais" onKeyDown={aoTeclarMais}>
+            <button type="button" ref={botaoMais} class="abas__aba abas__botao-mais" aria-expanded={menuAberto}
+              aria-controls={idLista}
+              aria-label={abaSecundariaAtiva ? `Mais: ${abaSecundariaAtiva.rotulo}` : undefined}
               aria-current={abaSecundariaAtiva ? 'true' : undefined}
-              onClick={() => (menuAberto ? fecharMenu() : abrirMenu())}>
+              onClick={() => (menuAberto ? fecharMenu() : setMenuAberto(true))}>
               {abaSecundariaAtiva ? abaSecundariaAtiva.rotulo : 'Mais'}
             </button>
             {menuAberto && (
-              <div role="menu" aria-label="Mais seções" class="abas__menu" onKeyDown={aoTeclarMenu}>
+              <ul id={idLista} class="abas__menu">
                 {menu.map((a) => (
-                  <button key={a.id} type="button" role="menuitem" tabIndex={-1} class="abas__item"
-                    aria-current={a.id === ativa ? 'true' : undefined}
-                    ref={(el) => { itens.current[a.id] = el; }}
-                    onClick={() => escolher(a.id)}>
-                    {a.rotulo}
-                  </button>
+                  <li key={a.id}>
+                    <button type="button" class="abas__item"
+                      aria-current={a.id === ativa ? 'page' : undefined}
+                      ref={(el) => { itens.current[a.id] = el; }}
+                      onClick={() => escolher(a.id)}>
+                      {a.rotulo}
+                    </button>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
           </div>
         </div>
