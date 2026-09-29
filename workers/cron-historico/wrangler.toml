@@ -4,7 +4,7 @@ compatibility_date = "2026-09-29"
 
 [[kv_namespaces]]
 binding = "MERCADO_KV"
-id = "MESMO_ID_DO_NAMESPACE_MERCADO_KV_DO_PAGES" # ver Tarefa 3 — mesmo namespace, dois bindings
+id = "4f53d911a78e4a76a397344304c55e74" # mesmo namespace MERCADO_KV do Pages, bindado aqui também
 
 [triggers]
 # Toda segunda às 6h UTC. Semanal por simplicidade (sintaxe de cron não expressa "a cada 8
