@@ -4,13 +4,18 @@
 import { useMemo } from 'preact/hooks';
 import type { ObjetivoSalvo } from '../../armazenamento/objetivos';
 import { nomeOferta } from '../../conteudo/comparacao';
-import { AVISO_EDUCATIVO, descreverFatia, licaoDaFatia, notaRendaVariavel, textoDaFatia, textoDoFgc } from '../../conteudo/sugestao';
+import {
+  AVISO_EDUCATIVO, descreverFatia, fraseMelhorOferta, fraseReferenciaPrincipal, licaoDaFatia, notaRendaVariavel,
+  ROTULO_PRINCIPAL_NECESSARIO, textoDaFatia, textoDoFgc,
+} from '../../conteudo/sugestao';
 import type { DataISO } from '../../engine/datas';
 import type { Equivalente } from '../../engine/equivalencia';
 import type { ItemFGC } from '../../engine/fgc';
 import type { Cenario } from '../../engine/indexadores';
 import type { OfertaCadastrada } from '../../engine/ofertas';
-import { calcularTaxaNecessaria, sugerir, sugerirRendaMensal, type Fatia, type ResultadoRendaMensal } from '../../engine/sugestao';
+import {
+  calcularTaxaNecessaria, sugerir, sugerirRendaMensal, type Fatia, type PrincipalNecessario as ValoresPrincipal, type ResultadoRendaMensal,
+} from '../../engine/sugestao';
 import { LinkLicao } from '../aprender/LinkLicao';
 import { formatarMoeda, formatarPercentual } from '../../formato';
 import { GraficoObjetivo } from '../graficos/GraficoObjetivo';
@@ -51,6 +56,24 @@ function ItemFatia({ f, onIrParaComparar }: { f: Fatia; onIrParaComparar: (ofert
         </p>
       )}
     </li>
+  );
+}
+
+/** Renda inviável com o principal informado: quanto seria preciso aplicar, num CDB a 100% do CDI e na melhor oferta do catálogo. */
+function PrincipalNecessario({ principalNecessario, rendaMensal, principalAtual }: {
+  principalNecessario: ValoresPrincipal; rendaMensal: number; principalAtual: number;
+}) {
+  const { referencia, catalogo } = principalNecessario;
+  if (referencia === null && catalogo === null) return null;
+  return (
+    <div class="cartao obj-principal-necessario">
+      {referencia !== null && (
+        <Destaque rotulo={ROTULO_PRINCIPAL_NECESSARIO} valor={formatarMoeda(referencia)} frase={fraseReferenciaPrincipal(rendaMensal, principalAtual)} />
+      )}
+      {catalogo !== null && (
+        <p class="cartao__detalhe">{fraseMelhorOferta(nomeOferta(catalogo.oferta), (catalogo.oferta.indexacao as { percentualCDI: number }).percentualCDI, catalogo.valor)}</p>
+      )}
+    </div>
   );
 }
 
@@ -103,6 +126,13 @@ export function Sugestao({ objetivo, catalogo, carteira, hoje, cenario, onIrPara
       <ul class="lista-ofertas" aria-label="Fatias sugeridas">
         {fatias.map((f, i) => <ItemFatia key={`${f.motivo}-${i}`} f={f} onIrParaComparar={onIrParaComparar} />)}
       </ul>
+      {rendaMensal && rendaMensal.resultado.modo === 'INSUFICIENTE' && (
+        <PrincipalNecessario
+          principalNecessario={rendaMensal.resultado.principalNecessario}
+          rendaMensal={(objetivo.entradas as { rendaMensalDesejada: number }).rendaMensalDesejada}
+          principalAtual={(objetivo.entradas as { principal: number }).principal}
+        />
+      )}
       {rendaMensal && rendaMensal.resultado.modo === 'INSUFICIENTE' && (
         <p class="aviso">
           Falta {formatarMoeda(rendaMensal.resultado.faltaMensal)}/mês para chegar na renda desejada com as ofertas

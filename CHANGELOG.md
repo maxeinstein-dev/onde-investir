@@ -4,6 +4,10 @@ Registro das mudanças do Rende por marco de entrega. Formato livre, em portugu�
 muda pra quem usa o app — não é um changelog técnico linha a linha (isso já fica no histórico do
 git e nos PRs).
 
+## Sugestão de renda mensal inviável — quanto seria preciso aplicar
+
+Quando a renda mensal desejada não cabe no valor informado (por exemplo, R$ 3 mil por mês com R$ 50 mil), a sugestão de Objetivos agora mostra quanto seria preciso aplicar num CDB a 100% do CDI, uma oferta fácil de encontrar, e, se houver oferta melhor no catálogo, o valor por ela também. O cálculo usa o cenário ativo, com IR e IOF de 30 dias.
+
 ## Redesign — visual novo, navegação no celular e telas reorganizadas ([#23](https://github.com/maxeinstein-dev/onde-investir/pull/23), [#24](https://github.com/maxeinstein-dev/onde-investir/pull/24) e este)
 
 O Rende ganhou um visual novo e ficou mais fácil de usar, principalmente no celular. Nenhuma regra de cálculo mudou.
