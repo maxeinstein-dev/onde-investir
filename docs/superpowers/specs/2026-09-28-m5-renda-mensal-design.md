@@ -83,7 +83,7 @@ nunca para um resgate de verdade"), sem chamar `validarAplicacao` com a checagem
 (seção 4) deixa explícito que essa é a taxa que a LCI precisaria ter — o saque de fato só é
 possível depois dos 6 meses de carência.
 
-## 3. Casamento com catálogo e diversificação
+## 3. Casamento com catálogo
 
 Diferente dos outros 4 tipos (que casam com a *primeira* oferta compatível via
 `primeiraCompativel`), aqui o casamento busca a **melhor** oferta de cada regime — maior
@@ -94,14 +94,22 @@ Nova função, também em `src/engine/sugestao.ts` (`excedenteFGC` passa a ser e
 ```ts
 export type ResultadoRendaMensal =
   | { modo: 'UNICA'; fatia: Fatia }
-  | { modo: 'DIVERSIFICADA'; fatias: [Fatia, Fatia] }
-  // 0, 1 ou 2 fatias: pode faltar oferta num dos regimes, ou o catálogo estar vazio.
+  // 0 ou 1 fatia: 0 só se o catálogo estiver vazio nos dois regimes.
   | { modo: 'INSUFICIENTE'; fatias: Fatia[]; faltaMensal: number };
 
 export function sugerirRendaMensal(
   o: Extract<Objetivo, { tipo: 'RENDA_MENSAL' }>, ctx: ContextoSugestao,
 ): ResultadoRendaMensal;
 ```
+
+**Achado importante — por que não existe modo "diversificada":** o desenho original previa
+misturar 50% na melhor tributada + 50% na melhor isenta quando nenhuma batesse a meta sozinha.
+Isso é **matematicamente impossível de funcionar**: como o IR/IOF em `simular()` dependem só do
+prazo (nunca do valor aplicado), o retorno líquido de qualquer oferta pós-CDI é linear no valor
+investido. Misturar duas ofertas, em qualquer proporção, dá uma média ponderada dos dois retornos —
+que nunca pode superar o maior dos dois. Ou seja: se nem a melhor tributada nem a melhor isenta
+batem a meta sozinhas, **nenhuma** combinação das duas bate. Diversificar só ajudaria se os
+produtos tivessem algum efeito não linear, o que não é o caso aqui (IR/IOF só dependem de dias).
 
 Fluxo:
 1. Calcula `taxaNecessaria` (seção 2).
@@ -110,18 +118,14 @@ Fluxo:
    melhor isenta tem `percentualCDI` ≥ `taxaNecessaria.isentoPosCDI.taxa` → `modo: 'UNICA'`,
    fatia de 100% do principal na oferta que resolve com a taxa mais baixa entre as duas que
    resolveram (preferindo a isenta em empate, por não ter IR a considerar depois).
-4. Se nenhuma resolve sozinha, mas ambas existem no catálogo → simula as duas, 50% do principal em
-   cada, usando `simular()` (de `produtos.ts`) sobre os 30 dias corridos — a perna isenta com
-   `{ ignorarPrazoMinimo: true }` pelo mesmo motivo da seção 2 (referência, não resgate real) — soma
-   o líquido combinado e compara com `principal + rendaMensalDesejada`:
-   - Bateu → `modo: 'DIVERSIFICADA'`, as duas fatias 50/50.
-   - Não bateu → `modo: 'INSUFICIENTE'`, mesmas duas fatias 50/50 (mostradas como "o melhor que dá
-     pra fazer hoje") mais `faltaMensal` (quanto falta em R$, não só "não dá").
-5. Se faltar oferta em um dos dois regimes no catálogo (só tributada ou só isenta cadastrada, ou
-   catálogo vazio) → o regime ausente não participa da comparação nem da diversificação; se sobrar
-   só um regime e ele resolver sozinho, ainda cai em `UNICA`; se não resolver e não houver o outro
-   regime pra diversificar, cai direto em `INSUFICIENTE` com uma única fatia (a que existe) e o
-   `faltaMensal` correspondente.
+4. Se nenhuma resolve sozinha (mas existe ao menos uma oferta no catálogo, tributada ou isenta ou
+   ambas) → simula 100% do principal em CADA oferta existente, usando `simular()` sobre os 30 dias
+   corridos (a isenta com `{ ignorarPrazoMinimo: true }`, mesmo motivo da seção 2), e escolhe a que
+   render mais de verdade — pela mesma linearidade da nota acima, colocar tudo na melhor das duas é
+   sempre pelo menos tão bom quanto qualquer mistura entre elas. `modo: 'INSUFICIENTE'`, uma única
+   fatia de 100% nessa oferta, mais `faltaMensal` (quanto falta em R$ até a meta, não só "não dá").
+5. Catálogo vazio nos dois regimes → `modo: 'INSUFICIENTE'`, `fatias: []`, `faltaMensal` igual à
+   renda mensal desejada inteira.
 
 Cada `Fatia` usa `casarComCatalogo` (ou o equivalente já existente de checagem de FGC —
 `excedenteFGC`) para preencher `fgc`, exatamente como os outros 4 tipos.
@@ -149,11 +153,9 @@ fatias já existente:
   usado na calculadora de Equivalência (M1), reaproveitando o componente se possível. Abaixo do
   valor isento, uma nota fixa: "A LCI/LCA tem carência legal mínima de 6 meses — esse é o %CDI de
   referência; o saque mensal só é possível depois da carência."
-- Se `modo === 'DIVERSIFICADA'`: uma frase fixa acima das fatias — "Nenhuma oferta sozinha chega
-  nessa renda; dividimos entre as duas melhores do seu catálogo."
-- Se `modo === 'INSUFICIENTE'`: as fatias (o melhor que dá pra fazer) seguidas de um aviso com o
-  `faltaMensal` em R$ e um `LinkLicao` para `'renda-variavel'` (mesmo padrão do `notaRendaVariavel`
-  do M4b1) — nunca inventa uma 3ª fatia nem indica ativo específico.
+- Se `modo === 'INSUFICIENTE'`: a fatia (a melhor que dá pra fazer sozinha, se houver alguma)
+  seguida de um aviso com o `faltaMensal` em R$ e um `LinkLicao` para `'renda-variavel'` (mesmo
+  padrão do `notaRendaVariavel` do M4b1) — nunca inventa uma 2ª fatia nem indica ativo específico.
 
 Conteúdo textual novo (nomes de fatia, aviso de insuficiência) é rascunho nesta fase; passa pela
 revisão editorial (/vozmax) antes do PR, no mesmo fluxo de todos os marcos anteriores.
@@ -165,14 +167,15 @@ revisão editorial (/vozmax) antes do PR, no mesmo fluxo de todos os marcos ante
   indisponibilidade se a bisseção estourar o teto de busca (renda mensal desproporcional ao
   principal, ex. querer 100% de rendimento em 30 dias).
 - **Engine (`sugerirRendaMensal`):** melhor oferta isolada resolve (tributada e isento cada um em
-  separado); nenhuma isolada resolve mas a combinação 50/50 resolve; nem a combinação resolve
-  (`INSUFICIENTE` com `faltaMensal` correto); catálogo vazio num dos regimes; catálogo totalmente
-  vazio.
+  separado, com o critério de desempate isenta-em-empate); nenhuma isolada resolve → escolhe a que
+  rende mais de verdade entre as duas, 100% do principal (`INSUFICIENTE` com `faltaMensal`
+  correto); só existe oferta num dos regimes; catálogo totalmente vazio (`INSUFICIENTE`,
+  `fatias: []`).
 - **Conteúdo:** `MotivoFatia` novos têm texto mapeado (mesmo teste de integridade que já cobre os
   motivos existentes); o aviso de `INSUFICIENTE` linka para `'renda-variavel'`.
 - **UI:** formulário valida os dois campos (`OfertaInvalidaError` vira mensagem exibida, mesmo
-  padrão dos outros 4 tipos); os três `modo` renderizam o que deveriam (fatia única, duas fatias
-  diversificadas, duas fatias + aviso de insuficiência).
+  padrão dos outros 4 tipos); os dois `modo` renderizam o que deveriam (fatia única, fatia única +
+  aviso de insuficiência).
 
 ## 6. Marco e fluxo
 
