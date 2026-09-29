@@ -39,9 +39,11 @@ describe('objetivos', () => {
       objetivo({ entradas: { tipo: 'COM_DATA', valorAlvo: 5000, data: '2030-01-01' } }),
       objetivo({ entradas: { tipo: 'LONGO_PRAZO', horizonteAnos: 20 } }),
       objetivo({ entradas: { tipo: 'SEM_OBJETIVO', horizonteAnos: 3 } }),
+      objetivo({ entradas: { tipo: 'RENDA_MENSAL', principal: 100000, rendaMensalDesejada: 1000 } }),
+      objetivo({ entradas: { tipo: 'CARTEIRA_COMBINADA', principal: 100000, gastoMensal: 3000, rendaEstavel: true, horizonteAnos: 20 } }),
     ];
     salvarObjetivos(arm, lista);
-    expect(lerObjetivos(arm)).toHaveLength(4);
+    expect(lerObjetivos(arm)).toHaveLength(6);
   });
   it('respeita o limite de 20 na leitura', () => {
     const arm = memoria();
