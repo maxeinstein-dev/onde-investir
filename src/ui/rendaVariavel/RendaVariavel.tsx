@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   AVISO_TURNSTILE, CONSULTANDO, ERRO_TICKER, HISTORICO_CURTO, INTRO_RENDA_VARIAVEL, NAO_INDICA, PREGOES_MINIMOS_HISTORICO,
-  SEM_DADOS, SEM_HISTORICO_CDI_IPCA, TITULO_RENDA_VARIAVEL, VERIFICANDO_ACESSO, textoErroMercado, textoErroSessao,
+  SEM_DADOS, fraseComparacao, SEM_HISTORICO_CDI_IPCA, TITULO_RENDA_VARIAVEL, VERIFICANDO_ACESSO, textoErroMercado, textoErroSessao,
 } from '../../conteudo/rendaVariavel';
 import { AVISO_EDUCATIVO } from '../../conteudo/sugestao';
 import { buscarHistorico, validarTickerCliente } from '../../dados/mercado';
@@ -13,6 +13,9 @@ import type { Cenario } from '../../engine/indexadores';
 import { type CandleFechamento, analisarRendaVariavel } from '../../engine/rendaVariavel';
 import { formatarData, formatarPercentual } from '../../formato';
 import { LinkLicao } from '../aprender/LinkLicao';
+import { Destaque } from '../base/Destaque';
+import { Detalhes } from '../base/Detalhes';
+import './rendaVariavel.css';
 
 export interface PropsRendaVariavel {
   ativa: boolean;
@@ -93,7 +96,7 @@ export function RendaVariavel({ ativa, cenario, cenarioRealizado, onPeriodo }: P
       {falhouSessao && !verificando && (
         <button type="button" onClick={() => void garantirSessao()}>Tentar de novo</button>
       )}
-      <form onSubmit={(e) => void consultar(e)}>
+      <form class="rv-form" onSubmit={(e) => void consultar(e)}>
         <label for="rv-ticker">Ticker</label>
         <input id="rv-ticker" type="text" maxLength={6} autoCapitalize="characters" value={ticker}
           onInput={(e) => setTicker((e.currentTarget as HTMLInputElement).value.toUpperCase())} />
@@ -102,13 +105,12 @@ export function RendaVariavel({ ativa, cenario, cenarioRealizado, onPeriodo }: P
       {consultando && <p role="status">{CONSULTANDO}</p>}
       {erro !== null && <p role="alert" class="erro">{erro}</p>}
       {analise && (
-        <div class="cartao">
-          <p>De {formatarData(analise.inicio)} a {formatarData(analise.fim)} ({analise.pontos} pregões)</p>
-          <dl>
+        <div class="cartao rv-resultado">
+          <Destaque rotulo="Rentabilidade do ativo" valor={formatarPercentual(analise.rentabilidade)}
+            frase={cenarioRealizado ? fraseComparacao(analise.rentabilidade, analise.cdi) : undefined} />
+          <p class="rv-periodo">De {formatarData(analise.inicio)} a {formatarData(analise.fim)} ({analise.pontos} pregões)</p>
+          <dl class="rv-lista">
             <dt>Rentabilidade no período</dt><dd>{formatarPercentual(analise.rentabilidade)}</dd>
-            <dt>Volatilidade anualizada</dt>
-            <dd>{analise.volatilidadeAnualizada === null ? 'sem dados suficientes' : formatarPercentual(analise.volatilidadeAnualizada)}</dd>
-            <dt>Queda máxima (drawdown)</dt><dd>{formatarPercentual(analise.drawdownMaximo)}</dd>
             {cenarioRealizado && (
               <>
                 <dt>CDI no mesmo período</dt><dd>{formatarPercentual(analise.cdi)}</dd>
@@ -116,6 +118,13 @@ export function RendaVariavel({ ativa, cenario, cenarioRealizado, onPeriodo }: P
               </>
             )}
           </dl>
+          <Detalhes resumo="Mais detalhes do período">
+            <dl class="rv-lista">
+              <dt>Volatilidade anualizada</dt>
+              <dd>{analise.volatilidadeAnualizada === null ? 'sem dados suficientes' : formatarPercentual(analise.volatilidadeAnualizada)}</dd>
+              <dt>Queda máxima (drawdown)</dt><dd>{formatarPercentual(analise.drawdownMaximo)}</dd>
+            </dl>
+          </Detalhes>
           {!cenarioRealizado && <p role="status">{SEM_HISTORICO_CDI_IPCA}</p>}
           {analise.pontos < PREGOES_MINIMOS_HISTORICO && <p class="aviso">{HISTORICO_CURTO}</p>}
         </div>
