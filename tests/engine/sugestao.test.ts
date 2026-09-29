@@ -6,7 +6,7 @@ import type { ItemFGC } from '../../src/engine/fgc';
 import type { OfertaCadastrada } from '../../src/engine/ofertas';
 import { simular } from '../../src/engine/produtos';
 import {
-  calcularTaxaNecessaria, casarComCatalogo, sugerir, validarObjetivo, valorAlvo,
+  calcularTaxaNecessaria, casarComCatalogo, sugerir, sugerirRendaMensal, validarObjetivo, valorAlvo,
   type ContextoSugestao, type Fatia, type Objetivo,
 } from '../../src/engine/sugestao';
 import { CEN, INI } from './cenarioPadrao';
@@ -110,6 +110,59 @@ const fatiaBase = (over: Partial<Fatia> = {}): Fatia => ({
 });
 const carteiraItem = (conglomerado: string, valor: number, vencimento?: string): ItemFGC => ({
   conglomerado, produto: 'CDB', vencimento, brutoEm: () => valor,
+});
+
+describe('sugerirRendaMensal', () => {
+  const objetivo: Extract<Objetivo, { tipo: 'RENDA_MENSAL' }> = { tipo: 'RENDA_MENSAL', principal: 100000, rendaMensalDesejada: 1000 };
+  const ctxBase = { catalogo: [] as OfertaCadastrada[], carteira: [] as ItemFGC[], hoje: INI };
+
+  it('uma oferta isenta sozinha resolve: fatia única de 100%', () => {
+    const catalogo = [catalogoBase({ id: 'lci', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.95 } })];
+    const r = sugerirRendaMensal(objetivo, { ...ctxBase, catalogo }, CEN);
+    expect(r.modo).toBe('UNICA');
+    if (r.modo === 'UNICA') {
+      expect(r.fatia.produto).toBe('LCI');
+      expect(r.fatia.percentual).toBe(1);
+      expect(r.fatia.motivo).toBe('RENDA_MENSAL_ISENTO');
+    }
+  });
+
+  it('nenhuma sozinha resolve: usa 100% na que rende mais de verdade (não faz sentido misturar — ver nota do design)', () => {
+    // Nem CDB a 50% do CDI nem LCI a 90% do CDI batem a meta sozinhos (o necessário é bem maior),
+    // mas a LCI (isenta, sem IR) rende mais de verdade que o CDB nessa janela — ela é escolhida.
+    const catalogo = [
+      catalogoBase({ id: 'cdb', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.5 } }),
+      catalogoBase({ id: 'lci', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.9 } }),
+    ];
+    const r = sugerirRendaMensal(objetivo, { ...ctxBase, catalogo }, CEN);
+    expect(r.modo).toBe('INSUFICIENTE');
+    if (r.modo === 'INSUFICIENTE') {
+      expect(r.fatias).toHaveLength(1);
+      expect(r.fatias[0]?.produto).toBe('LCI');
+      expect(r.fatias[0]?.percentual).toBe(1);
+      expect(r.faltaMensal).toBeGreaterThan(0);
+    }
+  });
+
+  it('catálogo vazio: insuficiente, sem fatias, faltando a renda mensal inteira', () => {
+    const r = sugerirRendaMensal(objetivo, ctxBase, CEN);
+    expect(r.modo).toBe('INSUFICIENTE');
+    if (r.modo === 'INSUFICIENTE') {
+      expect(r.fatias).toHaveLength(0);
+      expect(r.faltaMensal).toBeCloseTo(1000, 2);
+    }
+  });
+
+  it('só oferta tributada no catálogo, e ela não basta sozinha: insuficiente com 1 fatia', () => {
+    const catalogo = [catalogoBase({ id: 'cdb', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.5 } })];
+    const r = sugerirRendaMensal(objetivo, { ...ctxBase, catalogo }, CEN);
+    expect(r.modo).toBe('INSUFICIENTE');
+    if (r.modo === 'INSUFICIENTE') {
+      expect(r.fatias).toHaveLength(1);
+      expect(r.fatias[0]?.percentual).toBe(1);
+      expect(r.faltaMensal).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe('casarComCatalogo', () => {

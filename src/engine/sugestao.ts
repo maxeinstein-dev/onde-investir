@@ -9,7 +9,9 @@ import type { ItemFGC } from './fgc';
 import { coberto, normalizarConglomerado } from './fgc';
 import type { Cenario } from './indexadores';
 import type { OfertaCadastrada } from './ofertas';
-import { garantiaDe, type TipoIndexacao, type TipoProduto } from './produtos';
+import {
+  ehIsentoIR, garantiaDe, simular, type TipoIndexacao, type TipoProduto,
+} from './produtos';
 import { aliquotaIOF } from './regras/iof';
 import { aliquotaIR } from './regras/ir';
 import { regraFGC } from './regras/fgc';
@@ -236,6 +238,82 @@ export function calcularTaxaNecessaria(
   const tributadoPosCDI = disponivel(resolverPercentual(taxas, fatorAlvoTributado));
 
   return { tributadoPosCDI, isentoPosCDI };
+}
+
+export type ResultadoRendaMensal =
+  | { modo: 'UNICA'; fatia: Fatia }
+  // 0 ou 1 fatia: 0 só se o catálogo estiver vazio nos dois regimes.
+  | { modo: 'INSUFICIENTE'; fatias: Fatia[]; faltaMensal: number };
+
+function melhorOfertaPosCDI(catalogo: readonly OfertaCadastrada[], isenta: boolean): OfertaCadastrada | undefined {
+  let melhor: OfertaCadastrada | undefined;
+  for (const o of catalogo) {
+    if (o.indexacao.tipo !== 'POS_CDI' || ehIsentoIR(o.produto) !== isenta) continue;
+    if (!melhor || o.indexacao.percentualCDI > (melhor.indexacao as { percentualCDI: number }).percentualCDI) melhor = o;
+  }
+  return melhor;
+}
+
+function construirFatiaRendaMensal(
+  oferta: OfertaCadastrada, percentual: number, principal: number, motivo: MotivoFatia,
+  carteira: readonly ItemFGC[], hoje: DataISO,
+): Fatia {
+  const valor = principal * percentual;
+  const fgc = coberto(oferta.produto) ? excedenteFGC(oferta.conglomerado, valor, carteira, hoje) : undefined;
+  return {
+    produto: oferta.produto, indexacaoTipo: oferta.indexacao.tipo, percentual, motivo,
+    garantia: garantiaDe(oferta.produto), valor, ofertaCatalogo: oferta, fgc,
+  };
+}
+
+/** Líquido de 100% do principal numa oferta pós-CDI, na janela de renda mensal (LCI/LCA ignora a carência: ver TaxaNecessaria.isentoPosCDI). */
+function liquidoNaJanela(oferta: OfertaCadastrada, valor: number, hoje: DataISO, dataResgate: DataISO, cen: Cenario): number {
+  const ix = oferta.indexacao as { tipo: 'POS_CDI'; percentualCDI: number };
+  return simular(
+    { produto: oferta.produto, indexacao: ix, valor, dataAplicacao: hoje }, dataResgate, cen,
+    { ignorarPrazoMinimo: ehIsentoIR(oferta.produto) },
+  ).valorLiquido;
+}
+
+export function sugerirRendaMensal(
+  o: Extract<Objetivo, { tipo: 'RENDA_MENSAL' }>, ctx: ContextoSugestao, cen: Cenario,
+): ResultadoRendaMensal {
+  const necessaria = calcularTaxaNecessaria(o.principal, o.rendaMensalDesejada, ctx.hoje, cen);
+  const melhorTributada = melhorOfertaPosCDI(ctx.catalogo, false);
+  const melhorIsenta = melhorOfertaPosCDI(ctx.catalogo, true);
+
+  const tribResolve = necessaria.tributadoPosCDI.disponivel && melhorTributada
+    && (melhorTributada.indexacao as { percentualCDI: number }).percentualCDI >= necessaria.tributadoPosCDI.taxa;
+  const isnResolve = necessaria.isentoPosCDI.disponivel && melhorIsenta
+    && (melhorIsenta.indexacao as { percentualCDI: number }).percentualCDI >= necessaria.isentoPosCDI.taxa;
+
+  if (tribResolve || isnResolve) {
+    // Entre as duas que resolveram, prefere a que precisava da taxa necessária mais baixa
+    // (empate → isenta, por não ter IR a considerar depois).
+    const usaIsenta = isnResolve && (!tribResolve
+      || (necessaria.isentoPosCDI as { disponivel: true; taxa: number }).taxa <= (necessaria.tributadoPosCDI as { disponivel: true; taxa: number }).taxa);
+    const oferta = (usaIsenta ? melhorIsenta : melhorTributada) as OfertaCadastrada;
+    const motivo = (usaIsenta ? 'RENDA_MENSAL_ISENTO' : 'RENDA_MENSAL_TRIBUTADO') as MotivoFatia;
+    return { modo: 'UNICA', fatia: construirFatiaRendaMensal(oferta, 1, o.principal, motivo, ctx.carteira, ctx.hoje) };
+  }
+
+  // Nenhuma resolve sozinha. NÃO tem sentido misturar (ver a nota do design, seção 3): o retorno de
+  // qualquer oferta pós-CDI é linear no valor aplicado (IR/IOF só dependem do prazo), então uma
+  // mistura nunca supera a melhor das duas isoladas. Usa 100% na que render mais de verdade.
+  const candidatas: { oferta: OfertaCadastrada; motivo: MotivoFatia }[] = [];
+  if (melhorTributada) candidatas.push({ oferta: melhorTributada, motivo: 'RENDA_MENSAL_TRIBUTADO' as MotivoFatia });
+  if (melhorIsenta) candidatas.push({ oferta: melhorIsenta, motivo: 'RENDA_MENSAL_ISENTO' as MotivoFatia });
+
+  if (candidatas.length === 0) {
+    return { modo: 'INSUFICIENTE', fatias: [], faltaMensal: o.rendaMensalDesejada };
+  }
+
+  const dataResgate = somarDias(ctx.hoje, DIAS_RENDA_MENSAL);
+  const rendimentos = candidatas.map((c) => ({ ...c, liquido: liquidoNaJanela(c.oferta, o.principal, ctx.hoje, dataResgate, cen) }));
+  const melhor = rendimentos.reduce((a, b) => (b.liquido > a.liquido ? b : a));
+  const fatia = construirFatiaRendaMensal(melhor.oferta, 1, o.principal, melhor.motivo, ctx.carteira, ctx.hoje);
+  const faltaMensal = Math.max(0, o.rendaMensalDesejada - (melhor.liquido - o.principal));
+  return { modo: 'INSUFICIENTE', fatias: [fatia], faltaMensal };
 }
 
 /**
