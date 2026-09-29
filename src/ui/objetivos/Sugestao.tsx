@@ -84,8 +84,8 @@ export function Sugestao({ objetivo, catalogo, carteira, hoje, cenario, onIrPara
           <p>CDB/RDB (tributado): {formatarTaxaNecessaria(rendaMensal.necessaria.tributadoPosCDI)}</p>
           <p>LCI/LCA (isento): {formatarTaxaNecessaria(rendaMensal.necessaria.isentoPosCDI)}</p>
           <p class="cartao__detalhe">
-            A LCI/LCA tem carência mínima de 6 meses antes do primeiro resgate: o %CDI isento acima é uma
-            referência, não uma renda mensal de fato disponível nesse produto.
+            A LCI/LCA tem carência mínima de 6 meses antes do primeiro resgate, então o %CDI isento
+            acima é uma taxa de referência: não dá pra contar com essa renda antes da carência.
           </p>
         </div>
       )}
