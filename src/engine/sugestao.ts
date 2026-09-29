@@ -82,7 +82,7 @@ function primeiraCompativel(
   );
 }
 
-function excedenteFGC(conglomerado: string, valorFatia: number, carteira: readonly ItemFGC[], hoje: DataISO): Fatia['fgc'] {
+export function excedenteFGC(conglomerado: string, valorFatia: number, carteira: readonly ItemFGC[], hoje: DataISO): Fatia['fgc'] {
   const limite = regraFGC(hoje).porConglomerado;
   const chave = normalizarConglomerado(conglomerado);
   const jaTem = carteira
