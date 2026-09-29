@@ -1,3 +1,6 @@
+import { ehDiaUtil } from '../../src/engine/calendario';
+import { somarDias, type DataISO } from '../../src/engine/datas';
+
 /** Ticker no padrão B3: 4 letras maiúsculas seguidas de 1 ou 2 números. */
 const REGEX_TICKER = /^[A-Z]{4}[0-9]{1,2}$/;
 
@@ -45,6 +48,23 @@ export function segundosAteProximoBoundary(agora: Date): number {
   const emPregao = !ehFimDeSemanaBRT(agora) && hora >= ABERTURA_HORA_BRT && hora < FECHAMENTO_HORA_BRT;
   if (emPregao) return 30 * 60;
   return Math.round((proximaAberturaUTC(agora).getTime() - agora.getTime()) / 1000);
+}
+
+/** O último dia útil anterior a `data` (não inclui `data`). */
+function ultimoDiaUtilAntesDe(data: DataISO): DataISO {
+  let d = somarDias(data, -1);
+  while (!ehDiaUtil(d)) d = somarDias(d, -1);
+  return d;
+}
+
+/**
+ * Se o histórico salvo (`metaAte`) já cobre o último pregão fechado antes de `hoje`, não precisa
+ * atualizar — o fechamento de hoje só existe depois que o pregão de hoje encerra, então o alvo é
+ * sempre o último dia útil anterior a `hoje`, nunca `hoje` em si.
+ */
+export function precisaAtualizarHistorico(metaAte: DataISO | null, hoje: DataISO): boolean {
+  if (metaAte === null) return true;
+  return metaAte < ultimoDiaUtilAntesDe(hoje);
 }
 
 /** Orçamento do dia: o que resta no mês, dividido pelos dias que faltam, sem passar do teto. Nunca negativo. */

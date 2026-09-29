@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  orcamentoDiario, segundosAteProximoBoundary, validarTicker,
+  orcamentoDiario, precisaAtualizarHistorico, segundosAteProximoBoundary, validarTicker,
 } from '../../functions/_lib/mercado';
 
 describe('validarTicker', () => {
@@ -37,6 +37,19 @@ describe('segundosAteProximoBoundary', () => {
     const agora = new Date('2026-10-03T15:00:00Z'); // sábado, 12h BRT
     const esperado = Math.round((Date.parse('2026-10-05T13:00:00Z') - agora.getTime()) / 1000); // segunda 10h BRT
     expect(segundosAteProximoBoundary(agora)).toBe(esperado);
+  });
+});
+
+describe('precisaAtualizarHistorico', () => {
+  it('sem meta (ticker nunca consultado): precisa', () => {
+    expect(precisaAtualizarHistorico(null, '2026-09-29')).toBe(true);
+  });
+  it('meta desatualizada (mais de 1 dia útil atrás): precisa', () => {
+    expect(precisaAtualizarHistorico('2026-09-25', '2026-09-29')).toBe(true); // sexta -> terça
+  });
+  it('meta em dia (ontem útil ou hoje): não precisa', () => {
+    expect(precisaAtualizarHistorico('2026-09-28', '2026-09-29')).toBe(false); // segunda -> terça
+    expect(precisaAtualizarHistorico('2026-09-29', '2026-09-29')).toBe(false);
   });
 });
 
