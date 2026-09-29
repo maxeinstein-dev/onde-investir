@@ -132,3 +132,19 @@ describe('Sugestao — RENDA_MENSAL', () => {
     expect(linksLicao[0]).toHaveAttribute('href', '#aprender/renda-variavel');
   });
 });
+
+describe('Sugestao — CARTEIRA_COMBINADA', () => {
+  const objetivoCarteiraCombinada: ObjetivoSalvo = {
+    id: 'o4', nome: 'Minha carteira', criadoEm: HOJE,
+    entradas: { tipo: 'CARTEIRA_COMBINADA', principal: 100000, gastoMensal: 3000, rendaEstavel: true, horizonteAnos: 20 },
+  };
+
+  it('renderiza as 4 fatias sem nenhum bloco especial (não precisa de Cenario nem de modo)', async () => {
+    render(
+      <Sugestao objetivo={objetivoCarteiraCombinada} catalogo={[]} carteira={[]} hoje={HOJE} cenario={CEN}
+        onIrParaComparar={() => {}} />,
+    );
+    await carregou();
+    expect(screen.getByRole('list', { name: 'Fatias sugeridas' }).children.length).toBe(4);
+  });
+});
