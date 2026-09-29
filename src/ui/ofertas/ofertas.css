@@ -1,0 +1,115 @@
+/* Catálogo: só tokens. Escopo em .minhas-ofertas para não afetar outras telas. */
+.minhas-ofertas .lista-ofertas {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: var(--espaco-4);
+  margin-bottom: var(--espaco-6);
+}
+
+.minhas-ofertas .lista-ofertas > li {
+  display: flex;
+  min-width: 0;
+}
+
+.minhas-ofertas .cartao--oferta {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--espaco-1);
+  padding: var(--espaco-4);
+}
+
+.minhas-ofertas .cartao--oferta h3 {
+  margin: 0 0 var(--espaco-2);
+  font-size: var(--texto-base);
+  line-height: 1.3;
+}
+
+.minhas-ofertas .cartao--oferta .cartao__detalhe,
+.minhas-ofertas .cartao--oferta .cartao__garantia {
+  margin: 0;
+  font-size: var(--texto-pequeno);
+  color: var(--texto-suave);
+}
+
+.minhas-ofertas .cartao--oferta .cartao__acoes,
+.minhas-ofertas .cartao--oferta .cartao__confirmacao {
+  margin-top: auto;
+  padding-top: var(--espaco-3);
+  gap: var(--espaco-2);
+}
+
+/* Comparar é a ação principal do cartão: ocupa a largura toda; Editar e Remover ficam abaixo, lado a lado. */
+.minhas-ofertas .cartao--oferta .cat-comparar {
+  flex: 1 1 100%;
+  justify-self: stretch;
+}
+
+.minhas-ofertas .cartao--oferta .cartao__acoes button:not(.cat-comparar) {
+  flex: 1 1 0;
+}
+
+/* Formulário de cadastro: mais respiro, rótulos e campos legíveis (estrutura e campos intactos). */
+.minhas-ofertas .cadastro {
+  gap: var(--espaco-6);
+  margin: var(--espaco-6) 0;
+}
+
+.minhas-ofertas .cadastro h3 {
+  margin: 0;
+  font-size: var(--texto-titulo);
+}
+
+.minhas-ofertas .cadastro fieldset {
+  padding: var(--espaco-4);
+}
+
+.minhas-ofertas .cadastro legend {
+  padding: 0 var(--espaco-2);
+  font-size: var(--texto-base);
+}
+
+.minhas-ofertas .cadastro label {
+  font-size: var(--texto-pequeno);
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.minhas-ofertas .cadastro input,
+.minhas-ofertas .cadastro select {
+  min-height: var(--alvo-toque);
+  font-size: var(--texto-base);
+}
+
+.minhas-ofertas .cadastro .campo {
+  gap: var(--espaco-2);
+}
+
+.minhas-ofertas .cadastro .dica {
+  margin: var(--espaco-1) 0 0;
+  font-size: var(--texto-pequeno);
+  line-height: 1.45;
+}
+
+.minhas-ofertas .cadastro__detalhes {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: var(--espaco-4);
+}
+
+.minhas-ofertas .cadastro__acoes {
+  gap: var(--espaco-3);
+}
+
+.minhas-ofertas .cadastro__acoes button {
+  min-height: var(--alvo-toque);
+}
+
+@media (max-width: 639px) {
+  .minhas-ofertas .cadastro__acoes button {
+    flex: 1 1 100%;
+  }
+
+  .minhas-ofertas .exportar-importar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

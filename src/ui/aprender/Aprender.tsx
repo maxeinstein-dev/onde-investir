@@ -4,6 +4,7 @@ import type { Progresso } from '../../armazenamento/progresso';
 import { CASOS_CLASSICOS } from '../../conteudo/casos';
 import { GLOSSARIO } from '../../conteudo/glossario';
 import type { CasoClassico, IdLicao, Licao } from '../../conteudo/licoes/tipos';
+import './aprender.css';
 import { MarkdownRestrito } from '../MarkdownRestrito';
 import { Termo } from '../Termo';
 import { hashDaLicao } from './LinkLicao';
@@ -138,6 +139,7 @@ interface PropsIndice extends Pick<PropsAprender, 'progresso' | 'onAbrir' | 'onC
 function Indice({ licoes, progresso, onAbrir, onCaso }: PropsIndice) {
   const n = progresso.concluidas.length;
   const { acertos, total } = progresso.palpites;
+  const atualId = licoes.find((l) => !progresso.concluidas.includes(l.id))?.id;
   return (
     <>
       <h2 id={ID_TITULO_APRENDER} tabIndex={-1}>Aprender</h2>
@@ -150,11 +152,13 @@ function Indice({ licoes, progresso, onAbrir, onCaso }: PropsIndice) {
       <ol class="trilha" aria-label="Lições">
         {licoes.map((l) => {
           const feita = progresso.concluidas.includes(l.id);
+          const atual = !feita && l.id === atualId;
           return (
-            <li key={l.id} class="trilha__item">
+            <li key={l.id} class={`trilha__item apr-cartao${feita ? ' apr-cartao--feita' : ''}${atual ? ' apr-cartao--atual' : ''}`}>
               <LinkParaLicao para={l.id} id={idLinkDaLicao(l.id)} onAbrir={onAbrir} class="trilha__link">
                 {l.ordem}. {l.titulo}
                 {feita && <><span aria-hidden="true"> ✓</span><span class="visualmente-oculto"> (concluída)</span></>}
+                {atual && <><span aria-hidden="true"> ▸</span><span class="visualmente-oculto"> (próxima a estudar)</span></>}
               </LinkParaLicao>
               <p>{l.resumo}</p>
               <p class="dica">{l.tempoLeituraMin} min de leitura</p>
@@ -217,6 +221,14 @@ function PaginaLicao({ licao, licoes, concluida, onAbrir, onConcluir, onExperime
           <button type="button" class="primario" onClick={onExperimente}>Experimente</button>
         </div>
       )}
+      <div class="licao__acoes">
+        <button type="button" onClick={() => onConcluir(!concluida)}>
+          {concluida ? 'Desmarcar como concluída' : 'Marcar como concluída'}
+        </button>
+        {proxima && (
+          <LinkParaLicao para={proxima.id} onAbrir={onAbrir} class="licao__proxima">Próxima lição: {proxima.titulo}</LinkParaLicao>
+        )}
+      </div>
       <section class="licao__termos" aria-labelledby={`${PREFIXO}-termos-titulo`}>
         <h3 id={`${PREFIXO}-termos-titulo`}>Termos desta lição</h3>
         <ul role="list">
@@ -231,14 +243,6 @@ function PaginaLicao({ licao, licoes, concluida, onAbrir, onConcluir, onExperime
           ))}
         </ul>
       </section>
-      <div class="licao__acoes">
-        <button type="button" onClick={() => onConcluir(!concluida)}>
-          {concluida ? 'Desmarcar como concluída' : 'Marcar como concluída'}
-        </button>
-        {proxima && (
-          <LinkParaLicao para={proxima.id} onAbrir={onAbrir} class="licao__proxima">Próxima lição: {proxima.titulo}</LinkParaLicao>
-        )}
-      </div>
     </article>
   );
 }

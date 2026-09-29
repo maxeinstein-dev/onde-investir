@@ -26,3 +26,11 @@ export function textoErroMercado(erro: ErroMercado): string {
   if (erro === 'SEM_SESSAO') return 'Sua sessão expirou e não foi possível renová-la. Tente de novo.';
   return 'Os dados de mercado estão indisponíveis agora. Tente de novo em instantes.';
 }
+
+/** Compara a rentabilidade do ativo ao CDI do mesmo período. Sem CDI válido, não há frase. */
+export function fraseComparacao(rentabilidade: number, cdi: number | null): string | undefined {
+  if (cdi === null || !Number.isFinite(cdi) || !Number.isFinite(rentabilidade)) return undefined;
+  if (rentabilidade > cdi) return 'Acima do CDI no mesmo período.';
+  if (rentabilidade < cdi) return 'Abaixo do CDI no mesmo período.';
+  return 'Igual ao CDI no mesmo período.';
+}

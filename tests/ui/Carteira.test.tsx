@@ -219,7 +219,7 @@ describe('aba Carteira', () => {
       expect(within(grupo).queryByRole('article', { name: /Banco A/ })).toBeNull();
       expect(screen.getByRole('list', { name: 'Posições cadastradas' })).toHaveTextContent('Banco A');
       const total = screen.getByRole('region', { name: 'Total da carteira' });
-      expect(total).toHaveTextContent(`${moeda(valorAtual(cdb, HOJE, CEN).bruto)} bruto`);
+      expect(within(total).getByRole('group', { name: 'Total líquido' })).toHaveTextContent(`Bruto: ${moeda(valorAtual(cdb, HOJE, CEN).bruto)}`);
     });
 
     it('sem vencidas, sem o grupo', () => {
@@ -237,8 +237,17 @@ describe('aba Carteira', () => {
       expect(cartao(/Tesouro Selic/)).toHaveTextContent('Não deu para calcular: A regra "Selic over" não está cadastrada');
       const v = valorAtual(cdb, HOJE, quebra);
       const total = screen.getByRole('region', { name: 'Total da carteira' });
-      expect(total).toHaveTextContent(`${moeda(v.bruto)} bruto`);
+      expect(within(total).getByRole('group', { name: 'Total líquido' })).toHaveTextContent(`Bruto: ${moeda(v.bruto)}`);
       expect(total).toHaveTextContent('1 posição ficou de fora');
+    });
+
+    it('o total líquido em destaque, com o bruto na frase', () => {
+      render(<Tela inicial={[cdb]} />);
+      const v = valorAtual(cdb, HOJE, CEN);
+      const total = screen.getByRole('region', { name: 'Total da carteira' });
+      const destaque = within(total).getByRole('group', { name: /líquido/i });
+      expect(destaque).toHaveTextContent(moeda(v.liquido));
+      expect(destaque).toHaveTextContent(`Bruto: ${moeda(v.bruto)}`);
     });
 
     it('total bruto e líquido', () => {
@@ -247,8 +256,9 @@ describe('aba Carteira', () => {
       const va = valorAtual(cdb, HOJE, CEN);
       const vb = valorAtual(b, HOJE, CEN);
       const total = screen.getByRole('region', { name: 'Total da carteira' });
-      expect(total).toHaveTextContent(`${moeda(va.bruto + vb.bruto)} bruto`);
-      expect(total).toHaveTextContent(`${moeda(va.liquido + vb.liquido)} líquido`);
+      const destaque = within(total).getByRole('group', { name: 'Total líquido' });
+      expect(destaque).toHaveTextContent(`Bruto: ${moeda(va.bruto + vb.bruto)}`);
+      expect(destaque).toHaveTextContent(moeda(va.liquido + vb.liquido));
     });
   });
 

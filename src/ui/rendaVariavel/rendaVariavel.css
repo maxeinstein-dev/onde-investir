@@ -1,0 +1,22 @@
+/* src/ui/rendaVariavel/rendaVariavel.css: tela Renda variável. Só tokens, nenhuma cor solta. */
+.rv-form { display: grid; gap: var(--espaco-2); margin-block: var(--espaco-4); }
+.rv-form label { display: block; }
+.rv-form input { min-height: var(--alvo-toque); }
+.rv-form button { min-height: var(--alvo-toque); font-weight: 600; color: var(--texto-sobre-primaria); background: var(--primaria); border-color: var(--primaria); }
+.rv-form button:hover { background: var(--primaria-escura); }
+.rv-form button:disabled { opacity: 0.6; cursor: not-allowed; }
+.rv-resultado { display: grid; gap: var(--espaco-4); }
+.rv-periodo { margin: 0; color: var(--texto-suave); font-size: var(--texto-pequeno); }
+.rv-lista { display: grid; grid-template-columns: max-content 1fr; gap: var(--espaco-2) var(--espaco-4); margin: 0; }
+.rv-lista dt { color: var(--texto-suave); }
+.rv-lista dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (min-width: 640px) {
+  .rv-form { grid-template-columns: auto 1fr auto; align-items: end; }
+  .rv-form label { grid-column: 1 / -1; }
+  .rv-form button { padding-inline: var(--espaco-6); }
+}
+@media (max-width: 639px) {
+  .rv-form button { width: 100%; }
+  .rv-lista { grid-template-columns: 1fr; gap: var(--espaco-1); }
+  .rv-lista dd { margin-bottom: var(--espaco-2); }
+}

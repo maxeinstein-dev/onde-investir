@@ -1,0 +1,98 @@
+/* Tela Carteira: cartões de posição, total e barra do FGC, só com tokens. */
+.carteira .cartao--posicao {
+  display: grid;
+  gap: var(--espaco-2);
+  padding: var(--espaco-4);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-cartao);
+}
+
+.carteira .cartao--posicao > * {
+  margin: 0;
+}
+
+.carteira .cartao--posicao .posicao__valor {
+  font-variant-numeric: tabular-nums;
+}
+
+.carteira .carteira__total,
+.carteira .exposicao-fgc {
+  display: grid;
+  gap: var(--espaco-3);
+  padding: var(--espaco-4);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-cartao);
+  background: var(--superficie);
+}
+
+.carteira .carteira__total > *,
+.carteira .exposicao-fgc > * {
+  margin: 0;
+}
+
+.carteira .carteira__total {
+  border-left: 4px solid var(--primaria);
+}
+
+.carteira .exposicao-fgc__item {
+  display: grid;
+  gap: var(--espaco-1);
+}
+
+.carteira .exposicao-fgc__item > * {
+  margin: 0;
+}
+
+/* A barra do <meter>: trilho e preenchimento pelos tokens, nos dois motores. */
+.carteira .exposicao-fgc__barra {
+  height: var(--espaco-3);
+  border-radius: var(--espaco-2);
+  background: var(--borda);
+  accent-color: var(--primaria);
+}
+
+.carteira .exposicao-fgc__barra::-webkit-meter-bar {
+  height: var(--espaco-3);
+  border: 0;
+  border-radius: var(--espaco-2);
+  background: var(--borda);
+}
+
+.carteira .exposicao-fgc__barra::-webkit-meter-optimum-value,
+.carteira .exposicao-fgc__barra::-webkit-meter-suboptimum-value {
+  border-radius: var(--espaco-2);
+  background: var(--primaria);
+}
+
+.carteira .exposicao-fgc__barra::-webkit-meter-even-less-good-value {
+  border-radius: var(--espaco-2);
+  background: var(--erro);
+}
+
+.carteira .exposicao-fgc__barra::-moz-meter-bar {
+  border-radius: var(--espaco-2);
+  background: var(--primaria);
+}
+
+.carteira .exposicao-fgc__item--acima .exposicao-fgc__barra::-moz-meter-bar {
+  background: var(--erro);
+}
+
+/* Formulário curto no celular: um campo por linha, controles com alvo de toque. */
+@media (max-width: 639px) {
+  .carteira .formulario .campo {
+    display: grid;
+    gap: var(--espaco-1);
+  }
+
+  .carteira .formulario input,
+  .carteira .formulario select {
+    width: 100%;
+    min-height: var(--alvo-toque);
+  }
+
+  .carteira .formulario button {
+    min-height: var(--alvo-toque);
+  }
+}

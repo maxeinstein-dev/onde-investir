@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AVISO_TURNSTILE } from '../../../src/conteudo/rendaVariavel';
+import { AVISO_TURNSTILE, fraseComparacao } from '../../../src/conteudo/rendaVariavel';
 import { cenarioConstante } from '../../../src/engine/indexadores';
 import { RendaVariavel } from '../../../src/ui/rendaVariavel/RendaVariavel';
 
@@ -76,6 +76,42 @@ describe('RendaVariavel', () => {
     expect(screen.getByText('Histórico ainda curto: ele cresce com o tempo.')).toBeInTheDocument();
   });
 
+  it('a rentabilidade vira o número em destaque, com a comparação ao CDI em frase', async () => {
+    render(<RendaVariavel ativa cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
+    await consultar('PETR4');
+    const destaque = await screen.findByRole('group', { name: 'Rentabilidade do ativo' });
+    expect(destaque).toHaveTextContent('10');
+    expect(destaque).toHaveTextContent('Acima do CDI no mesmo período.');
+    // O <dt> do <dl> segue sendo um texto isolado, sem colidir com o destaque.
+    expect(screen.getAllByText('Rentabilidade no período')).toHaveLength(1);
+  });
+
+  it('sem histórico de CDI e IPCA o destaque não traz frase de comparação', async () => {
+    render(<RendaVariavel ativa cenario={cen} cenarioRealizado={false} onPeriodo={onPeriodo} />);
+    await consultar('PETR4');
+    const destaque = await screen.findByRole('group', { name: 'Rentabilidade do ativo' });
+    expect(destaque).not.toHaveTextContent(/CDI/);
+  });
+
+  it('volatilidade e queda máxima ficam num detalhe recolhido', async () => {
+    render(<RendaVariavel ativa cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
+    await consultar('PETR4');
+    await screen.findByRole('group', { name: 'Rentabilidade do ativo' });
+    const detalhe = screen.getByText('Mais detalhes do período').closest('details');
+    expect(detalhe).not.toHaveAttribute('open');
+    expect(detalhe).toContainElement(screen.getByText('Volatilidade anualizada'));
+    expect(detalhe).toContainElement(screen.getByText('Queda máxima (drawdown)'));
+  });
+
+  it('o período e o CDI/IPCA ficam fora do detalhe recolhido', async () => {
+    render(<RendaVariavel ativa cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
+    await consultar('PETR4');
+    await screen.findByRole('group', { name: 'Rentabilidade do ativo' });
+    const detalhe = screen.getByText('Mais detalhes do período').closest('details');
+    expect(detalhe).not.toContainElement(screen.getByText('CDI no mesmo período'));
+    expect(detalhe).not.toContainElement(screen.getByText('IPCA no mesmo período'));
+  });
+
   it('SEM_SESSAO renova a sessão uma vez e repete a consulta', async () => {
     historico.mockResolvedValueOnce({ ok: false, erro: 'SEM_SESSAO' });
     render(<RendaVariavel ativa cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
@@ -114,5 +150,17 @@ describe('RendaVariavel', () => {
     expect(screen.getByText(/Conteúdo educativo/)).toBeInTheDocument();
     expect(screen.getByText(/não indica ações/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Ver lição/ })).toHaveAttribute('href', '#aprender/renda-variavel');
+  });
+});
+
+describe('fraseComparacao', () => {
+  it('compara a rentabilidade ao CDI do mesmo período', () => {
+    expect(fraseComparacao(0.1, 0.03)).toBe('Acima do CDI no mesmo período.');
+    expect(fraseComparacao(0.01, 0.03)).toBe('Abaixo do CDI no mesmo período.');
+    expect(fraseComparacao(0.03, 0.03)).toBe('Igual ao CDI no mesmo período.');
+  });
+  it('sem CDI, sem frase', () => {
+    expect(fraseComparacao(0.1, null)).toBeUndefined();
+    expect(fraseComparacao(0.1, Number.NaN)).toBeUndefined();
   });
 });

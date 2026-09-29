@@ -4,6 +4,16 @@ Registro das mudanças do Rende por marco de entrega. Formato livre, em portugu�
 muda pra quem usa o app — não é um changelog técnico linha a linha (isso já fica no histórico do
 git e nos PRs).
 
+## Redesign — visual novo, navegação no celular e telas reorganizadas ([#23](https://github.com/maxeinstein-dev/onde-investir/pull/23), [#24](https://github.com/maxeinstein-dev/onde-investir/pull/24) e este)
+
+O Rende ganhou um visual novo e ficou mais fácil de usar, principalmente no celular. Nenhuma regra de cálculo mudou.
+
+- **Tema claro e escuro**, automático conforme o sistema, com uma cor de marca em verde-petróleo, tipografia Inter hospedada no próprio site e contraste conferido nos dois temas. Os gráficos acompanham o tema.
+- **Celular:** barra de navegação fixa embaixo com Comparar, Carteira, Objetivos e Renda variável; Catálogo e Aprender ficam em "Mais". No computador, as seis abas seguem no topo.
+- **Cenário recolhido:** o painel de indicadores virou uma linha-resumo ("Cenário: Base (Focus) · CDI … · IPCA …") que abre o painel completo. Os avisos foram para o rodapé.
+- **Resultado em destaque:** o Comparar mostra o valor líquido do líder em número grande, com a frase que o explica; a Carteira mostra o total líquido; Objetivos e Renda variável ganharam o mesmo padrão. No celular, a tabela de comparação vira cartões.
+- **Formulários mais curtos no celular**, com campos e botões de pelo menos 48px.
+
 ## M4b2c — Cálculo de renda variável
 
 Nova aba "Renda variável": você digita o código de um ativo da B3 (como PETR4 ou HGLG11) e o app

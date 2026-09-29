@@ -4,12 +4,14 @@ import { DICA_EXPORTAR, POSICAO_ADICIONADA, SEM_POSICOES, textoDoHistorico } fro
 import type { Cenario } from '../../engine/indexadores';
 import type { Posicao } from '../../engine/posicoes';
 import { formatarMoeda } from '../../formato';
+import { Destaque } from '../base/Destaque';
 import { hoje } from '../hoje';
 import type { EstadoHistorico } from '../useHistorico';
 import { ExposicaoFGC } from './ExposicaoFGC';
 import { FormPosicao, ID_FORM_POSICAO } from './FormPosicao';
 import { idTituloPosicao, ListaPosicoes } from './ListaPosicoes';
 import { resumirCarteira } from './resumo';
+import './carteira.css';
 
 export interface PropsCarteira {
   posicoes: readonly Posicao[];
@@ -112,7 +114,7 @@ export function Carteira({
           <ListaPosicoes linhas={resumo.linhas} onEditar={setEditando} onRemover={remover} />
           <section class="carteira__total" aria-labelledby={idTotal}>
             <h3 id={idTotal}>Total da carteira</h3>
-            <p class="posicao__valor">{formatarMoeda(resumo.total.bruto)} bruto, {formatarMoeda(resumo.total.liquido)} líquido</p>
+            <Destaque rotulo="Total líquido" valor={formatarMoeda(resumo.total.liquido)} frase={`Bruto: ${formatarMoeda(resumo.total.bruto)}`} />
             {fora > 0 && (
               <p class="aviso">{fora === 1 ? '1 posição ficou de fora' : `${fora} posições ficaram de fora`}, porque não deu para calcular.</p>
             )}

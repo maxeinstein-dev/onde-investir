@@ -30,10 +30,13 @@ import { Termo } from '../Termo';
 import { AdicionarOferta, ID_BOTAO_ADICIONAR } from './AdicionarOferta';
 import { Alertas } from './Alertas';
 import { Compartilhar } from './Compartilhar';
+import { Destaque } from '../base/Destaque';
 import { Dicas } from './Dicas';
 import { LinhaDoTempo } from './LinhaDoTempo';
 import { PorQueLidera } from './PorQueLidera';
+import { frasesDoLider } from './lider';
 import { idColuna, TabelaComparacao } from './TabelaComparacao';
+import './comparar.css';
 
 type TipoRegra = RegraReinvestimento['tipo'];
 
@@ -392,6 +395,8 @@ export function Comparador({
     <TabelaComparacao ofertas={ofertas} colunas={resultado?.colunas ?? []} dataAplicacao={dataAplicacao} onRemover={tirar} />
   );
 
+  const lider = resultado ? frasesDoLider(resultado.ofertas, resultado.colunas) : null;
+
   return (
     <section class="comparacao" aria-labelledby={ID_TITULO_COMPARADOR}>
       <h2 id={ID_TITULO_COMPARADOR} tabIndex={-1}>Comparar</h2>
@@ -465,6 +470,7 @@ export function Comparador({
       {resultado ? (
         <section class="resultado" aria-labelledby={`${PREFIXO}-resultado-titulo`}>
           <h2 id={`${PREFIXO}-resultado-titulo`} ref={tituloResultado} tabIndex={-1}>Resultado da comparação</h2>
+          {lider && <Destaque rotulo={lider.rotulo} valor={lider.valor} frase={lider.frase} />}
           {resultado.palpite !== null && <Feedback palpite={resultado.palpite} colunas={resultado.colunas} nomes={nomes} />}
           <p class="dica">
             {formatarMoeda(resultado.entrada.valor)} aplicados em {dataBR(resultado.entrada.dataAplicacao)} em cada oferta.
@@ -477,7 +483,7 @@ export function Comparador({
           <Alertas alertas={resultado.alertas} ofertas={resultado.ofertas} horizontes={resultado.colunas} prefixo={`${PREFIXO}-alertas`}
             onVerLicao={onVerLicao} />
           <PorQueLidera ofertas={resultado.ofertas} colunas={resultado.colunas} data={liderData} onData={setLiderData} />
-          <details open class="graficos">
+          <details open class="graficos detalhes">
             <summary>Gráficos</summary>
             <GraficoValorLiquido series={resultado.series} trocas={resultado.trocas.trocas} ofertas={resultado.ofertas}
               inicioPremissa={resultado.inicioPremissa} {...(resultado.trocas.inicial ? { oscilacaoInicial: resultado.trocas.inicial } : {})} />

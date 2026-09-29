@@ -1,0 +1,136 @@
+/* Tela Comparar: líder em destaque, formulário curto e tabela em cartões no celular. Só tokens, sem cores soltas. */
+.resultado > .destaque {
+  margin: var(--espaco-4) 0;
+  padding: var(--espaco-4);
+  background: var(--sucesso-fundo);
+  border: 1px solid var(--sucesso);
+  border-radius: var(--raio-cartao);
+}
+
+.resultado > .destaque .destaque__valor {
+  color: var(--sucesso);
+}
+
+
+@media (max-width: 639px) {
+  /* Formulário curto: um campo por linha, em largura total, e o botão principal preso ao fim da tela. */
+  .comparacao .aplicacao {
+    grid-template-columns: 1fr;
+  }
+
+  .comparacao .aplicacao .campo,
+  .comparacao .aplicacao input,
+  .comparacao .aplicacao select {
+    width: 100%;
+    min-height: var(--alvo-toque);
+  }
+
+  .comparacao .formulario > .primario {
+    position: sticky;
+    bottom: calc(var(--alvo-toque) + env(safe-area-inset-bottom) + var(--espaco-2));
+    z-index: 2;
+    width: 100%;
+    min-height: var(--alvo-toque);
+    box-shadow: 0 0 0 var(--espaco-2) var(--fundo);
+  }
+
+  /* Tabela em cartões: cada linha vira um bloco e cada célula mostra o nome da oferta antes do valor. */
+  .comparacao .tabela-rolavel {
+    overflow-x: visible;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .comparacao .tabela-comparacao,
+  .comparacao .tabela-comparacao caption,
+  .comparacao .tabela-comparacao thead,
+  .comparacao .tabela-comparacao tbody,
+  .comparacao .tabela-comparacao tr,
+  .comparacao .tabela-comparacao th,
+  .comparacao .tabela-comparacao td {
+    display: block;
+    min-width: 0;
+    max-width: none;
+    box-sizing: border-box;
+  }
+
+  .comparacao .tabela-comparacao th,
+  .comparacao .tabela-comparacao td {
+    overflow-wrap: anywhere;
+  }
+
+  /* Sem coluna fixa: nada rola na horizontal. */
+  .comparacao .tabela-comparacao thead td:first-child,
+  .comparacao .tabela-comparacao tbody th[scope='row'],
+  .comparacao .tabela-comparacao caption span,
+  .comparacao .tabela-comparacao__bloco span {
+    position: static;
+  }
+
+  .comparacao .tabela-comparacao thead td:empty {
+    display: none;
+  }
+
+  /* As letras das ofertas viram uma faixa de chips. */
+  .comparacao .tabela-comparacao thead tr:first-child {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--espaco-2);
+    padding: var(--espaco-2) 0;
+  }
+
+  .comparacao .tabela-comparacao thead th {
+    flex: 1 1 100%;
+    border: 1px solid var(--borda);
+    border-radius: var(--raio-cartao);
+  }
+
+  .comparacao .tabela-comparacao__acoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--espaco-2);
+  }
+
+  .comparacao .tabela-comparacao__acoes td {
+    padding: 0;
+  }
+
+  .comparacao .tabela-comparacao__tirar {
+    min-height: var(--alvo-toque);
+  }
+
+  .comparacao .tabela-comparacao tbody tr:not(.tabela-comparacao__bloco) {
+    margin: var(--espaco-3) 0;
+    padding: var(--espaco-2) var(--espaco-3);
+    background: var(--superficie);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio-cartao);
+  }
+
+  .comparacao .tabela-comparacao tbody th[scope='row'] {
+    padding: var(--espaco-2) 0;
+    border-top: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: var(--texto-base);
+  }
+
+  .comparacao .tabela-comparacao tbody td {
+    padding: var(--espaco-2) 0;
+  }
+
+  .comparacao .tabela-comparacao tbody td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--texto-suave);
+    font-size: var(--texto-pequeno);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .comparacao .tabela-comparacao .celula--lider {
+    background: var(--sucesso-fundo);
+    border-radius: var(--raio-controle);
+    padding-inline: var(--espaco-2);
+  }
+}

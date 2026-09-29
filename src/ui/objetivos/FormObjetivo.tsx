@@ -8,6 +8,7 @@ import { OfertaInvalidaError } from '../../engine/erros';
 import { validarObjetivo, type Objetivo } from '../../engine/sugestao';
 import { CampoNumerico } from '../CampoNumerico';
 import { DATA_MAXIMA, hoje } from '../hoje';
+import './objetivos.css';
 
 export interface PropsFormObjetivo {
   tipo: Objetivo['tipo'];
@@ -84,7 +85,7 @@ export function FormObjetivo({ tipo, onSalvar, onCancelar, inicial, id: ID = 'ob
   }
 
   return (
-    <form class="formulario cadastro" onSubmit={salvar} noValidate aria-labelledby={`${ID}-titulo`}>
+    <form class="formulario cadastro obj-form" onSubmit={salvar} noValidate aria-labelledby={`${ID}-titulo`}>
       <h3 id={`${ID}-titulo`} ref={refTitulo} tabIndex={-1}>
         {inicial ? `Editar objetivo: ${ROTULO_TIPO_OBJETIVO[tipo]}` : `Novo objetivo: ${ROTULO_TIPO_OBJETIVO[tipo]}`}
       </h3>
