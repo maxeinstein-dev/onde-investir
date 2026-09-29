@@ -175,6 +175,32 @@ function sugerirLongoPrazo(o: Extract<Objetivo, { tipo: 'LONGO_PRAZO' }>, ctx: C
   return casarComCatalogo(base, ctx.catalogo, ctx.carteira, ctx.hoje);
 }
 
+function sugerirCarteiraCombinada(o: Extract<Objetivo, { tipo: 'CARTEIRA_COMBINADA' }>, ctx: ContextoSugestao): Fatia[] {
+  const valorReserva = o.gastoMensal * (o.rendaEstavel ? MULTIPLICADOR_RESERVA.estavel : MULTIPLICADOR_RESERVA.variavel);
+  const restante = o.principal - valorReserva;
+  const faixa = faixaLongoPrazo(o.horizonteAnos);
+
+  const base: Fatia[] = [
+    {
+      produto: 'TESOURO_SELIC', indexacaoTipo: 'SELIC', motivo: 'RESERVA_TESOURO_SELIC', garantia: 'TESOURO_NACIONAL',
+      valor: valorReserva * 0.5, percentual: (valorReserva * 0.5) / o.principal,
+    },
+    {
+      produto: 'CDB', indexacaoTipo: 'POS_CDI', motivo: 'RESERVA_CDB_LIQUIDEZ', garantia: 'FGC',
+      valor: valorReserva * 0.5, percentual: (valorReserva * 0.5) / o.principal,
+    },
+    {
+      produto: 'TESOURO_IPCA', indexacaoTipo: 'IPCA_MAIS', motivo: 'LONGO_PRAZO_IPCA', garantia: 'TESOURO_NACIONAL',
+      valor: restante * faixa.ipca, percentual: (restante * faixa.ipca) / o.principal,
+    },
+    {
+      produto: 'CDB', indexacaoTipo: 'POS_CDI', motivo: 'LONGO_PRAZO_POS', garantia: 'FGC',
+      valor: restante * faixa.pos, percentual: (restante * faixa.pos) / o.principal,
+    },
+  ];
+  return casarComCatalogo(base, ctx.catalogo, ctx.carteira, ctx.hoje, { liquidezDiaria: true });
+}
+
 function ofertaCasadaComData(catalogo: readonly OfertaCadastrada[], dataAlvo: DataISO): OfertaCadastrada | undefined {
   const candidatas = catalogo.filter((o) => o.vencimento !== undefined && o.vencimento <= dataAlvo);
   if (candidatas.length === 0) return undefined;
@@ -349,8 +375,6 @@ export function sugerir(objetivo: Objetivo, ctx: ContextoSugestao, cen?: Cenario
       const r = sugerirRendaMensal(objetivo, ctx, cen);
       return r.modo === 'UNICA' ? [r.fatia] : r.fatias;
     }
-    // TEMPORÁRIO: só pra destravar a Tarefa 1 do plano M6 — a implementação de verdade
-    // (sugerirCarteiraCombinada) entra na Tarefa 3. Ver docs/plans/2026-09-29-m6-carteira-combinada.md.
-    case 'CARTEIRA_COMBINADA': throw new Error('não implementado ainda');
+    case 'CARTEIRA_COMBINADA': return sugerirCarteiraCombinada(objetivo, ctx);
   }
 }
