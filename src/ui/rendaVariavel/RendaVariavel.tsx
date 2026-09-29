@@ -1,0 +1,114 @@
+// Aba "Renda variável" (M4b2c): ticker → rentabilidade, volatilidade e drawdown do histórico, ao lado de
+// CDI e IPCA no mesmo período. O Turnstile só dispara quando a aba fica ativa (todas as abas ficam montadas).
+import { useEffect, useRef, useState } from 'preact/hooks';
+import {
+  CONSULTANDO, ERRO_TICKER, HISTORICO_CURTO, INTRO_RENDA_VARIAVEL, NAO_INDICA, PREGOES_MINIMOS_HISTORICO,
+  SEM_DADOS, TITULO_RENDA_VARIAVEL, VERIFICANDO_ACESSO, textoErroMercado, textoErroSessao,
+} from '../../conteudo/rendaVariavel';
+import { AVISO_EDUCATIVO } from '../../conteudo/sugestao';
+import { buscarHistorico, validarTickerCliente } from '../../dados/mercado';
+import { obterSessao } from '../../dados/turnstile';
+import type { Cenario } from '../../engine/indexadores';
+import { type AnaliseRendaVariavel, analisarRendaVariavel } from '../../engine/rendaVariavel';
+import { formatarData, formatarPercentual } from '../../formato';
+import { LinkLicao } from '../aprender/LinkLicao';
+
+export interface PropsRendaVariavel {
+  ativa: boolean;
+  /** O cenário HISTÓRICO (o mesmo da aba Carteira): o período comparado é passado. */
+  cenario: Cenario;
+}
+
+export function RendaVariavel({ ativa, cenario }: PropsRendaVariavel) {
+  const [ticker, setTicker] = useState('');
+  const [verificando, setVerificando] = useState(false);
+  const [consultando, setConsultando] = useState(false);
+  const [falhouSessao, setFalhouSessao] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [analise, setAnalise] = useState<AnaliseRendaVariavel | null>(null);
+  const container = useRef<HTMLDivElement>(null);
+  const jaDisparou = useRef(false);
+
+  async function garantirSessao(): Promise<boolean> {
+    if (!container.current) return false;
+    setVerificando(true);
+    setErro(null);
+    setFalhouSessao(false);
+    const r = await obterSessao(container.current);
+    setVerificando(false);
+    if (!r.ok) {
+      setErro(textoErroSessao(r.erro));
+      setFalhouSessao(true);
+      return false;
+    }
+    return true;
+  }
+
+  useEffect(() => {
+    if (!ativa || jaDisparou.current) return;
+    jaDisparou.current = true;
+    void garantirSessao();
+  }, [ativa]);
+
+  async function consultar(e: Event) {
+    e.preventDefault();
+    if (!validarTickerCliente(ticker)) {
+      setErro(ERRO_TICKER);
+      setAnalise(null);
+      return;
+    }
+    setErro(null);
+    setAnalise(null);
+    setConsultando(true);
+    let r = await buscarHistorico(ticker);
+    if (!r.ok && r.erro === 'SEM_SESSAO') {
+      // O cookie venceu: renova UMA vez e repete a consulta.
+      if (await garantirSessao()) r = await buscarHistorico(ticker);
+      else { setConsultando(false); return; }
+    }
+    setConsultando(false);
+    if (!r.ok) {
+      setErro(textoErroMercado(r.erro));
+      return;
+    }
+    const a = analisarRendaVariavel(r.candles, cenario);
+    if (a === null) setErro(SEM_DADOS);
+    else setAnalise(a);
+  }
+
+  return (
+    <section aria-labelledby="rv-titulo">
+      <h2 id="rv-titulo">{TITULO_RENDA_VARIAVEL}</h2>
+      <p>{INTRO_RENDA_VARIAVEL}</p>
+      <div ref={container} />
+      {verificando && <p role="status">{VERIFICANDO_ACESSO}</p>}
+      {falhouSessao && !verificando && (
+        <button type="button" onClick={() => void garantirSessao()}>Tentar de novo</button>
+      )}
+      <form onSubmit={(e) => void consultar(e)}>
+        <label for="rv-ticker">Ticker</label>
+        <input id="rv-ticker" type="text" maxLength={6} autoCapitalize="characters" value={ticker}
+          onInput={(e) => setTicker((e.currentTarget as HTMLInputElement).value.toUpperCase())} />
+        <button type="submit" disabled={verificando || consultando}>Consultar</button>
+      </form>
+      {consultando && <p role="status">{CONSULTANDO}</p>}
+      {erro !== null && <p role="alert" class="erro">{erro}</p>}
+      {analise && (
+        <div class="cartao">
+          <p>De {formatarData(analise.inicio)} a {formatarData(analise.fim)} ({analise.pontos} pregões)</p>
+          <dl>
+            <dt>Rentabilidade no período</dt><dd>{formatarPercentual(analise.rentabilidade)}</dd>
+            <dt>Volatilidade anualizada</dt>
+            <dd>{analise.volatilidadeAnualizada === null ? 'sem dados suficientes' : formatarPercentual(analise.volatilidadeAnualizada)}</dd>
+            <dt>Queda máxima (drawdown)</dt><dd>{formatarPercentual(analise.drawdownMaximo)}</dd>
+            <dt>CDI no mesmo período</dt><dd>{formatarPercentual(analise.cdi)}</dd>
+            <dt>IPCA no mesmo período</dt><dd>{formatarPercentual(analise.ipca)}</dd>
+          </dl>
+          {analise.pontos < PREGOES_MINIMOS_HISTORICO && <p class="aviso">{HISTORICO_CURTO}</p>}
+        </div>
+      )}
+      <p class="aviso">{AVISO_EDUCATIVO}</p>
+      <p class="aviso">{NAO_INDICA} <LinkLicao licao="renda-variavel" /></p>
+    </section>
+  );
+}

@@ -130,10 +130,11 @@ describe('lições (integridade)', () => {
     }
   });
 
-  it('a lição de renda variável avisa que o cálculo vem depois e não indica ativo', () => {
+  it('a lição de renda variável explica o que o app faz e não indica ativo', () => {
     const rv = LICOES.find((l) => l.id === 'renda-variavel');
     const texto = rv?.secoes.map((s) => s.texto).join('\n') ?? '';
-    expect(texto).toMatch(/M4|próxima etapa|mais adiante/i);
+    expect(texto).toMatch(/aba Renda variável/);
+    expect(texto).toMatch(/não indica ações/);
     // Sem códigos de negociação (PETR4, BOVA11...).
     expect(texto).not.toMatch(/\b[A-Z]{4}\d{1,2}\b/);
   });

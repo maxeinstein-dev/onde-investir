@@ -37,7 +37,7 @@ export const RENDA_VARIAVEL = definirLicao({
     },
     {
       titulo: 'Neste app',
-      texto: 'Esta lição é só conceitual. O app ainda não calcula renda variável: esse cálculo vem numa próxima etapa. O app também não indica ações, fundos ou qualquer outro ativo.',
+      texto: 'Na aba Renda variável, você digita o código de um ativo e vê a rentabilidade, a volatilidade e a queda máxima do histórico, ao lado de CDI e IPCA no mesmo período. É só um retrato do passado. O app não indica ações, fundos ou qualquer outro ativo.',
     },
   ],
   termos: ['liquidez', 'fgc'],
