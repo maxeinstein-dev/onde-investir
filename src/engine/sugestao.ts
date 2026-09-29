@@ -96,7 +96,7 @@ export function validarObjetivo(o: Objetivo, hoje: DataISO): void {
       }
       const valorReserva = o.gastoMensal * (o.rendaEstavel ? MULTIPLICADOR_RESERVA.estavel : MULTIPLICADOR_RESERVA.variavel);
       if (valorReserva > o.principal) {
-        throw new OfertaInvalidaError(`A reserva de emergência sozinha (${valorReserva}) já passa do total informado.`);
+        throw new OfertaInvalidaError('A reserva de emergência sozinha já passa do total informado.');
       }
       break;
     }
