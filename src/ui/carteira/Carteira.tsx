@@ -115,8 +115,6 @@ export function Carteira({
           <section class="carteira__total" aria-labelledby={idTotal}>
             <h3 id={idTotal}>Total da carteira</h3>
             <Destaque rotulo="Total líquido" valor={formatarMoeda(resumo.total.liquido)} frase={`Bruto: ${formatarMoeda(resumo.total.bruto)}`} />
-            {/* A frase completa para o leitor de tela e para quem procura o texto; o destaque mostra os mesmos números. */}
-            <p class="visualmente-oculto">{formatarMoeda(resumo.total.bruto)} bruto, {formatarMoeda(resumo.total.liquido)} líquido</p>
             {fora > 0 && (
               <p class="aviso">{fora === 1 ? '1 posição ficou de fora' : `${fora} posições ficaram de fora`}, porque não deu para calcular.</p>
             )}
