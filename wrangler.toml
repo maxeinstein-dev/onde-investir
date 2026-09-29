@@ -1,0 +1,7 @@
+name = "rende"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-09-29"
+
+[[kv_namespaces]]
+binding = "MERCADO_KV"
+id = "SUBSTITUA_PELO_ID_REAL_DO_NAMESPACE"
