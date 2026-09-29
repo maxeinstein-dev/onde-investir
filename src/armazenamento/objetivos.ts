@@ -13,6 +13,7 @@ const EsquemaEntradas = z.discriminatedUnion('tipo', [
   z.strictObject({ tipo: z.literal('COM_DATA'), valorAlvo: z.number().positive(), data: DataIso }),
   z.strictObject({ tipo: z.literal('LONGO_PRAZO'), horizonteAnos: z.number().int().positive() }),
   z.strictObject({ tipo: z.literal('SEM_OBJETIVO'), horizonteAnos: z.number().int().positive() }),
+  z.strictObject({ tipo: z.literal('RENDA_MENSAL'), principal: z.number().positive(), rendaMensalDesejada: z.number().positive() }),
 ]);
 
 const EsquemaObjetivo = z.strictObject({
