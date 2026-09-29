@@ -4,6 +4,15 @@ Registro das mudanças do Rende por marco de entrega. Formato livre, em portugu�
 muda pra quem usa o app — não é um changelog técnico linha a linha (isso já fica no histórico do
 git e nos PRs).
 
+## M4b2c — Cálculo de renda variável
+
+Nova aba "Renda variável": você digita o código de um ativo da B3 (como PETR4 ou HGLG11) e o app
+mostra a rentabilidade no histórico disponível, a volatilidade anualizada e a queda máxima,
+comparadas a CDI e IPCA no mesmo período. É um retrato do passado, não uma indicação de ativo. O
+desafio do Cloudflare Turnstile roda quando você abre a aba e libera a sessão usada pelas consultas
+de mercado. Limitação conhecida: os cálculos usam o fechamento, sem ajuste por proventos. Fecha o
+roadmap original.
+
 ## M6 — Objetivo "Carteira Combinada" ([#16](https://github.com/maxeinstein-dev/onde-investir/pull/16))
 
 Novo 6º tipo de objetivo na aba Objetivos: dado um principal, um gasto mensal e um horizonte, o app
