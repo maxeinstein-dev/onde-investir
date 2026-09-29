@@ -6,6 +6,7 @@ import type { OfertaCadastrada } from '../../engine/ofertas';
 import { garantiaDe } from '../../engine/produtos';
 import { letraDaOferta } from '../letras';
 import { Termo } from '../Termo';
+import './ofertas.css';
 
 export interface PropsListaOfertas {
   ofertas: readonly OfertaCadastrada[];
@@ -39,9 +40,9 @@ interface PropsCartao {
 }
 
 function BotaoComparar({ estado, onComparar }: { estado: EstadoComparacao; onComparar: () => void }) {
-  if (estado === 'dentro') return <button type="button" disabled>Na comparação ✓</button>;
+  if (estado === 'dentro') return <button type="button" class="cat-comparar" disabled>Na comparação ✓</button>;
   return (
-    <button type="button" disabled={estado === 'cheia'} aria-describedby={estado === 'cheia' ? ID_LIMITE : undefined} onClick={onComparar}>
+    <button type="button" class="primario cat-comparar" disabled={estado === 'cheia'} aria-describedby={estado === 'cheia' ? ID_LIMITE : undefined} onClick={onComparar}>
       Comparar
     </button>
   );
