@@ -4,7 +4,7 @@ import globals from 'globals';
 import { defineConfig } from 'eslint/config';
 
 export default defineConfig([
-  { ignores: ['dist', 'coverage', '.wrangler', 'tests/referencia'] },
+  { ignores: ['dist', 'coverage', '.wrangler', '**/.wrangler', 'tests/referencia'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   { languageOptions: { globals: { ...globals.browser, ...globals.node } } },
