@@ -344,6 +344,10 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
         <h1>Rende</h1>
         <p>Compare investimentos pelo que sobra no bolso e entenda o porquê de cada resultado.</p>
         <p class="aviso">Conteúdo educativo: não é recomendação de investimento.</p>
+        <p class="aviso">
+          Algumas áreas usam Cloudflare Turnstile pra bloquear tráfego automatizado, sem exigir
+          login. Ele analisa sinais do navegador, sem usar cookies de rastreamento.
+        </p>
       </header>
 
       {falhouAoGravar && <p role="alert" class="erro">{FALHA_AO_GRAVAR}</p>}
