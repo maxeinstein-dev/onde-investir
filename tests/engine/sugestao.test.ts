@@ -28,6 +28,9 @@ describe('valorAlvo', () => {
   it('renda mensal: sem valor-alvo (é o principal que importa, não um alvo a atingir)', () => {
     expect(valorAlvo({ tipo: 'RENDA_MENSAL', principal: 100000, rendaMensalDesejada: 1000 })).toBeNull();
   });
+  it('carteira combinada: o próprio principal', () => {
+    expect(valorAlvo({ tipo: 'CARTEIRA_COMBINADA', principal: 100000, gastoMensal: 3000, rendaEstavel: true, horizonteAnos: 20 })).toBe(100000);
+  });
 });
 
 describe('validarObjetivo', () => {
@@ -55,6 +58,17 @@ describe('validarObjetivo', () => {
     expect(() => validarObjetivo({ ...base, principal: Number.NaN }, HOJE)).toThrow(OfertaInvalidaError);
     expect(() => validarObjetivo({ ...base, rendaMensalDesejada: 0 }, HOJE)).toThrow(OfertaInvalidaError);
     expect(() => validarObjetivo({ ...base, rendaMensalDesejada: -100 }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo(base, HOJE)).not.toThrow();
+  });
+  it('carteira combinada: os 4 campos válidos, e a reserva não pode passar do principal', () => {
+    const base: Objetivo = { tipo: 'CARTEIRA_COMBINADA', principal: 100000, gastoMensal: 3000, rendaEstavel: true, horizonteAnos: 20 };
+    expect(() => validarObjetivo({ ...base, principal: 0 }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo({ ...base, gastoMensal: 0 }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo({ ...base, horizonteAnos: 0 }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo({ ...base, horizonteAnos: 5.5 }, HOJE)).toThrow(OfertaInvalidaError);
+    // reserva = 3000 × 6 = 18000 (rendaEstavel: true); principal menor que isso deve lançar.
+    expect(() => validarObjetivo({ ...base, principal: 17999 }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo({ ...base, principal: 18000 }, HOJE)).not.toThrow(); // limite: igual é aceito
     expect(() => validarObjetivo(base, HOJE)).not.toThrow();
   });
 });

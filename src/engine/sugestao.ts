@@ -22,7 +22,8 @@ export type Objetivo =
   | { tipo: 'COM_DATA'; valorAlvo: number; data: DataISO }
   | { tipo: 'LONGO_PRAZO'; horizonteAnos: number }
   | { tipo: 'SEM_OBJETIVO'; horizonteAnos: number }
-  | { tipo: 'RENDA_MENSAL'; principal: number; rendaMensalDesejada: number };
+  | { tipo: 'RENDA_MENSAL'; principal: number; rendaMensalDesejada: number }
+  | { tipo: 'CARTEIRA_COMBINADA'; principal: number; gastoMensal: number; rendaEstavel: boolean; horizonteAnos: number };
 
 export type MotivoFatia =
   | 'RESERVA_TESOURO_SELIC' | 'RESERVA_CDB_LIQUIDEZ'
@@ -62,6 +63,8 @@ export function valorAlvo(objetivo: Objetivo): number | null {
       return null;
     case 'RENDA_MENSAL':
       return null;
+    case 'CARTEIRA_COMBINADA':
+      return objetivo.principal;
   }
 }
 
@@ -85,6 +88,18 @@ export function validarObjetivo(o: Objetivo, hoje: DataISO): void {
       if (!Number.isFinite(o.principal) || o.principal <= 0) throw new OfertaInvalidaError('Preencha o principal, maior que zero.');
       if (!Number.isFinite(o.rendaMensalDesejada) || o.rendaMensalDesejada <= 0) throw new OfertaInvalidaError('Preencha a renda mensal desejada, maior que zero.');
       break;
+    case 'CARTEIRA_COMBINADA': {
+      if (!Number.isFinite(o.principal) || o.principal <= 0) throw new OfertaInvalidaError('Preencha o principal, maior que zero.');
+      if (!Number.isFinite(o.gastoMensal) || o.gastoMensal <= 0) throw new OfertaInvalidaError('Preencha o gasto mensal, maior que zero.');
+      if (!Number.isInteger(o.horizonteAnos) || o.horizonteAnos <= 0) {
+        throw new OfertaInvalidaError('Informe um horizonte em anos inteiro, maior que zero.');
+      }
+      const valorReserva = o.gastoMensal * (o.rendaEstavel ? MULTIPLICADOR_RESERVA.estavel : MULTIPLICADOR_RESERVA.variavel);
+      if (valorReserva > o.principal) {
+        throw new OfertaInvalidaError(`A reserva de emergência sozinha (${valorReserva}) já passa do total informado.`);
+      }
+      break;
+    }
   }
 }
 
@@ -334,5 +349,8 @@ export function sugerir(objetivo: Objetivo, ctx: ContextoSugestao, cen?: Cenario
       const r = sugerirRendaMensal(objetivo, ctx, cen);
       return r.modo === 'UNICA' ? [r.fatia] : r.fatias;
     }
+    // TEMPORÁRIO: só pra destravar a Tarefa 1 do plano M6 — a implementação de verdade
+    // (sugerirCarteiraCombinada) entra na Tarefa 3. Ver docs/plans/2026-09-29-m6-carteira-combinada.md.
+    case 'CARTEIRA_COMBINADA': throw new Error('não implementado ainda');
   }
 }
