@@ -241,6 +241,15 @@ describe('aba Carteira', () => {
       expect(total).toHaveTextContent('1 posição ficou de fora');
     });
 
+    it('o total líquido em destaque, com o bruto na frase', () => {
+      render(<Tela inicial={[cdb]} />);
+      const v = valorAtual(cdb, HOJE, CEN);
+      const total = screen.getByRole('region', { name: 'Total da carteira' });
+      const destaque = within(total).getByRole('group', { name: /líquido/i });
+      expect(destaque).toHaveTextContent(moeda(v.liquido));
+      expect(destaque).toHaveTextContent(`Bruto: ${moeda(v.bruto)}`);
+    });
+
     it('total bruto e líquido', () => {
       const b: Posicao = { ...cdb, id: 'p-b', emissor: 'Banco B', valorAplicado: 20_000 };
       render(<Tela inicial={[cdb, b]} />);
