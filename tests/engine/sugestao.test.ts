@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { somarDias } from '../../src/engine/datas';
 import { OfertaInvalidaError } from '../../src/engine/erros';
+import type { Equivalente } from '../../src/engine/equivalencia';
 import type { ItemFGC } from '../../src/engine/fgc';
 import type { OfertaCadastrada } from '../../src/engine/ofertas';
+import { simular } from '../../src/engine/produtos';
 import {
-  casarComCatalogo, sugerir, validarObjetivo, valorAlvo,
+  calcularTaxaNecessaria, casarComCatalogo, sugerir, sugerirRendaMensal, validarObjetivo, valorAlvo,
   type ContextoSugestao, type Fatia, type Objetivo,
 } from '../../src/engine/sugestao';
+import { CEN, INI } from './cenarioPadrao';
 
 const HOJE = '2026-09-29';
 
@@ -20,6 +24,9 @@ describe('valorAlvo', () => {
   it('longo prazo e sem objetivo: sem valor-alvo (só horizonte)', () => {
     expect(valorAlvo({ tipo: 'LONGO_PRAZO', horizonteAnos: 15 })).toBeNull();
     expect(valorAlvo({ tipo: 'SEM_OBJETIVO', horizonteAnos: 3 })).toBeNull();
+  });
+  it('renda mensal: sem valor-alvo (é o principal que importa, não um alvo a atingir)', () => {
+    expect(valorAlvo({ tipo: 'RENDA_MENSAL', principal: 100000, rendaMensalDesejada: 1000 })).toBeNull();
   });
 });
 
@@ -42,6 +49,56 @@ describe('validarObjetivo', () => {
     expect(() => validarObjetivo({ tipo: 'LONGO_PRAZO', horizonteAnos: 5.5 }, HOJE)).toThrow(OfertaInvalidaError);
     expect(() => validarObjetivo({ tipo: 'SEM_OBJETIVO', horizonteAnos: 10 }, HOJE)).not.toThrow();
   });
+  it('renda mensal: principal e renda desejada precisam ser positivos', () => {
+    const base: Objetivo = { tipo: 'RENDA_MENSAL', principal: 100000, rendaMensalDesejada: 1000 };
+    expect(() => validarObjetivo({ ...base, principal: 0 }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo({ ...base, principal: Number.NaN }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo({ ...base, rendaMensalDesejada: 0 }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo({ ...base, rendaMensalDesejada: -100 }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo(base, HOJE)).not.toThrow();
+  });
+});
+
+function taxaOuFalha(e: Equivalente): number {
+  if (!e.disponivel) throw new Error(`indisponível: ${e.motivo}`);
+  return e.taxa;
+}
+
+describe('calcularTaxaNecessaria', () => {
+  const DATA_RESGATE = somarDias(INI, 30);
+
+  it('ida e volta: o %CDI tributado encontrado, aplicado num CDB, rende a renda mensal desejada', () => {
+    const r = calcularTaxaNecessaria(100000, 1000, INI, CEN);
+    const pct = taxaOuFalha(r.tributadoPosCDI);
+    const sim = simular({ produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: pct }, valor: 100000, dataAplicacao: INI }, DATA_RESGATE, CEN);
+    expect(sim.valorLiquido).toBeCloseTo(101000, 2);
+  });
+
+  it('ida e volta: o %CDI isento encontrado, aplicado numa LCI (ignorando a carência), rende a renda mensal desejada', () => {
+    const r = calcularTaxaNecessaria(100000, 1000, INI, CEN);
+    const pct = taxaOuFalha(r.isentoPosCDI);
+    const sim = simular(
+      { produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: pct }, valor: 100000, dataAplicacao: INI },
+      DATA_RESGATE, CEN, { ignorarPrazoMinimo: true },
+    );
+    expect(sim.valorLiquido).toBeCloseTo(101000, 2);
+  });
+
+  it('o %CDI isento necessário é menor que o tributado (sem IR a descontar)', () => {
+    const r = calcularTaxaNecessaria(100000, 1000, INI, CEN);
+    expect(taxaOuFalha(r.isentoPosCDI)).toBeLessThan(taxaOuFalha(r.tributadoPosCDI));
+  });
+
+  it('indisponível se a renda desejada for desproporcional ao principal (estoura o teto de busca)', () => {
+    // O plano original sugeria dobrar o principal em 30 dias (rendaMensalDesejada = principal),
+    // mas isso não estoura PERCENTUAL_TETO_BUSCA (1e6): com ~22 dias úteis em 30 dias corridos, o
+    // produto acumulado em p = 1e6 já alcança algo em torno de 1e59 vezes o principal, então
+    // qualquer fator-alvo abaixo disso ainda encontra taxa. Ajustado empiricamente (rodando o
+    // teste) para uma renda desejada MUITO mais desproporcional, que realmente estoura o teto.
+    const r = calcularTaxaNecessaria(100000, 1e60, INI, CEN);
+    expect(r.tributadoPosCDI.disponivel).toBe(false);
+    expect(r.isentoPosCDI.disponivel).toBe(false);
+  });
 });
 
 const catalogoBase = (over: Partial<OfertaCadastrada> = {}): OfertaCadastrada => ({
@@ -53,6 +110,91 @@ const fatiaBase = (over: Partial<Fatia> = {}): Fatia => ({
 });
 const carteiraItem = (conglomerado: string, valor: number, vencimento?: string): ItemFGC => ({
   conglomerado, produto: 'CDB', vencimento, brutoEm: () => valor,
+});
+
+describe('sugerirRendaMensal', () => {
+  const objetivo: Extract<Objetivo, { tipo: 'RENDA_MENSAL' }> = { tipo: 'RENDA_MENSAL', principal: 100000, rendaMensalDesejada: 1000 };
+  const ctxBase = { catalogo: [] as OfertaCadastrada[], carteira: [] as ItemFGC[], hoje: INI };
+
+  it('uma oferta isenta sozinha resolve: fatia única de 100%', () => {
+    const catalogo = [catalogoBase({ id: 'lci', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.95 } })];
+    const r = sugerirRendaMensal(objetivo, { ...ctxBase, catalogo }, CEN);
+    expect(r.modo).toBe('UNICA');
+    if (r.modo === 'UNICA') {
+      expect(r.fatia.produto).toBe('LCI');
+      expect(r.fatia.percentual).toBe(1);
+      expect(r.fatia.motivo).toBe('RENDA_MENSAL_ISENTO');
+    }
+  });
+
+  it('nenhuma sozinha resolve: usa 100% na que rende mais de verdade (não faz sentido misturar — ver nota do design)', () => {
+    // Nem CDB a 50% do CDI nem LCI a 90% do CDI batem a meta sozinhos (o necessário é bem maior),
+    // mas a LCI (isenta, sem IR) rende mais de verdade que o CDB nessa janela — ela é escolhida.
+    const catalogo = [
+      catalogoBase({ id: 'cdb', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.5 } }),
+      catalogoBase({ id: 'lci', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.9 } }),
+    ];
+    const r = sugerirRendaMensal(objetivo, { ...ctxBase, catalogo }, CEN);
+    expect(r.modo).toBe('INSUFICIENTE');
+    if (r.modo === 'INSUFICIENTE') {
+      expect(r.fatias).toHaveLength(1);
+      expect(r.fatias[0]?.produto).toBe('LCI');
+      expect(r.fatias[0]?.percentual).toBe(1);
+      expect(r.faltaMensal).toBeGreaterThan(0);
+    }
+  });
+
+  it('catálogo vazio: insuficiente, sem fatias, faltando a renda mensal inteira', () => {
+    const r = sugerirRendaMensal(objetivo, ctxBase, CEN);
+    expect(r.modo).toBe('INSUFICIENTE');
+    if (r.modo === 'INSUFICIENTE') {
+      expect(r.fatias).toHaveLength(0);
+      expect(r.faltaMensal).toBeCloseTo(1000, 2);
+    }
+  });
+
+  it('só oferta tributada no catálogo, e ela não basta sozinha: insuficiente com 1 fatia', () => {
+    const catalogo = [catalogoBase({ id: 'cdb', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.5 } })];
+    const r = sugerirRendaMensal(objetivo, { ...ctxBase, catalogo }, CEN);
+    expect(r.modo).toBe('INSUFICIENTE');
+    if (r.modo === 'INSUFICIENTE') {
+      expect(r.fatias).toHaveLength(1);
+      expect(r.fatias[0]?.percentual).toBe(1);
+      expect(r.faltaMensal).toBeGreaterThan(0);
+    }
+  });
+
+  it('só a oferta tributada resolve sozinha (sem nenhuma isenta no catálogo): fatia única tributada', () => {
+    const necessaria = calcularTaxaNecessaria(objetivo.principal, objetivo.rendaMensalDesejada, ctxBase.hoje, CEN);
+    const taxaTributadaNecessaria = taxaOuFalha(necessaria.tributadoPosCDI);
+    const catalogo = [
+      catalogoBase({ id: 'cdb', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: taxaTributadaNecessaria + 0.1 } }),
+    ];
+    const r = sugerirRendaMensal(objetivo, { ...ctxBase, catalogo }, CEN);
+    expect(r.modo).toBe('UNICA');
+    if (r.modo === 'UNICA') {
+      expect(r.fatia.produto).toBe('CDB');
+      expect(r.fatia.percentual).toBe(1);
+      expect(r.fatia.motivo).toBe('RENDA_MENSAL_TRIBUTADO');
+    }
+  });
+
+  it('quando tributada e isenta resolvem sozinhas, a isenta é sempre preferida (não precisa de IR, então nunca perde o desempate)', () => {
+    const necessaria = calcularTaxaNecessaria(objetivo.principal, objetivo.rendaMensalDesejada, ctxBase.hoje, CEN);
+    const taxaTributadaNecessaria = taxaOuFalha(necessaria.tributadoPosCDI);
+    const taxaIsentaNecessaria = taxaOuFalha(necessaria.isentoPosCDI);
+    const catalogo = [
+      catalogoBase({ id: 'cdb', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: taxaTributadaNecessaria + 0.1 } }),
+      catalogoBase({ id: 'lci', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: taxaIsentaNecessaria + 0.001 } }),
+    ];
+    const r = sugerirRendaMensal(objetivo, { ...ctxBase, catalogo }, CEN);
+    expect(r.modo).toBe('UNICA');
+    if (r.modo === 'UNICA') {
+      expect(r.fatia.produto).toBe('LCI');
+      expect(r.fatia.percentual).toBe(1);
+      expect(r.fatia.motivo).toBe('RENDA_MENSAL_ISENTO');
+    }
+  });
 });
 
 describe('casarComCatalogo', () => {
@@ -217,5 +359,20 @@ describe('sugerir — dispatcher completo', () => {
   it('valida o objetivo antes de calcular: horizonte negativo ou fracionário lança', () => {
     expect(() => sugerir({ tipo: 'LONGO_PRAZO', horizonteAnos: -5 }, ctx())).toThrow(OfertaInvalidaError);
     expect(() => sugerir({ tipo: 'LONGO_PRAZO', horizonteAnos: 5.5 }, ctx())).toThrow(OfertaInvalidaError);
+  });
+  it('renda mensal: delega para sugerirRendaMensal e achata o resultado em Fatia[]', () => {
+    const catalogo = [catalogoBase({ id: 'lci', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.95 } })];
+    const fatias = sugerir(
+      { tipo: 'RENDA_MENSAL', principal: 100000, rendaMensalDesejada: 1000 },
+      { catalogo, carteira: [], hoje: INI }, CEN,
+    );
+    expect(fatias).toHaveLength(1);
+    expect(fatias[0]?.motivo).toBe('RENDA_MENSAL_ISENTO');
+  });
+  it('renda mensal: lança se chamado sem Cenario', () => {
+    expect(() => sugerir(
+      { tipo: 'RENDA_MENSAL', principal: 100000, rendaMensalDesejada: 1000 },
+      { catalogo: [], carteira: [], hoje: INI },
+    )).toThrow();
   });
 });

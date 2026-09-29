@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { useState } from 'preact/hooks';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LIMITE_OBJETIVOS, type ObjetivoSalvo } from '../../../src/armazenamento/objetivos';
+import { CEN } from '../../engine/cenarioPadrao';
 import type { OfertaCadastrada } from '../../../src/engine/ofertas';
 import { Objetivos } from '../../../src/ui/objetivos/Objetivos';
 import { graficos } from '../graficos/mockChartPizza';
@@ -21,7 +22,7 @@ function ComEstado({ inicial = [], aoMudar = () => {} }: { inicial?: ObjetivoSal
   let n = 0;
   return (
     <Objetivos objetivos={objetivos} gerarId={() => `novo-${++n}`} onChange={(o) => { setObjetivos(o); aoMudar(o); }}
-      catalogo={[]} carteira={[]} hoje={HOJE} onIrParaComparar={() => {}} />
+      catalogo={[]} carteira={[]} hoje={HOJE} cenario={CEN} onIrParaComparar={() => {}} />
   );
 }
 
@@ -45,6 +46,12 @@ describe('Objetivos — estado vazio e criação', () => {
       { id: 'novo-1', nome: undefined, criadoEm: HOJE, entradas: { tipo: 'RESERVA', gastoMensal: 2000, rendaEstavel: true } },
     ]);
     expect(cartao(/Objetivo sem nome/)).toBeInTheDocument();
+  });
+
+  it('"RENDA_MENSAL" aparece como opção de tipo no seletor de "+ Novo objetivo"', () => {
+    render(<ComEstado />);
+    fireEvent.click(screen.getByRole('button', { name: '+ Novo objetivo' }));
+    expect(screen.getByRole('button', { name: 'Renda mensal' })).toBeInTheDocument();
   });
 
   it('o limite de objetivos desabilita "+ Novo objetivo" com uma mensagem', () => {
@@ -122,7 +129,7 @@ describe('Objetivos — ver sugestão', () => {
     };
     const onIrParaComparar = vi.fn();
     render(
-      <Objetivos objetivos={[existente]} onChange={() => {}} catalogo={[cdb]} carteira={[]} hoje={HOJE} onIrParaComparar={onIrParaComparar} />,
+      <Objetivos objetivos={[existente]} onChange={() => {}} catalogo={[cdb]} carteira={[]} hoje={HOJE} cenario={CEN} onIrParaComparar={onIrParaComparar} />,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Ver sugestão' }));
     await waitFor(() => expect(graficos.length).toBeGreaterThanOrEqual(1));

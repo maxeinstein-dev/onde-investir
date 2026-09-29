@@ -402,7 +402,7 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
         {
           id: 'objetivos', rotulo: 'Objetivos', conteudo: (
             <Objetivos objetivos={objetivos} onChange={mudarObjetivos} catalogo={ofertas} carteira={carteiraFGC.itens}
-              hoje={dataHoje} onIrParaComparar={irParaComparar} />
+              hoje={dataHoje} cenario={ativo.cenario} onIrParaComparar={irParaComparar} />
           ),
         },
         {

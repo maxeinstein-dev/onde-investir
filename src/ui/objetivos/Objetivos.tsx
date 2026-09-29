@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { LIMITE_OBJETIVOS, novoIdObjetivo, type ObjetivoSalvo } from '../../armazenamento/objetivos';
 import { dataBR, type DataISO } from '../../engine/datas';
 import type { ItemFGC } from '../../engine/fgc';
+import type { Cenario } from '../../engine/indexadores';
 import type { OfertaCadastrada } from '../../engine/ofertas';
 import { valorAlvo, type Objetivo } from '../../engine/sugestao';
 import { formatarMoeda } from '../../formato';
@@ -17,14 +18,18 @@ export interface PropsObjetivos {
   catalogo: readonly OfertaCadastrada[];
   carteira: readonly ItemFGC[];
   hoje: DataISO;
+  cenario: Cenario;
   onIrParaComparar: (oferta: OfertaCadastrada) => void;
   gerarId?: () => string;
 }
 
-const TIPOS: readonly Objetivo['tipo'][] = ['RESERVA', 'COM_DATA', 'LONGO_PRAZO', 'SEM_OBJETIVO'];
+const TIPOS: readonly Objetivo['tipo'][] = ['RESERVA', 'COM_DATA', 'LONGO_PRAZO', 'SEM_OBJETIVO', 'RENDA_MENSAL'];
 
-/** Um resumo de uma linha: o valor-alvo (reserva, com data) ou o horizonte (longo prazo, sem objetivo). */
+/** Um resumo de uma linha: o valor-alvo (reserva, com data), o horizonte (longo prazo, sem objetivo) ou o principal/renda desejada (renda mensal). */
 function resumoObjetivo(o: ObjetivoSalvo): string {
+  if (o.entradas.tipo === 'RENDA_MENSAL') {
+    return `Principal: ${formatarMoeda(o.entradas.principal)} · Renda desejada: ${formatarMoeda(o.entradas.rendaMensalDesejada)}/mês`;
+  }
   const alvo = valorAlvo(o.entradas);
   if (alvo !== null) return `Valor-alvo: ${formatarMoeda(alvo)}`;
   const h = o.entradas as Extract<Objetivo, { tipo: 'LONGO_PRAZO' | 'SEM_OBJETIVO' }>;
@@ -81,7 +86,7 @@ function Cartao({ objetivo, indice, onVerSugestao, onEditar, onRemover }: PropsC
   );
 }
 
-export function Objetivos({ objetivos, onChange, catalogo, carteira, hoje, onIrParaComparar, gerarId = novoIdObjetivo }: PropsObjetivos) {
+export function Objetivos({ objetivos, onChange, catalogo, carteira, hoje, cenario, onIrParaComparar, gerarId = novoIdObjetivo }: PropsObjetivos) {
   const [verSugestao, setVerSugestao] = useState<string | null>(null);
   const [editando, setEditando] = useState<string | null>(null);
   const [escolhendoTipo, setEscolhendoTipo] = useState(false);
@@ -106,7 +111,7 @@ export function Objetivos({ objetivos, onChange, catalogo, carteira, hoje, onIrP
     return (
       <section class="objetivos" aria-labelledby="objetivos-titulo" ref={secao}>
         <button type="button" onClick={() => setVerSugestao(null)}>Voltar para Objetivos</button>
-        <Sugestao objetivo={emSugestao} catalogo={catalogo} carteira={carteira} hoje={hoje} onIrParaComparar={onIrParaComparar} />
+        <Sugestao objetivo={emSugestao} catalogo={catalogo} carteira={carteira} hoje={hoje} cenario={cenario} onIrParaComparar={onIrParaComparar} />
       </section>
     );
   }

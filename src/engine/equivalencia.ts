@@ -45,9 +45,9 @@ const TOLERANCIA_RELATIVA = 1e-13;
 const MAX_ITERACOES = 100;
 const PERCENTUAL_TETO_BUSCA = 1e6;
 
-const disponivel = (taxa: number): Equivalente =>
+export const disponivel = (taxa: number): Equivalente =>
   Number.isFinite(taxa) ? { disponivel: true, taxa } : { disponivel: false, motivo: FORA_DO_ALCANCE };
-const indisponivel = (motivo: string): Equivalente => ({ disponivel: false, motivo });
+export const indisponivel = (motivo: string): Equivalente => ({ disponivel: false, motivo });
 
 /** Executa um cálculo; erros de regra ou de oferta viram indisponibilidade com a mensagem do erro. */
 function tentar(calculo: () => Equivalente): Equivalente {
@@ -60,7 +60,7 @@ function tentar(calculo: () => Equivalente): Equivalente {
 }
 
 /** Taxas diárias do CDI nos dias úteis de [inicio, fim), na ordem em que o pós-fixado acumula. */
-function taxasDiariasCDI(cen: Cenario, inicio: DataISO, fim: DataISO): Float64Array {
+export function taxasDiariasCDI(cen: Cenario, inicio: DataISO, fim: DataISO): Float64Array {
   const taxas: number[] = [];
   const fimDia = paraDia(fim);
   for (let d = paraDia(inicio); d < fimDia; d++) {
@@ -78,7 +78,7 @@ function produtoPos(taxas: Float64Array, p: number): number {
 }
 
 /** Percentual p > 0 com ∏(1 + dᵢ·p) = fatorAlvo (> 1), por bisseção; NaN se não houver. */
-function resolverPercentual(taxas: Float64Array, fatorAlvo: number): number {
+export function resolverPercentual(taxas: Float64Array, fatorAlvo: number): number {
   let lo = 0;
   let hi = 1;
   while (produtoPos(taxas, hi) < fatorAlvo) {
