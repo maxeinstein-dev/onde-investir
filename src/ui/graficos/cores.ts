@@ -12,11 +12,11 @@ export const TOKENS = {
 
 /** Os mesmos valores de estilos.css, para quando a folha de estilo não estiver carregada. */
 const PADRAO = {
-  series: ['#0b5cad', '#b45309', '#1d6b3a', '#7e22ce', '#be123c'],
-  texto: '#4a4a4a',
-  grade: '#e3e6ea',
-  marcador: '#1a1a1a',
-  premissa: '#f1f3f5',
+  series: ['#0f766e', '#b45309', '#1d6b3a', '#7e22ce', '#be123c'],
+  texto: '#46514f',
+  grade: '#e0e7e5',
+  marcador: '#14201f',
+  premissa: '#eef3f2',
 };
 
 export interface PaletaGrafico {
