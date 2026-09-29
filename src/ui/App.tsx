@@ -34,6 +34,8 @@ import { Objetivos } from './objetivos/Objetivos';
 import { RendaVariavel } from './rendaVariavel/RendaVariavel';
 import { hoje } from './hoje';
 import { PainelIndicadores } from './PainelIndicadores';
+import { PainelRecolhivel } from './PainelRecolhivel';
+import { textoResumoCenario } from './ResumoCenario';
 import { type CarregarHistorico, useHistorico } from './useHistorico';
 import { SEM_INDICADORES, useIndicadores } from './useIndicadores';
 
@@ -357,8 +359,10 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
 
       <VoceSabia indiceVisita={progresso.visitas - 1} onVerLicao={abrirLicao} />
 
-      <PainelIndicadores indicadores={indicadores} preferencias={preferencias} ativo={ativo} explicacao={explicacao}
-        onChange={mudarPreferencias} onCenarioInvalido={setCenarioInvalido} />
+      <PainelRecolhivel resumo={textoResumoCenario(indicadores, preferencias, ativo)}>
+        <PainelIndicadores indicadores={indicadores} preferencias={preferencias} ativo={ativo} explicacao={explicacao}
+          onChange={mudarPreferencias} onCenarioInvalido={setCenarioInvalido} />
+      </PainelRecolhivel>
 
       <Abas rotulo="O que você quer fazer" ativa={aba} onAtivar={trocarAba} abas={[
         {

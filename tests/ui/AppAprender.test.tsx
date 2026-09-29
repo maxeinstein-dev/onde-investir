@@ -16,6 +16,13 @@ import { fetchFixtures, fetchForaDoAr } from './bcbFalso';
 import { graficos } from './graficos/mockChart';
 
 vi.mock('chart.js', () => import('./graficos/mockChart'));
+
+/** O painel de cenário começa recolhido: abre (uma vez) e devolve a região "Indicadores e cenário". */
+function abrirPainel(): HTMLElement {
+  const botao = screen.getByRole('button', { name: /^Cenário:/ });
+  if (botao.getAttribute('aria-expanded') === 'false') fireEvent.click(botao);
+  return screen.getByRole('region', { name: 'Indicadores e cenário' });
+}
 vi.mock('chartjs-plugin-annotation', () => ({ default: { id: 'annotation' } }));
 
 const HOJE = '2026-09-28';
@@ -224,7 +231,7 @@ describe('App: casos clássicos', () => {
   it('cenário "Juros sobem" com o Focus: a comparação usa a projeção, e o painel continua no Base', async () => {
     vi.stubGlobal('fetch', fetchFixtures);
     render(<App />);
-    const painel = screen.getByRole('region', { name: 'Indicadores e cenário' });
+    const painel = abrirPainel();
     await within(painel).findByText(/medianas do Focus/);
     fireEvent.click(aba('Aprender'));
     fireEvent.click(screen.getByRole('button', { name: `Experimente: ${casoSobem.titulo}` }));

@@ -23,7 +23,7 @@ export interface PropsPainelIndicadores {
   onCenarioInvalido?: (erro: string | null) => void;
 }
 
-const OPCOES: { valor: EscolhaCenario; rotulo: string }[] = [
+export const OPCOES: { valor: EscolhaCenario; rotulo: string }[] = [
   { valor: 'SOBEM', rotulo: 'Juros sobem' },
   { valor: 'BASE', rotulo: 'Base (Focus)' },
   { valor: 'CAEM', rotulo: 'Juros caem' },
@@ -37,12 +37,12 @@ const PERCENTUAL_PRECISO = new Intl.NumberFormat('pt-BR', { style: 'percent', mi
 const BRT_MS = -3 * 3_600_000;
 
 /** Instante em BRT como "dd/mm" e "hh:mm" (o fuso de negócio é fixo em −03:00). */
-function diaEHora(ms: number): { dia: string; hora: string } {
+export function diaEHora(ms: number): { dia: string; hora: string } {
   const iso = new Date(ms + BRT_MS).toISOString();
   return { dia: `${iso.slice(8, 10)}/${iso.slice(5, 7)}`, hora: iso.slice(11, 16) };
 }
 
-function descreverOrigem(status: StatusFonte, obtidoEm: number | undefined): string {
+export function descreverOrigem(status: StatusFonte, obtidoEm: number | undefined): string {
   switch (status) {
     case 'REDE': return 'atualizado agora';
     case 'FALHOU': return 'indisponível';

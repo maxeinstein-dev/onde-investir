@@ -64,7 +64,13 @@ afterEach(() => {
   graficos.length = 0;
 });
 
-const painel = () => screen.getByRole('region', { name: 'Indicadores e cenário' });
+/** O painel de cenário começa recolhido: abre (uma vez) e devolve a região "Indicadores e cenário". */
+function abrirPainel(): HTMLElement {
+  const botao = screen.getByRole('button', { name: /^Cenário:/ });
+  if (botao.getAttribute('aria-expanded') === 'false') fireEvent.click(botao);
+  return screen.getByRole('region', { name: 'Indicadores e cenário' });
+}
+const painel = abrirPainel;
 const aba = (nome: string) => screen.getByRole('tab', { name: nome });
 
 const base = { conglomerado: 'G', liquidez: 'DIARIA' };

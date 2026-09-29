@@ -1,0 +1,20 @@
+/* Moldura: painel de cenário recolhido (Fase 2). */
+.recolhivel__resumo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espaco-2, 0.5rem);
+  width: 100%;
+  min-height: var(--alvo-toque);
+  padding: 0 var(--espaco-3, 0.75rem);
+  background: var(--superficie);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-cartao);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.recolhivel__conteudo[hidden] {
+  display: none;
+}
