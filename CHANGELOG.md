@@ -4,6 +4,10 @@ Registro das mudanças do Rende por marco de entrega. Formato livre, em portugu�
 muda pra quem usa o app — não é um changelog técnico linha a linha (isso já fica no histórico do
 git e nos PRs).
 
+## Renda variável: erro claro para códigos que a fonte não conhece
+
+Ao consultar um código que a fonte de dados (brapi) não conhece, o app agora avisa "Não encontramos esse código na fonte de dados", em vez de repetir "dados de mercado indisponíveis" e sugerir tentar de novo. Quando a fonte está fora do ar, na cota ou no plano, a mensagem de indisponibilidade continua, e o motivo passa a ser registrado nos logs da Cloudflare (só código e status, nunca o token). Um código não encontrado fica lembrado por um tempo (6 horas quando a fonte responde "não existe", 30 minutos quando responde sem nenhum candle, como pode acontecer com um ativo recém-listado), para não gastar a cota da fonte repetindo o pedido.
+
 ## Renda mensal inviável: renda estimada com o que você tem
 
 A sugestão de renda mensal ficou mais útil quando o valor informado não chega na meta. Em vez de "Falta R$ 3.000/mês", o app mostra quanto o seu dinheiro já renderia por mês, líquido de imposto, num CDB a 100% do CDI e na sua melhor oferta do catálogo, e o que ainda falta de verdade (a meta menos essa renda). O valor necessário também considera o custo extra da oferta, e vem com um lembrete de carência quando a melhor oferta é uma LCI/LCA. Sem ofertas no catálogo, o gráfico vazio (que aparecia como um bloco em branco) não é mais desenhado, e o aviso educativo ganhou espaçamento.

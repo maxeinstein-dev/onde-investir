@@ -52,6 +52,15 @@ describe('RendaVariavel', () => {
     expect(sessao).toHaveBeenCalledTimes(1);
   });
 
+  it('código que a fonte não conhece: mensagem própria, sem sugerir tentar de novo', async () => {
+    historico.mockResolvedValue({ ok: false, erro: 'NAO_ENCONTRADO' });
+    render(<RendaVariavel ativa cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
+    await consultar('KNSC11');
+    const alerta = await screen.findByRole('alert');
+    expect(alerta).toHaveTextContent(/não encontramos esse código/i);
+    expect(alerta).not.toHaveTextContent(/tente de novo/i);
+  });
+
   it('mostra o aviso do Turnstile dentro da aba', () => {
     render(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado onPeriodo={onPeriodo} />);
     expect(screen.getByText(AVISO_TURNSTILE)).toBeInTheDocument();
