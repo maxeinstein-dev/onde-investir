@@ -498,26 +498,109 @@ git commit -m "feat(mercado): rota GET /api/mercado/historico com continuidade v
 não de Pages Functions. Não dá pra declarar `[triggers] crons = [...]` num `wrangler.toml` de Pages
 e esperar que funcione.
 
-**Passo 1:** Peça confirmação ao usuário sobre como proceder, já que isso muda a arquitetura desta
-tarefa especificamente (as outras tarefas do marco não são afetadas — só o cron):
-- **Opção A (recomendada):** um Worker separado, pequeno, só com esse cron, publicado à parte do
-  Pages (mesma conta Cloudflare, sem custo extra no plano gratuito de Workers), que chama a MESMA
-  lógica de `functions/_lib/mercado.ts` (compartilhada via import, já que é código puro) e acessa o
-  MESMO namespace KV (`MERCADO_KV`, bindado também nesse Worker). Exige um segundo `wrangler.toml`
-  (ex. `workers/cron-historico/wrangler.toml`) e um segundo deploy (`wrangler deploy`, separado do
-  deploy do Pages).
-- **Opção B:** desistir do Cron Trigger agora, e a continuidade do histórico só acontece quando
-  alguém abre a tela daquele ticker (o problema do "buraco de 3 meses" identificado no design fica
-  sem solução automática — só reativo).
+**Decisão confirmada com o usuário:** Worker separado, pequeno, só com esse cron — mesma conta
+Cloudflare, sem custo extra no plano gratuito de Workers. Reaproveita a MESMA lógica pura de
+`functions/_lib/mercado.ts` (importada direto, já que é código puro sem dependência de Pages) e o
+MESMO namespace KV (`MERCADO_KV`, bindado também neste Worker). Isso introduz uma 2ª unidade de
+deploy no projeto — documentada no passo a passo da Tarefa 8.
 
-Escreva o restante desta tarefa só depois de confirmar com o usuário qual opção seguir — não
-implemente a Opção A às cegas, já que ela introduz uma segunda unidade de deploy no projeto (hoje só
-existe o deploy do Pages).
+**Arquivos:**
+- Criar: `workers/cron-historico/wrangler.toml`
+- Criar: `workers/cron-historico/src/index.ts`
+- Criar: `workers/cron-historico/tsconfig.json` (mesmo conteúdo de `functions/tsconfig.json`, com
+  `include` apontando só para este diretório)
 
-**Passo 2 em diante:** depende da decisão do Passo 1. Se Opção A, o plano completo (estrutura do
-Worker, `wrangler.toml` do cron, teste da lógica de "quais tickers passar" reaproveitando
-`precisaAtualizarHistorico`) precisa ser escrito como um adendo a este plano antes de implementar —
-trate como uma sub-tarefa de planejamento, não pule direto pro código.
+**Passo 1:** Crie `workers/cron-historico/wrangler.toml`:
+
+```toml
+name = "rende-cron-historico"
+main = "src/index.ts"
+compatibility_date = "2026-09-29"
+
+[[kv_namespaces]]
+binding = "MERCADO_KV"
+id = "MESMO_ID_DO_NAMESPACE_MERCADO_KV_DO_PAGES" # ver Tarefa 3 — mesmo namespace, dois bindings
+
+[triggers]
+# Toda segunda às 6h UTC. Semanal por simplicidade (sintaxe de cron não expressa "a cada 8
+# semanas" de forma direta); a maioria das execuções não faz nada de verdade, porque
+# precisaAtualizarHistorico() só deixa passar os tickers realmente desatualizados.
+crons = ["0 6 * * 1"]
+```
+
+**Passo 2:** Crie `workers/cron-historico/tsconfig.json`, idêntico a `functions/tsconfig.json` mas
+com `"include": ["src/**/*.ts", "../../functions/_lib/mercado.ts"]` (precisa enxergar o arquivo
+importado, que vive fora deste diretório).
+
+**Passo 3:** Crie `workers/cron-historico/src/index.ts`:
+
+```ts
+import { precisaAtualizarHistorico, validarTicker } from '../../../functions/_lib/mercado';
+
+export interface Env {
+  MERCADO_KV: KVNamespace;
+  BRAPI_TOKEN: string;
+}
+
+interface Meta { desde: string; ate: string }
+interface Candle { data: string; abertura: number; maxima: number; minima: number; fechamento: number; volume: number }
+
+async function atualizarTicker(ticker: string, env: Env, hoje: string): Promise<void> {
+  const meta = await env.MERCADO_KV.get<Meta>(`historico:${ticker}:meta`, 'json');
+  if (!precisaAtualizarHistorico(meta?.ate ?? null, hoje)) return;
+
+  const resp = await fetch(`https://brapi.dev/api/quote/${ticker}?range=3mo&interval=1d`, {
+    headers: { Authorization: `Bearer ${env.BRAPI_TOKEN}` },
+  });
+  if (!resp.ok) return;
+  const dados = await resp.json() as {
+    results?: { historicalDataPrice?: { date: number; open: number; high: number; low: number; close: number; volume: number }[] }[];
+  };
+  const candles = dados.results?.[0]?.historicalDataPrice ?? [];
+  let maiorData = meta?.ate ?? '';
+  for (const c of candles) {
+    const data = new Date(c.date * 1000).toISOString().slice(0, 10);
+    const candle: Candle = { data, abertura: c.open, maxima: c.high, minima: c.low, fechamento: c.close, volume: c.volume };
+    await env.MERCADO_KV.put(`historico:${ticker}:${data}`, JSON.stringify(candle));
+    if (data > maiorData) maiorData = data;
+  }
+  const desde = meta?.desde ?? (candles[0] ? new Date(candles[0].date * 1000).toISOString().slice(0, 10) : hoje);
+  await env.MERCADO_KV.put(`historico:${ticker}:meta`, JSON.stringify({ desde, ate: maiorData || hoje } satisfies Meta));
+}
+
+export default {
+  async scheduled(_evento: ScheduledEvent, env: Env): Promise<void> {
+    const hoje = new Date().toISOString().slice(0, 10);
+    const conhecidos = (await env.MERCADO_KV.get<string[]>('tickers:conhecidos', 'json')) ?? [];
+    for (const ticker of conhecidos) {
+      if (!validarTicker(ticker)) continue; // defensivo: nunca deveria acontecer, mas não deixa um dado sujo travar o cron inteiro
+      await atualizarTicker(ticker, env, hoje);
+    }
+  },
+};
+```
+
+Note a duplicação parcial com `functions/api/mercado/historico.ts` (o corpo de `atualizarTicker` é
+quase idêntico ao trecho de atualização daquela rota). Extrair isso pra um terceiro módulo
+compartilhado é a melhoria óbvia, mas os dois lados (`functions/`, um Pages Function; e
+`workers/cron-historico/`, um Worker independente) têm builds e `tsconfig.json` diferentes — dá
+pra fazer, mas é mais risco de quebrar um dos dois builds do que o benefício vale agora, com o
+projeto deste tamanho. Documentado aqui como débito técnico consciente, não esquecido.
+
+**Passo 4:** Teste manual (sem suíte automatizada — depende de rede e do agendador real): rode
+`npx wrangler dev --test-scheduled` dentro de `workers/cron-historico/`, com um `.dev.vars` local
+contendo `BRAPI_TOKEN`, e dispare `curl "http://localhost:8787/__scheduled"` pra simular o cron.
+Confirme nos logs que ele leu `tickers:conhecidos` do KV local e (se havia algum ticker desatualizado
+lá) fez a chamada à brapi.
+
+**Passo 5:** Rode `npx tsc --noEmit -p workers/cron-historico/tsconfig.json` e confirme sem erros.
+
+**Passo 6: Commit**
+
+```bash
+git add workers/cron-historico/
+git commit -m "feat(mercado): worker separado com o cron de continuidade do historico"
+```
 
 ---
 
@@ -594,9 +677,12 @@ npm run lint
 - o `BRAPI_TOKEN` nunca aparece em log, resposta de erro, ou é exposto ao cliente;
 - a decisão da Tarefa 6 (cron) está documentada e coerente com o que foi de fato implementado.
 
-**Passo 5:** Push e PR, com o passo a passo de deploy documentado no corpo do PR (criar o
-namespace KV no painel, atualizar `wrangler.toml` com o ID real, e — se a Opção A da Tarefa 6 foi
-escolhida — publicar o Worker do cron separadamente):
+**Passo 5:** Push e PR, com o passo a passo de deploy documentado no corpo do PR: criar o namespace
+KV no painel, atualizar os DOIS `wrangler.toml` (Pages e `workers/cron-historico/`) com o ID real
+do namespace, cadastrar `BRAPI_TOKEN` como secret também no Worker do cron (`wrangler secret put
+BRAPI_TOKEN`, dentro de `workers/cron-historico/`, além do secret já existente no Pages), e
+publicar o Worker separadamente (`wrangler deploy`, dentro de `workers/cron-historico/` — é um
+deploy próprio, o `git push`/deploy automático do Pages não cobre isso):
 ```bash
 git push -u origin m4b2b-proxy-brapi-kv
 gh pr create --title "M4b2b: proxy da brapi, cache em KV e cota" --body "..."
