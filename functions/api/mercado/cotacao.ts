@@ -48,6 +48,12 @@ export const onRequestGet: PagesFunction<Ambiente> = async (contexto) => {
   const chaveCache = `cotacao:${ticker}`;
   const cache = await kv.get<Cotacao>(chaveCache, 'json');
 
+  // Cache ainda dentro do TTL (expirationTtl expira a chave sozinho no KV): serve direto, sem
+  // gastar cota nem checar orçamento. É o caminho normal — só passa daqui quando o cache venceu.
+  if (cache) {
+    return new Response(JSON.stringify(cache), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+
   const agora = new Date();
   const chaveMensal = `cota:mensal:${mesISO(agora)}`;
   const chaveDiaria = `cota:diario:${diaISO(agora)}`;
@@ -55,11 +61,6 @@ export const onRequestGet: PagesFunction<Ambiente> = async (contexto) => {
   const usoDiario = Number(await kv.get(chaveDiaria)) || 0;
   const orcamento = orcamentoDiario(usoMensal, diasRestantesNoMes(agora), TETO_DIARIO);
 
-  if (cache && usoDiario >= orcamento) {
-    return new Response(JSON.stringify({ ...cache, desatualizado: true }), {
-      status: 200, headers: { 'Content-Type': 'application/json' },
-    });
-  }
   if (usoDiario >= orcamento) {
     return erro(503, { erro: 'COTA_ESGOTADA' });
   }
@@ -67,10 +68,8 @@ export const onRequestGet: PagesFunction<Ambiente> = async (contexto) => {
   const resp = await fetch(`https://brapi.dev/api/quote/${ticker}`, {
     headers: { Authorization: `Bearer ${contexto.env.BRAPI_TOKEN}` },
   });
-  if (!resp.ok) {
-    if (cache) return new Response(JSON.stringify({ ...cache, desatualizado: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-    return erro(502, { erro: 'BRAPI_INDISPONIVEL' });
-  }
+  // Sem cache aqui embaixo (já teria retornado lá em cima) — falha da brapi vira 502 mesmo.
+  if (!resp.ok) return erro(502, { erro: 'BRAPI_INDISPONIVEL' });
   const dados = await resp.json() as { results?: { regularMarketPrice?: number; currency?: string }[] };
   const r = dados.results?.[0];
   if (!r || typeof r.regularMarketPrice !== 'number') return erro(502, { erro: 'BRAPI_INDISPONIVEL' });
