@@ -8,10 +8,24 @@ interface Ambiente {
   MERCADO_KV: KVNamespace;
 }
 
-interface Cotacao { preco: number; moeda: string; atualizadoEm: string; desatualizado?: true }
+/**
+ * `expiraEm`: quando este cache deixa de estar fresco (calculado uma vez, na escrita, a partir de
+ * `segundosAteProximoBoundary`). Guardado no valor em vez de usar `expirationTtl` do KV: o KV
+ * apagaria a chave sozinho ao vencer, e o design pede servir o cache MESMO VENCIDO quando a cota
+ * estoura — só dá pra fazer isso se o cache continuar existindo depois de "vencido".
+ */
+interface Cotacao { preco: number; moeda: string; atualizadoEm: string; expiraEm: string; desatualizado?: true }
+
+// Housekeeping: nada a ver com frescor (isso é `expiraEm`, checado em código) — só evita que o KV
+// acumule pra sempre cotações de tickers abandonados.
+const TTL_HOUSEKEEPING_SEGUNDOS = 30 * 24 * 60 * 60;
 
 function erro(status: number, corpo: Record<string, unknown>): Response {
   return new Response(JSON.stringify(corpo), { status, headers: { 'Content-Type': 'application/json' } });
+}
+
+function ok(corpo: unknown): Response {
+  return new Response(JSON.stringify(corpo), { status: 200, headers: { 'Content-Type': 'application/json' } });
 }
 
 function lerCookie(cabecalho: string | null): string | null {
@@ -48,13 +62,12 @@ export const onRequestGet: PagesFunction<Ambiente> = async (contexto) => {
   const chaveCache = `cotacao:${ticker}`;
   const cache = await kv.get<Cotacao>(chaveCache, 'json');
 
-  // Cache ainda dentro do TTL (expirationTtl expira a chave sozinho no KV): serve direto, sem
-  // gastar cota nem checar orçamento. É o caminho normal — só passa daqui quando o cache venceu.
-  if (cache) {
-    return new Response(JSON.stringify(cache), { status: 200, headers: { 'Content-Type': 'application/json' } });
-  }
-
   const agora = new Date();
+  const fresco = cache !== null && new Date(cache.expiraEm) > agora;
+
+  // Caminho normal: cache ainda fresco, serve direto sem gastar cota.
+  if (fresco) return ok(cache);
+
   const chaveMensal = `cota:mensal:${mesISO(agora)}`;
   const chaveDiaria = `cota:diario:${diaISO(agora)}`;
   const usoMensal = Number(await kv.get(chaveMensal)) || 0;
@@ -62,22 +75,31 @@ export const onRequestGet: PagesFunction<Ambiente> = async (contexto) => {
   const orcamento = orcamentoDiario(usoMensal, diasRestantesNoMes(agora), TETO_DIARIO);
 
   if (usoDiario >= orcamento) {
+    if (cache) return ok({ ...cache, desatualizado: true });
     return erro(503, { erro: 'COTA_ESGOTADA' });
   }
 
   const resp = await fetch(`https://brapi.dev/api/quote/${ticker}`, {
     headers: { Authorization: `Bearer ${contexto.env.BRAPI_TOKEN}` },
   });
-  // Sem cache aqui embaixo (já teria retornado lá em cima) — falha da brapi vira 502 mesmo.
-  if (!resp.ok) return erro(502, { erro: 'BRAPI_INDISPONIVEL' });
+  if (!resp.ok) {
+    if (cache) return ok({ ...cache, desatualizado: true });
+    return erro(502, { erro: 'BRAPI_INDISPONIVEL' });
+  }
   const dados = await resp.json() as { results?: { regularMarketPrice?: number; currency?: string }[] };
   const r = dados.results?.[0];
-  if (!r || typeof r.regularMarketPrice !== 'number') return erro(502, { erro: 'BRAPI_INDISPONIVEL' });
+  if (!r || typeof r.regularMarketPrice !== 'number') {
+    if (cache) return ok({ ...cache, desatualizado: true });
+    return erro(502, { erro: 'BRAPI_INDISPONIVEL' });
+  }
 
-  const cotacao: Cotacao = { preco: r.regularMarketPrice, moeda: r.currency ?? 'BRL', atualizadoEm: agora.toISOString() };
-  await kv.put(chaveCache, JSON.stringify(cotacao), { expirationTtl: segundosAteProximoBoundary(agora) });
+  const cotacao: Cotacao = {
+    preco: r.regularMarketPrice, moeda: r.currency ?? 'BRL', atualizadoEm: agora.toISOString(),
+    expiraEm: new Date(agora.getTime() + segundosAteProximoBoundary(agora) * 1000).toISOString(),
+  };
+  await kv.put(chaveCache, JSON.stringify(cotacao), { expirationTtl: TTL_HOUSEKEEPING_SEGUNDOS });
   await kv.put(chaveMensal, String(usoMensal + 1));
   await kv.put(chaveDiaria, String(usoDiario + 1), { expirationTtl: 48 * 60 * 60 });
 
-  return new Response(JSON.stringify(cotacao), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  return ok(cotacao);
 };
