@@ -1,0 +1,57 @@
+/* Aprender (Fase 3): trilha em cartões, leitura confortável e faixa "Você sabia?". Só tokens. */
+.apr-cartao {
+  padding: var(--espaco-4);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-cartao);
+}
+
+.apr-cartao--feita {
+  background: var(--sucesso-fundo);
+  border-color: var(--sucesso);
+}
+
+.apr-cartao--atual {
+  border: 2px solid var(--primaria);
+  background: var(--fundo);
+}
+
+.apr-cartao .trilha__link {
+  display: inline-block;
+  min-height: var(--alvo-toque);
+  line-height: var(--alvo-toque);
+}
+
+.licao {
+  max-width: 65ch;
+  line-height: 1.65;
+}
+
+.licao__secao h3 {
+  margin: var(--espaco-6) 0 var(--espaco-2);
+  font-size: 1.15rem;
+}
+
+.licao__termos h3,
+.licao__fontes h3 {
+  margin: 0 0 var(--espaco-2);
+  font-size: var(--texto-base);
+  color: var(--texto-suave);
+}
+
+.licao__experimente {
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-cartao);
+}
+
+.licao__acoes {
+  padding-bottom: var(--espaco-4);
+  border-bottom: 1px solid var(--borda);
+}
+
+.voce-sabia {
+  padding: var(--espaco-2) var(--espaco-4);
+  background: var(--superficie);
+  border-left-width: 3px;
+  font-size: var(--texto-pequeno);
+}

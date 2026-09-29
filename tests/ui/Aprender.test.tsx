@@ -76,6 +76,13 @@ describe('Aprender: índice', () => {
     expect(within(itens()[1] as HTMLElement).getByText('concluída', { exact: false })).toBeInTheDocument();
     expect(itens()[0]).not.toHaveTextContent('✓');
   });
+  it('destaca só a primeira lição não concluída como a próxima a estudar, com texto para leitor', async () => {
+    montar({ progresso: { ...PROGRESSO_VAZIO, concluidas: [primeira.id] } });
+    await esperaIndice();
+    expect(within(itens()[1] as HTMLElement).getByText('próxima a estudar', { exact: false })).toBeInTheDocument();
+    expect(within(itens()[0] as HTMLElement).queryByText('próxima a estudar', { exact: false })).toBeNull();
+    expect(within(itens()[2] as HTMLElement).queryByText('próxima a estudar', { exact: false })).toBeNull();
+  });
   it('sem palpites, não mostra a taxa de acerto; com palpites, "Você acertou X de Y palpites"', async () => {
     montar();
     await esperaIndice();
