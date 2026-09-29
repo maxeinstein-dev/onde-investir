@@ -1,0 +1,17 @@
+name = "rende-cron-historico"
+main = "src/index.ts"
+compatibility_date = "2026-09-29"
+# Este Worker só roda via Cron Trigger (handler `scheduled`, sem `fetch`) — não precisa de URL
+# pública. Sem isso, o wrangler ativa workers.dev/preview URLs por padrão.
+workers_dev = false
+preview_urls = false
+
+[[kv_namespaces]]
+binding = "MERCADO_KV"
+id = "4f53d911a78e4a76a397344304c55e74" # mesmo namespace MERCADO_KV do Pages, bindado aqui também
+
+[triggers]
+# Toda segunda às 6h UTC. Semanal por simplicidade (sintaxe de cron não expressa "a cada 8
+# semanas" de forma direta); a maioria das execuções não faz nada de verdade, porque
+# precisaAtualizarHistorico() só deixa passar os tickers realmente desatualizados.
+crons = ["0 6 * * 1"]

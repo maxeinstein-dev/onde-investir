@@ -1,0 +1,7 @@
+name = "rende"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-09-29"
+
+[[kv_namespaces]]
+binding = "MERCADO_KV"
+id = "4f53d911a78e4a76a397344304c55e74"
