@@ -3,10 +3,11 @@ import { somarDias } from '../../src/engine/datas';
 import { OfertaInvalidaError } from '../../src/engine/erros';
 import type { Equivalente } from '../../src/engine/equivalencia';
 import type { ItemFGC } from '../../src/engine/fgc';
+import { cenarioConstante } from '../../src/engine/indexadores';
 import type { OfertaCadastrada } from '../../src/engine/ofertas';
 import { simular } from '../../src/engine/produtos';
 import {
-  calcularTaxaNecessaria, casarComCatalogo, sugerir, sugerirRendaMensal, validarObjetivo, valorAlvo,
+  calcularTaxaNecessaria, casarComCatalogo, principalNecessario, sugerir, sugerirRendaMensal, validarObjetivo, valorAlvo,
   type ContextoSugestao, type Fatia, type Objetivo,
 } from '../../src/engine/sugestao';
 import { CEN, INI } from './cenarioPadrao';
@@ -431,5 +432,67 @@ describe('sugerirCarteiraCombinada', () => {
     const fatias = sugerir(objetivo, { ...ctxBase, catalogo, carteira });
     const comFgc = fatias.filter((f) => f.fgc !== undefined);
     expect(comFgc.length).toBeGreaterThan(0);
+  });
+});
+
+describe('principalNecessario', () => {
+  const RENDA = 3000;
+
+  it('CDB a 100% do CDI: aplicar esse principal rende a renda desejada em 30 dias (ida e volta)', () => {
+    const p = principalNecessario(RENDA, 'CDB', 1, HOJE, CEN) as number;
+    const r = simular({ produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1 }, valor: p, dataAplicacao: HOJE }, somarDias(HOJE, 30), CEN);
+    expect(r.valorLiquido - p).toBeCloseTo(RENDA, 2);
+  });
+  it('percentual maior do CDI pede principal menor', () => {
+    expect(principalNecessario(RENDA, 'CDB', 1.1, HOJE, CEN) as number).toBeLessThan(principalNecessario(RENDA, 'CDB', 1, HOJE, CEN) as number);
+  });
+  it('LCI (isenta) pede principal menor que o CDB tributado no mesmo %CDI', () => {
+    expect(principalNecessario(RENDA, 'LCI', 1, HOJE, CEN) as number).toBeLessThan(principalNecessario(RENDA, 'CDB', 1, HOJE, CEN) as number);
+  });
+  it('dobrar a renda dobra o principal (o retorno é linear no valor aplicado)', () => {
+    const um = principalNecessario(1500, 'CDB', 1, HOJE, CEN) as number;
+    expect(principalNecessario(3000, 'CDB', 1, HOJE, CEN)).toBeCloseTo(um * 2, 4);
+  });
+  it('CDI zero: rendimento não positivo devolve null', () => {
+    const semCdi = cenarioConstante({ cdiAA: 0, selicMetaAA: 0, ipcaAA: 0, trAM: 0 });
+    expect(principalNecessario(RENDA, 'CDB', 1, HOJE, semCdi)).toBeNull();
+  });
+});
+
+describe('sugerirRendaMensal: principal necessário quando a renda é inviável', () => {
+  const objetivo: Extract<Objetivo, { tipo: 'RENDA_MENSAL' }> = { tipo: 'RENDA_MENSAL', principal: 50000, rendaMensalDesejada: 3000 };
+  const ctxBase = { catalogo: [] as OfertaCadastrada[], carteira: [] as ItemFGC[], hoje: INI };
+
+  it('catálogo vazio: só a referência de CDB a 100% do CDI, bem acima do principal informado', () => {
+    const r = sugerirRendaMensal(objetivo, ctxBase, CEN);
+    expect(r.modo).toBe('INSUFICIENTE');
+    if (r.modo === 'INSUFICIENTE') {
+      expect(r.principalNecessario.catalogo).toBeNull();
+      expect(r.principalNecessario.referencia).toBeCloseTo(principalNecessario(3000, 'CDB', 1, INI, CEN) as number, 6);
+      expect(r.principalNecessario.referencia as number).toBeGreaterThan(objetivo.principal);
+    }
+  });
+  it('com uma oferta melhor que 100% do CDI: o valor pela melhor oferta é menor que o da referência', () => {
+    const catalogo = [catalogoBase({ id: 'cdb', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 1.1 } })];
+    const r = sugerirRendaMensal(objetivo, { ...ctxBase, catalogo }, CEN);
+    expect(r.modo).toBe('INSUFICIENTE');
+    if (r.modo === 'INSUFICIENTE') {
+      const c = r.principalNecessario.catalogo;
+      expect(c?.oferta.id).toBe('cdb');
+      expect(c?.valor as number).toBeLessThan(r.principalNecessario.referencia as number);
+      expect(c?.valor).toBeCloseTo(principalNecessario(3000, 'CDB', 1.1, INI, CEN) as number, 6);
+    }
+  });
+  it('a oferta escolhida é a mesma da fatia sugerida (LCI que rende mais)', () => {
+    const catalogo = [
+      catalogoBase({ id: 'cdb', produto: 'CDB', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.5 } }),
+      catalogoBase({ id: 'lci', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.9 } }),
+    ];
+    const r = sugerirRendaMensal(objetivo, { ...ctxBase, catalogo }, CEN);
+    if (r.modo === 'INSUFICIENTE') {
+      expect(r.principalNecessario.catalogo?.oferta.id).toBe(r.fatias[0]?.ofertaCatalogo?.id);
+    } else {
+      throw new Error('esperava INSUFICIENTE');
+    }
   });
 });
