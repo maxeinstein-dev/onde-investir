@@ -28,7 +28,8 @@ export type MotivoFatia =
   | 'RESERVA_TESOURO_SELIC' | 'RESERVA_CDB_LIQUIDEZ'
   | 'DATA_VENCIMENTO_CASADO' | 'DATA_SEM_CASAMENTO'
   | 'LONGO_PRAZO_IPCA' | 'LONGO_PRAZO_POS'
-  | 'SEM_OBJETIVO_POS' | 'SEM_OBJETIVO_PRE' | 'SEM_OBJETIVO_IPCA';
+  | 'SEM_OBJETIVO_POS' | 'SEM_OBJETIVO_PRE' | 'SEM_OBJETIVO_IPCA'
+  | 'RENDA_MENSAL_TRIBUTADO' | 'RENDA_MENSAL_ISENTO';
 
 export interface Fatia {
   produto: TipoProduto;
@@ -293,7 +294,7 @@ export function sugerirRendaMensal(
     const usaIsenta = isnResolve && (!tribResolve
       || (necessaria.isentoPosCDI as { disponivel: true; taxa: number }).taxa <= (necessaria.tributadoPosCDI as { disponivel: true; taxa: number }).taxa);
     const oferta = (usaIsenta ? melhorIsenta : melhorTributada) as OfertaCadastrada;
-    const motivo = (usaIsenta ? 'RENDA_MENSAL_ISENTO' : 'RENDA_MENSAL_TRIBUTADO') as MotivoFatia;
+    const motivo = usaIsenta ? 'RENDA_MENSAL_ISENTO' : 'RENDA_MENSAL_TRIBUTADO';
     return { modo: 'UNICA', fatia: construirFatiaRendaMensal(oferta, 1, o.principal, motivo, ctx.carteira, ctx.hoje) };
   }
 
@@ -301,8 +302,8 @@ export function sugerirRendaMensal(
   // qualquer oferta pós-CDI é linear no valor aplicado (IR/IOF só dependem do prazo), então uma
   // mistura nunca supera a melhor das duas isoladas. Usa 100% na que render mais de verdade.
   const candidatas: { oferta: OfertaCadastrada; motivo: MotivoFatia }[] = [];
-  if (melhorTributada) candidatas.push({ oferta: melhorTributada, motivo: 'RENDA_MENSAL_TRIBUTADO' as MotivoFatia });
-  if (melhorIsenta) candidatas.push({ oferta: melhorIsenta, motivo: 'RENDA_MENSAL_ISENTO' as MotivoFatia });
+  if (melhorTributada) candidatas.push({ oferta: melhorTributada, motivo: 'RENDA_MENSAL_TRIBUTADO' });
+  if (melhorIsenta) candidatas.push({ oferta: melhorIsenta, motivo: 'RENDA_MENSAL_ISENTO' });
 
   if (candidatas.length === 0) {
     return { modo: 'INSUFICIENTE', fatias: [], faltaMensal: o.rendaMensalDesejada };
@@ -321,15 +322,17 @@ export function sugerirRendaMensal(
  * `OfertaInvalidaError`) antes de qualquer cálculo, então as funções internas por tipo podem supor
  * um objetivo já validado.
  */
-export function sugerir(objetivo: Objetivo, ctx: ContextoSugestao): Fatia[] {
+export function sugerir(objetivo: Objetivo, ctx: ContextoSugestao, cen?: Cenario): Fatia[] {
   validarObjetivo(objetivo, ctx.hoje);
   switch (objetivo.tipo) {
     case 'RESERVA': return sugerirReserva(objetivo, ctx);
     case 'COM_DATA': return sugerirComData(objetivo, ctx);
     case 'LONGO_PRAZO': return sugerirLongoPrazo(objetivo, ctx);
     case 'SEM_OBJETIVO': return sugerirSemObjetivo(objetivo, ctx);
-    // TEMPORÁRIO: destrava a Tarefa 2 (checagem de exaustividade do switch). A Tarefa 5
-    // substitui isso pela implementação de verdade.
-    case 'RENDA_MENSAL': throw new Error('não implementado ainda');
+    case 'RENDA_MENSAL': {
+      if (!cen) throw new Error('RENDA_MENSAL precisa de um Cenario para calcular a taxa necessária');
+      const r = sugerirRendaMensal(objetivo, ctx, cen);
+      return r.modo === 'UNICA' ? [r.fatia] : r.fatias;
+    }
   }
 }

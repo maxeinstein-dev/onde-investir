@@ -328,4 +328,19 @@ describe('sugerir — dispatcher completo', () => {
     expect(() => sugerir({ tipo: 'LONGO_PRAZO', horizonteAnos: -5 }, ctx())).toThrow(OfertaInvalidaError);
     expect(() => sugerir({ tipo: 'LONGO_PRAZO', horizonteAnos: 5.5 }, ctx())).toThrow(OfertaInvalidaError);
   });
+  it('renda mensal: delega para sugerirRendaMensal e achata o resultado em Fatia[]', () => {
+    const catalogo = [catalogoBase({ id: 'lci', produto: 'LCI', indexacao: { tipo: 'POS_CDI', percentualCDI: 0.95 } })];
+    const fatias = sugerir(
+      { tipo: 'RENDA_MENSAL', principal: 100000, rendaMensalDesejada: 1000 },
+      { catalogo, carteira: [], hoje: INI }, CEN,
+    );
+    expect(fatias).toHaveLength(1);
+    expect(fatias[0]?.motivo).toBe('RENDA_MENSAL_ISENTO');
+  });
+  it('renda mensal: lança se chamado sem Cenario', () => {
+    expect(() => sugerir(
+      { tipo: 'RENDA_MENSAL', principal: 100000, rendaMensalDesejada: 1000 },
+      { catalogo: [], carteira: [], hoje: INI },
+    )).toThrow();
+  });
 });
