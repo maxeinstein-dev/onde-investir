@@ -66,6 +66,25 @@ describe('FormObjetivo — LONGO_PRAZO / SEM_OBJETIVO', () => {
   });
 });
 
+describe('FormObjetivo — RENDA_MENSAL', () => {
+  it('preenche e salva', () => {
+    const onSalvar = vi.fn();
+    render(<FormObjetivo tipo="RENDA_MENSAL" onSalvar={onSalvar} onCancelar={() => {}} />);
+    preencher('Principal (R$)', '100000');
+    preencher('Renda mensal desejada (R$)', '1000');
+    salvar();
+    expect(onSalvar).toHaveBeenCalledWith(undefined, { tipo: 'RENDA_MENSAL', principal: 100000, rendaMensalDesejada: 1000 });
+  });
+  it('campo inválido não salva e mostra alerta', () => {
+    const onSalvar = vi.fn();
+    render(<FormObjetivo tipo="RENDA_MENSAL" onSalvar={onSalvar} onCancelar={() => {}} />);
+    preencher('Principal (R$)', '100000');
+    salvar();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(onSalvar).not.toHaveBeenCalled();
+  });
+});
+
 describe('FormObjetivo — edição e cancelar', () => {
   const inicial: ObjetivoSalvo = {
     id: 'obj-1', nome: 'Casa', criadoEm: '2026-01-01', entradas: { tipo: 'COM_DATA', valorAlvo: 100000, data: '2030-01-01' },

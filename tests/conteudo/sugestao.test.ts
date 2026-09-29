@@ -5,6 +5,7 @@ import { AVISO_EDUCATIVO, descreverFatia, licaoDaFatia, notaRendaVariavel, texto
 const TODOS_OS_MOTIVOS: MotivoFatia[] = [
   'RESERVA_TESOURO_SELIC', 'RESERVA_CDB_LIQUIDEZ', 'DATA_VENCIMENTO_CASADO', 'DATA_SEM_CASAMENTO',
   'LONGO_PRAZO_IPCA', 'LONGO_PRAZO_POS', 'SEM_OBJETIVO_POS', 'SEM_OBJETIVO_PRE', 'SEM_OBJETIVO_IPCA',
+  'RENDA_MENSAL_TRIBUTADO', 'RENDA_MENSAL_ISENTO',
 ];
 
 const fatia = (over: Partial<Fatia>): Fatia => ({
@@ -42,6 +43,13 @@ describe('sugestão — conteúdo', () => {
   it('aviso educativo fixo', () => {
     expect(AVISO_EDUCATIVO.length).toBeGreaterThan(10);
     expect(AVISO_EDUCATIVO).toMatch(/educativo/i);
+  });
+  it('renda mensal: os dois motivos novos têm texto e lição', () => {
+    const f = fatia({ motivo: 'RENDA_MENSAL_TRIBUTADO' });
+    expect(textoDaFatia(f)).toBeTruthy();
+    expect(licaoDaFatia(f)).toBe('impostos');
+    expect(textoDaFatia({ ...f, motivo: 'RENDA_MENSAL_ISENTO' })).toBeTruthy();
+    expect(licaoDaFatia({ ...f, motivo: 'RENDA_MENSAL_ISENTO' })).toBe('liquidez');
   });
 });
 

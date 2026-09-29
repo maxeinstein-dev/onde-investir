@@ -27,3 +27,6 @@ export const FAIXAS_LONGO_PRAZO: readonly FaixaLongoPrazo[] = [
 export function faixaLongoPrazo(horizonteAnos: number): FaixaLongoPrazo {
   return FAIXAS_LONGO_PRAZO.find((f) => horizonteAnos <= f.ateAnos) ?? (FAIXAS_LONGO_PRAZO.at(-1) as FaixaLongoPrazo);
 }
+
+/** Janela usada para calcular a renda mensal necessária: 30 dias corridos a partir de hoje. */
+export const DIAS_RENDA_MENSAL = 30;

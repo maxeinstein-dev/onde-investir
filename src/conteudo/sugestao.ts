@@ -18,6 +18,8 @@ const TEXTO_E_LICAO: Record<MotivoFatia, { texto: string; licao: IdLicao }> = {
   SEM_OBJETIVO_POS: { texto: 'Acompanha os juros e tem liquidez para prazos mais curtos.', licao: 'indexadores' },
   SEM_OBJETIVO_PRE: { texto: 'Taxa combinada hoje, para um horizonte de alguns anos.', licao: 'indexadores' },
   SEM_OBJETIVO_IPCA: { texto: 'Para a parte do horizonte mais distante, protege contra a inflação.', licao: 'indexadores' },
+  RENDA_MENSAL_TRIBUTADO: { texto: 'Rende junto com os juros, mas o Imposto de Renda desconta parte do rendimento a cada resgate.', licao: 'impostos' },
+  RENDA_MENSAL_ISENTO: { texto: 'Sem Imposto de Renda sobre o rendimento, mas tem carência mínima de 6 meses antes do primeiro resgate.', licao: 'liquidez' },
 };
 
 export function textoDaFatia(f: Fatia): string {
