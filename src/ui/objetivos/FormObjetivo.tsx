@@ -26,6 +26,7 @@ export const ROTULO_TIPO_OBJETIVO: Record<Objetivo['tipo'], string> = {
   LONGO_PRAZO: 'Longo prazo',
   SEM_OBJETIVO: 'Sem objetivo definido',
   RENDA_MENSAL: 'Renda mensal',
+  CARTEIRA_COMBINADA: 'Carteira combinada',
 };
 
 const entradasIniciais = (tipo: Objetivo['tipo'], inicial?: ObjetivoSalvo): Objetivo | undefined => (
@@ -35,14 +36,21 @@ const entradasIniciais = (tipo: Objetivo['tipo'], inicial?: ObjetivoSalvo): Obje
 export function FormObjetivo({ tipo, onSalvar, onCancelar, inicial, id: ID = 'objetivo-form' }: PropsFormObjetivo) {
   const base = entradasIniciais(tipo, inicial);
   const [nome, setNome] = useState(inicial?.nome ?? '');
-  const [gastoMensal, setGastoMensal] = useState(base?.tipo === 'RESERVA' ? base.gastoMensal : NaN);
-  const [rendaEstavel, setRendaEstavel] = useState(base?.tipo === 'RESERVA' ? base.rendaEstavel : true);
+  const [gastoMensal, setGastoMensal] = useState(
+    base?.tipo === 'RESERVA' || base?.tipo === 'CARTEIRA_COMBINADA' ? base.gastoMensal : NaN,
+  );
+  const [rendaEstavel, setRendaEstavel] = useState(
+    base?.tipo === 'RESERVA' || base?.tipo === 'CARTEIRA_COMBINADA' ? base.rendaEstavel : true,
+  );
   const [valorAlvo, setValorAlvo] = useState(base?.tipo === 'COM_DATA' ? base.valorAlvo : NaN);
   const [data, setData] = useState(base?.tipo === 'COM_DATA' ? base.data : '');
   const [horizonteAnos, setHorizonteAnos] = useState(
-    base?.tipo === 'LONGO_PRAZO' || base?.tipo === 'SEM_OBJETIVO' ? base.horizonteAnos : NaN,
+    base?.tipo === 'LONGO_PRAZO' || base?.tipo === 'SEM_OBJETIVO' || base?.tipo === 'CARTEIRA_COMBINADA'
+      ? base.horizonteAnos : NaN,
   );
-  const [principal, setPrincipal] = useState(base?.tipo === 'RENDA_MENSAL' ? base.principal : NaN);
+  const [principal, setPrincipal] = useState(
+    base?.tipo === 'RENDA_MENSAL' || base?.tipo === 'CARTEIRA_COMBINADA' ? base.principal : NaN,
+  );
   const [rendaMensalDesejada, setRendaMensalDesejada] = useState(
     base?.tipo === 'RENDA_MENSAL' ? base.rendaMensalDesejada : NaN,
   );
@@ -57,6 +65,7 @@ export function FormObjetivo({ tipo, onSalvar, onCancelar, inicial, id: ID = 'ob
       case 'SEM_OBJETIVO':
         return { tipo, horizonteAnos };
       case 'RENDA_MENSAL': return { tipo, principal, rendaMensalDesejada };
+      case 'CARTEIRA_COMBINADA': return { tipo, principal, gastoMensal, rendaEstavel, horizonteAnos };
     }
   }
 
@@ -136,6 +145,34 @@ export function FormObjetivo({ tipo, onSalvar, onCancelar, inicial, id: ID = 'ob
           <div class="campo">
             <label for={`${ID}-renda-mensal-desejada`}>Renda mensal desejada (R$)</label>
             <CampoNumerico id={`${ID}-renda-mensal-desejada`} min="0" step="0.01" valor={rendaMensalDesejada} onChange={setRendaMensalDesejada} />
+          </div>
+        </>
+      )}
+
+      {tipo === 'CARTEIRA_COMBINADA' && (
+        <>
+          <div class="campo">
+            <label for={`${ID}-principal`}>Principal (R$)</label>
+            <CampoNumerico id={`${ID}-principal`} min="0" step="0.01" valor={principal} onChange={setPrincipal} />
+          </div>
+          <div class="campo">
+            <label for={`${ID}-gasto-mensal`}>Gasto mensal (R$)</label>
+            <CampoNumerico id={`${ID}-gasto-mensal`} min="0" step="0.01" valor={gastoMensal} onChange={setGastoMensal} />
+          </div>
+          <div role="radiogroup" aria-labelledby={`${ID}-renda-titulo`} class="campo">
+            <span id={`${ID}-renda-titulo`}>Renda</span>
+            <label class="campo__opcao">
+              <input type="radio" name={`${ID}-renda`} checked={rendaEstavel} onChange={() => setRendaEstavel(true)} />
+              Estável
+            </label>
+            <label class="campo__opcao">
+              <input type="radio" name={`${ID}-renda`} checked={!rendaEstavel} onChange={() => setRendaEstavel(false)} />
+              Variável
+            </label>
+          </div>
+          <div class="campo">
+            <label for={`${ID}-horizonte`}>Horizonte (anos)</label>
+            <CampoNumerico id={`${ID}-horizonte`} min="1" step="1" valor={horizonteAnos} onChange={setHorizonteAnos} />
           </div>
         </>
       )}

@@ -54,6 +54,12 @@ describe('Objetivos — estado vazio e criação', () => {
     expect(screen.getByRole('button', { name: 'Renda mensal' })).toBeInTheDocument();
   });
 
+  it('"Carteira combinada" aparece como opção de tipo no seletor de "+ Novo objetivo"', () => {
+    render(<ComEstado />);
+    fireEvent.click(screen.getByRole('button', { name: '+ Novo objetivo' }));
+    expect(screen.getByRole('button', { name: 'Carteira combinada' })).toBeInTheDocument();
+  });
+
   it('o limite de objetivos desabilita "+ Novo objetivo" com uma mensagem', () => {
     const muitos: ObjetivoSalvo[] = Array.from({ length: LIMITE_OBJETIVOS }, (_, i) => ({
       id: `o${i}`, criadoEm: HOJE, entradas: { tipo: 'SEM_OBJETIVO', horizonteAnos: 1 },

@@ -22,7 +22,8 @@ export type Objetivo =
   | { tipo: 'COM_DATA'; valorAlvo: number; data: DataISO }
   | { tipo: 'LONGO_PRAZO'; horizonteAnos: number }
   | { tipo: 'SEM_OBJETIVO'; horizonteAnos: number }
-  | { tipo: 'RENDA_MENSAL'; principal: number; rendaMensalDesejada: number };
+  | { tipo: 'RENDA_MENSAL'; principal: number; rendaMensalDesejada: number }
+  | { tipo: 'CARTEIRA_COMBINADA'; principal: number; gastoMensal: number; rendaEstavel: boolean; horizonteAnos: number };
 
 export type MotivoFatia =
   | 'RESERVA_TESOURO_SELIC' | 'RESERVA_CDB_LIQUIDEZ'
@@ -62,6 +63,8 @@ export function valorAlvo(objetivo: Objetivo): number | null {
       return null;
     case 'RENDA_MENSAL':
       return null;
+    case 'CARTEIRA_COMBINADA':
+      return objetivo.principal;
   }
 }
 
@@ -85,6 +88,18 @@ export function validarObjetivo(o: Objetivo, hoje: DataISO): void {
       if (!Number.isFinite(o.principal) || o.principal <= 0) throw new OfertaInvalidaError('Preencha o principal, maior que zero.');
       if (!Number.isFinite(o.rendaMensalDesejada) || o.rendaMensalDesejada <= 0) throw new OfertaInvalidaError('Preencha a renda mensal desejada, maior que zero.');
       break;
+    case 'CARTEIRA_COMBINADA': {
+      if (!Number.isFinite(o.principal) || o.principal <= 0) throw new OfertaInvalidaError('Preencha o principal, maior que zero.');
+      if (!Number.isFinite(o.gastoMensal) || o.gastoMensal <= 0) throw new OfertaInvalidaError('Preencha o gasto mensal, maior que zero.');
+      if (!Number.isInteger(o.horizonteAnos) || o.horizonteAnos <= 0) {
+        throw new OfertaInvalidaError('Informe um horizonte em anos inteiro, maior que zero.');
+      }
+      const valorReserva = o.gastoMensal * (o.rendaEstavel ? MULTIPLICADOR_RESERVA.estavel : MULTIPLICADOR_RESERVA.variavel);
+      if (valorReserva > o.principal) {
+        throw new OfertaInvalidaError('A reserva de emergência sozinha já passa do total informado.');
+      }
+      break;
+    }
   }
 }
 
@@ -158,6 +173,35 @@ function sugerirLongoPrazo(o: Extract<Objetivo, { tipo: 'LONGO_PRAZO' }>, ctx: C
     { produto: 'CDB', indexacaoTipo: 'POS_CDI', percentual: faixa.pos, motivo: 'LONGO_PRAZO_POS', garantia: 'FGC', valor: null },
   ];
   return casarComCatalogo(base, ctx.catalogo, ctx.carteira, ctx.hoje);
+}
+
+function sugerirCarteiraCombinada(o: Extract<Objetivo, { tipo: 'CARTEIRA_COMBINADA' }>, ctx: ContextoSugestao): Fatia[] {
+  const valorReserva = o.gastoMensal * (o.rendaEstavel ? MULTIPLICADOR_RESERVA.estavel : MULTIPLICADOR_RESERVA.variavel);
+  const restante = o.principal - valorReserva;
+  const faixa = faixaLongoPrazo(o.horizonteAnos);
+
+  const base: Fatia[] = [
+    {
+      produto: 'TESOURO_SELIC', indexacaoTipo: 'SELIC', motivo: 'RESERVA_TESOURO_SELIC', garantia: 'TESOURO_NACIONAL',
+      valor: valorReserva * 0.5, percentual: (valorReserva * 0.5) / o.principal,
+    },
+    {
+      produto: 'CDB', indexacaoTipo: 'POS_CDI', motivo: 'RESERVA_CDB_LIQUIDEZ', garantia: 'FGC',
+      valor: valorReserva * 0.5, percentual: (valorReserva * 0.5) / o.principal,
+    },
+    {
+      produto: 'TESOURO_IPCA', indexacaoTipo: 'IPCA_MAIS', motivo: 'LONGO_PRAZO_IPCA', garantia: 'TESOURO_NACIONAL',
+      valor: restante * faixa.ipca, percentual: (restante * faixa.ipca) / o.principal,
+    },
+    {
+      produto: 'CDB', indexacaoTipo: 'POS_CDI', motivo: 'LONGO_PRAZO_POS', garantia: 'FGC',
+      valor: restante * faixa.pos, percentual: (restante * faixa.pos) / o.principal,
+    },
+  ];
+  // liquidezDiaria: true também restringe as fatias de longo prazo deste lote a ofertas de
+  // liquidez diária — casarComCatalogo casa o lote inteiro com a mesma opção, então não dá pra
+  // exigir liquidez só na reserva. Simplificação aceitável (design M6 §3, item 5).
+  return casarComCatalogo(base, ctx.catalogo, ctx.carteira, ctx.hoje, { liquidezDiaria: true });
 }
 
 function ofertaCasadaComData(catalogo: readonly OfertaCadastrada[], dataAlvo: DataISO): OfertaCadastrada | undefined {
@@ -334,5 +378,6 @@ export function sugerir(objetivo: Objetivo, ctx: ContextoSugestao, cen?: Cenario
       const r = sugerirRendaMensal(objetivo, ctx, cen);
       return r.modo === 'UNICA' ? [r.fatia] : r.fatias;
     }
+    case 'CARTEIRA_COMBINADA': return sugerirCarteiraCombinada(objetivo, ctx);
   }
 }

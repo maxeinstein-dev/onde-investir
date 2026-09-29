@@ -85,6 +85,38 @@ describe('FormObjetivo — RENDA_MENSAL', () => {
   });
 });
 
+describe('FormObjetivo — CARTEIRA_COMBINADA', () => {
+  it('mostra os 4 campos', () => {
+    render(<FormObjetivo tipo="CARTEIRA_COMBINADA" onSalvar={() => {}} onCancelar={() => {}} />);
+    expect(screen.getByLabelText('Principal (R$)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Gasto mensal (R$)')).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Renda' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Horizonte (anos)')).toBeInTheDocument();
+  });
+  it('preenche e salva', () => {
+    const onSalvar = vi.fn();
+    render(<FormObjetivo tipo="CARTEIRA_COMBINADA" onSalvar={onSalvar} onCancelar={() => {}} />);
+    preencher('Principal (R$)', '100000');
+    preencher('Gasto mensal (R$)', '3000');
+    fireEvent.click(screen.getByRole('radio', { name: 'Variável' }));
+    preencher('Horizonte (anos)', '20');
+    salvar();
+    expect(onSalvar).toHaveBeenCalledWith(undefined, {
+      tipo: 'CARTEIRA_COMBINADA', principal: 100000, gastoMensal: 3000, rendaEstavel: false, horizonteAnos: 20,
+    });
+  });
+  it('reserva maior que o principal não salva e mostra alerta', () => {
+    const onSalvar = vi.fn();
+    render(<FormObjetivo tipo="CARTEIRA_COMBINADA" onSalvar={onSalvar} onCancelar={() => {}} />);
+    preencher('Principal (R$)', '1000');
+    preencher('Gasto mensal (R$)', '3000');
+    preencher('Horizonte (anos)', '20');
+    salvar();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(onSalvar).not.toHaveBeenCalled();
+  });
+});
+
 describe('FormObjetivo — edição e cancelar', () => {
   const inicial: ObjetivoSalvo = {
     id: 'obj-1', nome: 'Casa', criadoEm: '2026-01-01', entradas: { tipo: 'COM_DATA', valorAlvo: 100000, data: '2030-01-01' },

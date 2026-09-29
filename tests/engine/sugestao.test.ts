@@ -28,6 +28,9 @@ describe('valorAlvo', () => {
   it('renda mensal: sem valor-alvo (é o principal que importa, não um alvo a atingir)', () => {
     expect(valorAlvo({ tipo: 'RENDA_MENSAL', principal: 100000, rendaMensalDesejada: 1000 })).toBeNull();
   });
+  it('carteira combinada: o próprio principal', () => {
+    expect(valorAlvo({ tipo: 'CARTEIRA_COMBINADA', principal: 100000, gastoMensal: 3000, rendaEstavel: true, horizonteAnos: 20 })).toBe(100000);
+  });
 });
 
 describe('validarObjetivo', () => {
@@ -55,6 +58,17 @@ describe('validarObjetivo', () => {
     expect(() => validarObjetivo({ ...base, principal: Number.NaN }, HOJE)).toThrow(OfertaInvalidaError);
     expect(() => validarObjetivo({ ...base, rendaMensalDesejada: 0 }, HOJE)).toThrow(OfertaInvalidaError);
     expect(() => validarObjetivo({ ...base, rendaMensalDesejada: -100 }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo(base, HOJE)).not.toThrow();
+  });
+  it('carteira combinada: os 4 campos válidos, e a reserva não pode passar do principal', () => {
+    const base: Objetivo = { tipo: 'CARTEIRA_COMBINADA', principal: 100000, gastoMensal: 3000, rendaEstavel: true, horizonteAnos: 20 };
+    expect(() => validarObjetivo({ ...base, principal: 0 }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo({ ...base, gastoMensal: 0 }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo({ ...base, horizonteAnos: 0 }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo({ ...base, horizonteAnos: 5.5 }, HOJE)).toThrow(OfertaInvalidaError);
+    // reserva = 3000 × 6 = 18000 (rendaEstavel: true); principal menor que isso deve lançar.
+    expect(() => validarObjetivo({ ...base, principal: 17999 }, HOJE)).toThrow(OfertaInvalidaError);
+    expect(() => validarObjetivo({ ...base, principal: 18000 }, HOJE)).not.toThrow(); // limite: igual é aceito
     expect(() => validarObjetivo(base, HOJE)).not.toThrow();
   });
 });
@@ -374,5 +388,48 @@ describe('sugerir — dispatcher completo', () => {
       { tipo: 'RENDA_MENSAL', principal: 100000, rendaMensalDesejada: 1000 },
       { catalogo: [], carteira: [], hoje: INI },
     )).toThrow();
+  });
+});
+
+describe('sugerirCarteiraCombinada', () => {
+  const objetivo: Extract<Objetivo, { tipo: 'CARTEIRA_COMBINADA' }> = {
+    tipo: 'CARTEIRA_COMBINADA', principal: 100000, gastoMensal: 3000, rendaEstavel: true, horizonteAnos: 20,
+  };
+  const ctxBase = { catalogo: [] as OfertaCadastrada[], carteira: [] as ItemFGC[], hoje: HOJE };
+
+  it('4 fatias (2 da reserva + 2 do restante), somando 100% e o valor do principal', () => {
+    const fatias = sugerir(objetivo, ctxBase);
+    expect(fatias).toHaveLength(4);
+    const somaPercentual = fatias.reduce((s, f) => s + f.percentual, 0);
+    expect(somaPercentual).toBeCloseTo(1, 10);
+    const somaValor = fatias.reduce((s, f) => s + (f.valor ?? 0), 0);
+    expect(somaValor).toBeCloseTo(100000, 6);
+  });
+
+  it('a reserva é 18000 (3000 × 6, rendaEstavel), dividida 50/50 entre Tesouro Selic e CDB', () => {
+    const fatias = sugerir(objetivo, ctxBase);
+    const selic = fatias.find((f) => f.motivo === 'RESERVA_TESOURO_SELIC');
+    const cdbReserva = fatias.find((f) => f.motivo === 'RESERVA_CDB_LIQUIDEZ');
+    expect(selic?.valor).toBeCloseTo(9000, 6);
+    expect(cdbReserva?.valor).toBeCloseTo(9000, 6);
+    expect(selic?.percentual).toBeCloseTo(0.09, 6); // 9000 / 100000
+  });
+
+  it('o restante (82000) segue a faixa de 20 anos (faixaLongoPrazo): 70% IPCA+, 30% pós', () => {
+    const fatias = sugerir(objetivo, ctxBase);
+    const ipca = fatias.find((f) => f.motivo === 'LONGO_PRAZO_IPCA');
+    const pos = fatias.find((f) => f.motivo === 'LONGO_PRAZO_POS');
+    expect(ipca?.valor).toBeCloseTo(82000 * 0.7, 6);
+    expect(pos?.valor).toBeCloseTo(82000 * 0.3, 6);
+  });
+
+  it('FGC cruzado: reserva (CDB) e restante (CDB pós) no mesmo conglomerado somam', () => {
+    const catalogo = [
+      catalogoBase({ id: 'cdb1', produto: 'CDB', conglomerado: 'Banco X', liquidez: 'DIARIA' }),
+    ];
+    const carteira = [carteiraItem('Banco X', 220000)]; // já perto do limite do FGC sozinha
+    const fatias = sugerir(objetivo, { ...ctxBase, catalogo, carteira });
+    const comFgc = fatias.filter((f) => f.fgc !== undefined);
+    expect(comFgc.length).toBeGreaterThan(0);
   });
 });
