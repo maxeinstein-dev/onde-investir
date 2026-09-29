@@ -22,6 +22,18 @@ function lerCookie(cabecalho: string | null): string | null {
 }
 
 export const onRequestGet: PagesFunction<Ambiente> = async (contexto) => {
+  try {
+    return await tratar(contexto);
+  } catch (erroInesperado) {
+    // Exceção fora da lógica do histórico (sessão, variável de ambiente ausente...): JSON com o motivo, em vez da
+    // página HTML de erro da Cloudflare, que não diz nada.
+    const detalhe = `${erroInesperado instanceof Error ? erroInesperado.name : 'Erro'}: ${erroInesperado instanceof Error ? erroInesperado.message : String(erroInesperado)}`.slice(0, 200);
+    console.warn(JSON.stringify({ evento: 'excecao', detalhe }));
+    return resposta(500, { erro: 'FALHA_INTERNA', detalhe });
+  }
+};
+
+async function tratar(contexto: Parameters<PagesFunction<Ambiente>>[0]): Promise<Response> {
   const cookie = lerCookie(contexto.request.headers.get('Cookie'));
   if (!cookie || !(await verificarSessao(cookie, contexto.env.SESSION_HMAC_KEY))) return resposta(401, { erro: 'SEM_SESSAO' });
 
@@ -39,4 +51,4 @@ export const onRequestGet: PagesFunction<Ambiente> = async (contexto) => {
     registrar: (e) => console.warn(JSON.stringify(e)),
   });
   return resposta(saida.status, saida.corpo);
-};
+}

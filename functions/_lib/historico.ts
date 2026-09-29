@@ -16,7 +16,7 @@ export interface RespostaBrapi { ok: boolean; status: number; json(): Promise<un
 export type BuscaBrapi = (ticker: string) => Promise<RespostaBrapi>;
 
 /** Evento para o log (Cloudflare mostra em `wrangler tail`/Logs). Só ticker e status: sem token, sem cabeçalhos. */
-export interface EventoLog { evento: 'brapi_erro' | 'brapi_sem_dados'; ticker: string; statusFonte?: number }
+export interface EventoLog { evento: 'brapi_erro' | 'brapi_sem_dados' | 'excecao'; ticker: string; statusFonte?: number; detalhe?: string }
 
 export interface EntradaHistorico {
   ticker: string;
@@ -55,7 +55,22 @@ const indisponivel = (statusFonte?: number): SaidaHistorico => ({
   corpo: statusFonte === undefined ? { erro: 'BRAPI_INDISPONIVEL' } : { erro: 'BRAPI_INDISPONIVEL', statusFonte },
 });
 
+/**
+ * Qualquer exceção (KV fora do ar ou no limite de gravações, dado inesperado...) vira uma resposta JSON 500 com o
+ * motivo, em vez de escapar: uma exceção não tratada faz a Cloudflare devolver uma página HTML de erro, sem pista
+ * nenhuma do que aconteceu. O detalhe é só "Nome: mensagem" truncado (sem token, sem cabeçalhos).
+ */
 export async function resolverHistorico(e: EntradaHistorico): Promise<SaidaHistorico> {
+  try {
+    return await executar(e);
+  } catch (erroInesperado) {
+    const detalhe = `${erroInesperado instanceof Error ? erroInesperado.name : 'Erro'}: ${erroInesperado instanceof Error ? erroInesperado.message : String(erroInesperado)}`.slice(0, 200);
+    (e.registrar ?? (() => {}))({ evento: 'excecao', ticker: e.ticker, detalhe });
+    return { status: 500, corpo: { erro: 'FALHA_INTERNA', detalhe } };
+  }
+}
+
+async function executar(e: EntradaHistorico): Promise<SaidaHistorico> {
   const { ticker, kv, buscar, agora } = e;
   const registrar = e.registrar ?? (() => {});
   const hoje = diaISO(agora);

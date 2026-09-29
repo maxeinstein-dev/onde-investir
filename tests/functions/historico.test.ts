@@ -202,3 +202,28 @@ describe('resolverHistorico: falhas da fonte com histórico já salvo, e dados e
     expect(r.status).toBe(404);
   });
 });
+
+describe('resolverHistorico: exceção inesperada nunca escapa (a Cloudflare trocaria por uma página HTML de erro)', () => {
+  it('put no KV que lança (ex.: limite de gravações): 500 FALHA_INTERNA em JSON, com o motivo, e registra a exceção', async () => {
+    const { kv } = kvFalso();
+    const quebrado: KvLike = { ...kv, put: async () => { throw new Error('KV PUT failed: 429 Too Many Requests'); } };
+    const registrar = vi.fn();
+    const r = await resolverHistorico(base(quebrado, respostaBrapi(200, comCandles(['2026-09-29'])), registrar));
+    expect(r.status).toBe(500);
+    expect(r.corpo).toEqual({ erro: 'FALHA_INTERNA', detalhe: 'Error: KV PUT failed: 429 Too Many Requests' });
+    expect(registrar).toHaveBeenCalledWith(expect.objectContaining({ evento: 'excecao', ticker: 'KNSC11', detalhe: 'Error: KV PUT failed: 429 Too Many Requests' }));
+  });
+
+  it('get no KV que lança: também vira 500 FALHA_INTERNA', async () => {
+    const quebrado: KvLike = { get: (async () => { throw new TypeError('KV indisponível'); }) as KvLike['get'], put: async () => {} };
+    const r = await resolverHistorico(base(quebrado, respostaBrapi(200, comCandles(['2026-09-29']))));
+    expect(r.status).toBe(500);
+    expect((r.corpo as { erro: string }).erro).toBe('FALHA_INTERNA');
+  });
+
+  it('o detalhe é truncado (não devolve mensagens gigantes)', async () => {
+    const quebrado: KvLike = { get: (async () => { throw new Error('x'.repeat(1000)); }) as KvLike['get'], put: async () => {} };
+    const r = await resolverHistorico(base(quebrado, respostaBrapi(200)));
+    expect(((r.corpo as { detalhe: string }).detalhe).length).toBeLessThanOrEqual(200);
+  });
+});
