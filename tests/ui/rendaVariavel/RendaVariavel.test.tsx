@@ -36,28 +36,28 @@ afterEach(cleanup);
 
 describe('RendaVariavel', () => {
   it('não chama o Turnstile com a aba inativa', () => {
-    render(<RendaVariavel ativa={false} cenario={cen} />);
+    render(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado />);
     expect(sessao).not.toHaveBeenCalled();
   });
 
   it('chama uma vez ao ficar ativa', async () => {
-    const { rerender } = render(<RendaVariavel ativa={false} cenario={cen} />);
-    rerender(<RendaVariavel ativa cenario={cen} />);
+    const { rerender } = render(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado />);
+    rerender(<RendaVariavel ativa cenario={cen} cenarioRealizado />);
     await waitFor(() => expect(sessao).toHaveBeenCalledTimes(1));
-    rerender(<RendaVariavel ativa={false} cenario={cen} />);
-    rerender(<RendaVariavel ativa cenario={cen} />);
+    rerender(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado />);
+    rerender(<RendaVariavel ativa cenario={cen} cenarioRealizado />);
     expect(sessao).toHaveBeenCalledTimes(1);
   });
 
   it('ticker inválido não chama a API', async () => {
-    render(<RendaVariavel ativa cenario={cen} />);
+    render(<RendaVariavel ativa cenario={cen} cenarioRealizado />);
     await consultar('XX');
     expect(await screen.findByRole('alert')).toHaveTextContent('Código inválido');
     expect(historico).not.toHaveBeenCalled();
   });
 
   it('renderiza rentabilidade, volatilidade, drawdown, CDI e IPCA', async () => {
-    render(<RendaVariavel ativa cenario={cen} />);
+    render(<RendaVariavel ativa cenario={cen} cenarioRealizado />);
     await consultar('petr4');
     expect(await screen.findByText('Rentabilidade no período')).toBeInTheDocument();
     expect(historico).toHaveBeenCalledWith('PETR4');
@@ -70,7 +70,7 @@ describe('RendaVariavel', () => {
 
   it('SEM_SESSAO renova a sessão uma vez e repete a consulta', async () => {
     historico.mockResolvedValueOnce({ ok: false, erro: 'SEM_SESSAO' });
-    render(<RendaVariavel ativa cenario={cen} />);
+    render(<RendaVariavel ativa cenario={cen} cenarioRealizado />);
     await waitFor(() => expect(sessao).toHaveBeenCalledTimes(1));
     await consultar('PETR4');
     expect(await screen.findByText('Rentabilidade no período')).toBeInTheDocument();
@@ -80,14 +80,20 @@ describe('RendaVariavel', () => {
 
   it('erro do Turnstile mostra "Tentar de novo"', async () => {
     sessao.mockResolvedValueOnce({ ok: false, erro: 'TURNSTILE_INDISPONIVEL' });
-    render(<RendaVariavel ativa cenario={cen} />);
+    render(<RendaVariavel ativa cenario={cen} cenarioRealizado />);
     fireEvent.click(await screen.findByRole('button', { name: 'Tentar de novo' }));
     await waitFor(() => expect(sessao).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Tentar de novo' })).toBeNull());
   });
 
+  it('sem histórico de CDI e IPCA: avisa e não deixa consultar', () => {
+    render(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado={false} />);
+    expect(screen.getByText(/Aguardando o histórico de CDI e IPCA/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Consultar' })).toBeDisabled();
+  });
+
   it('mostra o aviso educativo e o link da lição', () => {
-    render(<RendaVariavel ativa={false} cenario={cen} />);
+    render(<RendaVariavel ativa={false} cenario={cen} cenarioRealizado />);
     expect(screen.getByText(/Conteúdo educativo/)).toBeInTheDocument();
     expect(screen.getByText(/não indica ações/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Ver lição/ })).toHaveAttribute('href', '#aprender/renda-variavel');

@@ -72,6 +72,21 @@ describe('analisarRendaVariavel', () => {
     expect(a?.rentabilidade).toBeCloseTo(0.1, 12);
   });
 
+  it('ignora fechamento zero, negativo ou NaN e data repetida', () => {
+    const sujo = [
+      { data: '2026-07-01', fechamento: 0 },
+      { data: '2026-07-02', fechamento: 100 },
+      { data: '2026-08-03', fechamento: Number.NaN },
+      { data: '2026-08-04', fechamento: -5 },
+      { data: '2026-09-29', fechamento: 90 },
+      { data: '2026-09-29', fechamento: 110 },
+    ];
+    const a = analisarRendaVariavel(sujo, cen);
+    expect(a?.pontos).toBe(2);
+    expect(a?.inicio).toBe('2026-07-02');
+    expect(a?.rentabilidade).toBeCloseTo(0.1, 12);
+  });
+
   it('menos de 2 candles: null', () => {
     expect(analisarRendaVariavel([candles[0]!], cen)).toBeNull();
   });

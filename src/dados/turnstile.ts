@@ -40,13 +40,19 @@ export async function obterSessao(
   timeoutMs: number = TIMEOUT_PADRAO_MS,
 ): Promise<ResultadoSessao> {
   let token: string;
+  let api: TurnstileApi | undefined;
+  let idWidget: string | undefined;
   try {
-    const api = await comTimeout(carregarScript(), timeoutMs);
+    api = await comTimeout(carregarScript(), timeoutMs);
+    const a = api;
     token = await comTimeout(new Promise<string>((resolve, reject) => {
-      api.render(container, { sitekey: siteKey(), callback: resolve, 'error-callback': () => reject(new Error('desafio')) });
+      idWidget = a.render(container, { sitekey: siteKey(), callback: resolve, 'error-callback': () => reject(new Error('desafio')) });
     }), timeoutMs);
   } catch {
     return { ok: false, erro: 'TURNSTILE_INDISPONIVEL' };
+  } finally {
+    // Sem isso, cada renovação de sessão empilha mais um iframe no mesmo container.
+    if (api && idWidget !== undefined) try { api.remove(idWidget); } catch { /* widget já sumiu */ }
   }
   try {
     const resp = await f('/api/sessao', {

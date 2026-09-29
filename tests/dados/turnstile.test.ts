@@ -22,6 +22,16 @@ describe('obterSessao', () => {
     expect(url).toBe('/api/sessao');
     expect(JSON.parse((init as RequestInit).body as string)).toEqual({ token: 'abc' });
   });
+  it('remove o widget depois do desafio, com sucesso ou não', async () => {
+    const remove = vi.fn();
+    window.turnstile = { render: (_el, opts) => { queueMicrotask(() => opts.callback('t')); return 'w9'; }, remove };
+    await obterSessao(document.createElement('div'), resposta(200));
+    expect(remove).toHaveBeenCalledWith('w9');
+    remove.mockClear();
+    window.turnstile = { render: (_el, opts) => { queueMicrotask(opts['error-callback']); return 'w8'; }, remove };
+    await obterSessao(document.createElement('div'), resposta(200));
+    expect(remove).toHaveBeenCalledWith('w8');
+  });
   it('403 vira TURNSTILE_INVALIDO', async () => {
     turnstileFalso();
     expect(await obterSessao(document.createElement('div'), resposta(403))).toEqual({ ok: false, erro: 'TURNSTILE_INVALIDO' });

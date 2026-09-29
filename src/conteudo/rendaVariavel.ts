@@ -11,6 +11,7 @@ export const VERIFICANDO_ACESSO = 'Verificando o acesso…';
 export const CONSULTANDO = 'Consultando o histórico…';
 
 export const ERRO_TICKER = 'Código inválido. Use 4 letras e 1 ou 2 números, como PETR4 ou HGLG11.';
+export const SEM_HISTORICO_CDI_IPCA = 'Aguardando o histórico de CDI e IPCA para comparar. Se demorar, confira a aba Carteira.';
 export const SEM_DADOS = 'Ainda não há histórico suficiente para esse código.';
 
 export function textoErroSessao(erro: Extract<ResultadoSessao, { ok: false }>['erro']): string {

@@ -1,15 +1,15 @@
 // Aba "Renda variável" (M4b2c): ticker → rentabilidade, volatilidade e drawdown do histórico, ao lado de
 // CDI e IPCA no mesmo período. O Turnstile só dispara quando a aba fica ativa (todas as abas ficam montadas).
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   CONSULTANDO, ERRO_TICKER, HISTORICO_CURTO, INTRO_RENDA_VARIAVEL, NAO_INDICA, PREGOES_MINIMOS_HISTORICO,
-  SEM_DADOS, TITULO_RENDA_VARIAVEL, VERIFICANDO_ACESSO, textoErroMercado, textoErroSessao,
+  SEM_DADOS, SEM_HISTORICO_CDI_IPCA, TITULO_RENDA_VARIAVEL, VERIFICANDO_ACESSO, textoErroMercado, textoErroSessao,
 } from '../../conteudo/rendaVariavel';
 import { AVISO_EDUCATIVO } from '../../conteudo/sugestao';
 import { buscarHistorico, validarTickerCliente } from '../../dados/mercado';
 import { obterSessao } from '../../dados/turnstile';
 import type { Cenario } from '../../engine/indexadores';
-import { type AnaliseRendaVariavel, analisarRendaVariavel } from '../../engine/rendaVariavel';
+import { type CandleFechamento, analisarRendaVariavel } from '../../engine/rendaVariavel';
 import { formatarData, formatarPercentual } from '../../formato';
 import { LinkLicao } from '../aprender/LinkLicao';
 
@@ -17,15 +17,19 @@ export interface PropsRendaVariavel {
   ativa: boolean;
   /** O cenário HISTÓRICO (o mesmo da aba Carteira): o período comparado é passado. */
   cenario: Cenario;
+  /** false enquanto o histórico de CDI e IPCA não chegou (ou é inválido): `cenario` seria o projetado. */
+  cenarioRealizado: boolean;
 }
 
-export function RendaVariavel({ ativa, cenario }: PropsRendaVariavel) {
+export function RendaVariavel({ ativa, cenario, cenarioRealizado }: PropsRendaVariavel) {
   const [ticker, setTicker] = useState('');
   const [verificando, setVerificando] = useState(false);
   const [consultando, setConsultando] = useState(false);
   const [falhouSessao, setFalhouSessao] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [analise, setAnalise] = useState<AnaliseRendaVariavel | null>(null);
+  const [candles, setCandles] = useState<CandleFechamento[] | null>(null);
+  // Derivada (não guardada): se o histórico chegar depois da consulta, CDI e IPCA se corrigem sozinhos.
+  const analise = useMemo(() => (candles === null || !cenarioRealizado ? null : analisarRendaVariavel(candles, cenario)), [candles, cenario, cenarioRealizado]);
   const container = useRef<HTMLDivElement>(null);
   const jaDisparou = useRef(false);
 
@@ -54,11 +58,11 @@ export function RendaVariavel({ ativa, cenario }: PropsRendaVariavel) {
     e.preventDefault();
     if (!validarTickerCliente(ticker)) {
       setErro(ERRO_TICKER);
-      setAnalise(null);
+      setCandles(null);
       return;
     }
     setErro(null);
-    setAnalise(null);
+    setCandles(null);
     setConsultando(true);
     let r = await buscarHistorico(ticker);
     if (!r.ok && r.erro === 'SEM_SESSAO') {
@@ -71,9 +75,8 @@ export function RendaVariavel({ ativa, cenario }: PropsRendaVariavel) {
       setErro(textoErroMercado(r.erro));
       return;
     }
-    const a = analisarRendaVariavel(r.candles, cenario);
-    if (a === null) setErro(SEM_DADOS);
-    else setAnalise(a);
+    if (analisarRendaVariavel(r.candles, cenario) === null) setErro(SEM_DADOS);
+    else setCandles(r.candles);
   }
 
   return (
@@ -89,8 +92,9 @@ export function RendaVariavel({ ativa, cenario }: PropsRendaVariavel) {
         <label for="rv-ticker">Ticker</label>
         <input id="rv-ticker" type="text" maxLength={6} autoCapitalize="characters" value={ticker}
           onInput={(e) => setTicker((e.currentTarget as HTMLInputElement).value.toUpperCase())} />
-        <button type="submit" disabled={verificando || consultando}>Consultar</button>
+        <button type="submit" disabled={verificando || consultando || !cenarioRealizado}>Consultar</button>
       </form>
+      {!cenarioRealizado && <p role="status">{SEM_HISTORICO_CDI_IPCA}</p>}
       {consultando && <p role="status">{CONSULTANDO}</p>}
       {erro !== null && <p role="alert" class="erro">{erro}</p>}
       {analise && (

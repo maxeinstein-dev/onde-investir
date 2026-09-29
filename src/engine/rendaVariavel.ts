@@ -54,7 +54,10 @@ export interface AnaliseRendaVariavel {
 }
 
 export function analisarRendaVariavel(candles: readonly CandleFechamento[], cen: Cenario): AnaliseRendaVariavel | null {
-  const ordenados = [...candles].sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
+  // Dados sujos (fechamento não positivo ou não finito, data repetida) ficam de fora antes de qualquer conta.
+  const porData = new Map<DataISO, CandleFechamento>();
+  for (const c of candles) if (Number.isFinite(c.fechamento) && c.fechamento > 0) porData.set(c.data, c);
+  const ordenados = [...porData.values()].sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
   if (ordenados.length < 2) return null;
   const fechamentos = ordenados.map((c) => c.fechamento);
   const inicio = (ordenados[0] as CandleFechamento).data;

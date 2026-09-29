@@ -412,7 +412,8 @@ export function App({ carregar, carregarHistorico }: PropsApp = {}) {
         },
         {
           id: 'renda-variavel', rotulo: 'Renda variável', conteudo: (
-            <RendaVariavel ativa={aba === 'renda-variavel'} cenario={daCarteira.cenario} />
+            <RendaVariavel ativa={aba === 'renda-variavel'} cenario={daCarteira.cenario}
+              cenarioRealizado={series !== null && !daCarteira.invalido} />
           ),
         },
         {
