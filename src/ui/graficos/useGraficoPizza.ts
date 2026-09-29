@@ -1,6 +1,7 @@
 import type { ChartConfiguration } from 'chart.js';
 import type { RefObject } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
+import { useEsquemaDeCores } from './useEsquemaDeCores';
 import { lerPaleta, type PaletaGrafico } from './cores';
 import type { EstadoGrafico } from './useGrafico';
 
@@ -38,6 +39,7 @@ export function useGraficoPizza(
   const [chart, setChart] = useState<ModuloChartPizza | null>(modulo);
   const [erro, setErro] = useState(false);
   const [tentativa, setTentativa] = useState(0);
+  const esquema = useEsquemaDeCores();
   useEffect(() => {
     if (chart) return;
     let vivo = true;
@@ -51,7 +53,7 @@ export function useGraficoPizza(
     const grafico = new chart.Chart(el, montar(lerPaleta(el)));
     return () => grafico.destroy();
     // `montar` é recriada a cada renderização; quem diz quando refazer é `deps`.
-  }, [chart, ...deps]);
+  }, [chart, esquema, ...deps]);
   const estado: EstadoGrafico = erro ? 'erro' : chart ? 'pronto' : 'carregando';
   return { estado, tentarDeNovo: () => setTentativa((t) => t + 1) };
 }

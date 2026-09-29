@@ -1,33 +1,91 @@
 /* Estilos do M1: básicos, sem dependência externa (a CSP só aceita 'self').
    Contraste AA: todas as combinações de texto e fundo abaixo ficam acima de 4,5:1. */
 
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  color-scheme: light;
-  --texto: #1a1a1a;
-  --texto-suave: #4a4a4a;
+  color-scheme: light dark;
+  --texto: #14201f;
+  --texto-suave: #46514f;
   --fundo: #ffffff;
-  --fundo-suave: #f4f6f8;
-  --borda: #c9ced4;
-  --primaria: #0b5cad;
-  --primaria-escura: #084785;
+  --fundo-suave: #f5f8f7;
+  --superficie: #f5f8f7;
+  --borda: #c5cfcd;
+  --borda-controle: #767f7d;
+  --borda-controle: #767f7d;
+  --primaria: #0f766e;
+  --primaria-escura: #0b5a54;
+  --texto-sobre-primaria: #ffffff;
   --sucesso: #1d6b3a;
-  --sucesso-fundo: #e8f5ec;
+  --sucesso-fundo: #e6f4ea;
   --erro: #a4161a;
   --erro-fundo: #fdecea;
   --aviso-fundo: #fff6d6;
+  --aviso-texto: #5c3a00;
   --aviso-borda: #b45309;
-  --foco: #0b5cad;
+  --foco: #0f766e;
+  --sombra: rgb(20 32 31 / 15%);
   --raio: 8px;
-  /* Gráficos (lidos pelo JS com getComputedStyle): 5 cores com contraste de 3:1 ou mais sobre o branco. */
-  --grafico-1: #0b5cad;
+  --espaco-1: 0.25rem; --espaco-2: 0.5rem; --espaco-3: 0.75rem; --espaco-4: 1rem; --espaco-6: 1.5rem; --espaco-8: 2rem;
+  --raio-cartao: 16px;
+  --raio-controle: 10px;
+  --fonte: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --texto-pequeno: 0.875rem;
+  --texto-base: 1rem;
+  --texto-titulo: 1.375rem;
+  --texto-display: clamp(2rem, 8vw, 2.75rem);
+  --alvo-toque: 3rem;
+  /* Gráficos (lidos pelo JS com getComputedStyle): 5 cores com contraste de 3:1 ou mais sobre o fundo. */
+  --grafico-1: #0f766e;
   --grafico-2: #b45309;
   --grafico-3: #1d6b3a;
   --grafico-4: #7e22ce;
   --grafico-5: #be123c;
-  --grafico-texto: #4a4a4a;
-  --grafico-grade: #e3e6ea;
-  --grafico-marcador: #1a1a1a;
-  --grafico-premissa: #f1f3f5;
+  --grafico-texto: #46514f;
+  --grafico-grade: #e0e7e5;
+  --grafico-marcador: #14201f;
+  --grafico-premissa: #eef3f2;
+}
+
+/* Tema escuro: o :root claro acima continua sendo o primeiro do arquivo (chart.test.ts lê o primeiro). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --texto: #e6eeed;
+    --texto-suave: #a9b7b5;
+    --fundo: #0e1517;
+    --fundo-suave: #172023;
+    --superficie: #172023;
+    --borda: #3a4a4d;
+    --borda-controle: #7d8f92;
+    --borda-controle: #7d8f92;
+    --primaria: #2dd4bf;
+    --primaria-escura: #5eead4;
+    --texto-sobre-primaria: #04201d;
+    --sucesso: #4ade80;
+    --sucesso-fundo: #12301c;
+    --erro: #ff8a8d;
+    --erro-fundo: #3a1517;
+    --aviso-fundo: #3a2f0d;
+    --aviso-texto: #fde68a;
+    --aviso-borda: #fbbf24;
+    --foco: #5eead4;
+    --sombra: rgb(0 0 0 / 50%);
+    --grafico-1: #2dd4bf;
+    --grafico-2: #fbbf24;
+    --grafico-3: #4ade80;
+    --grafico-4: #c084fc;
+    --grafico-5: #fb7185;
+    --grafico-texto: #a9b7b5;
+    --grafico-grade: #2a373a;
+    --grafico-marcador: #e6eeed;
+    --grafico-premissa: #1d292c;
+  }
 }
 
 *,
@@ -38,8 +96,8 @@
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  font-size: 1rem;
+  font-family: var(--fonte);
+  font-size: var(--texto-base);
   line-height: 1.5;
   color: var(--texto);
   background: var(--fundo);
@@ -68,6 +126,7 @@ summary:focus-visible {
   max-width: 960px;
   margin: 0 auto;
   padding: 1.5rem 1rem 3rem;
+  padding-inline: var(--espaco-4);
 }
 
 .pagina h1 {
@@ -89,6 +148,7 @@ summary:focus-visible {
   display: inline-block;
   margin: 0.5rem 0 0;
   padding: 0.35rem 0.75rem;
+  color: var(--aviso-texto);
   background: var(--aviso-fundo);
   border-radius: var(--raio);
   font-size: 0.9rem;
@@ -138,23 +198,23 @@ label {
 input,
 select {
   width: 100%;
-  min-height: 2.5rem;
+  min-height: var(--alvo-toque);
   padding: 0.4rem 0.6rem;
   font: inherit;
   color: var(--texto);
   background: var(--fundo);
-  border: 1px solid var(--texto-suave);
-  border-radius: 6px;
+  border: 1px solid var(--borda-controle);
+  border-radius: var(--raio-controle);
 }
 
 button {
   font: inherit;
-  min-height: 2.5rem;
+  min-height: var(--alvo-toque);
   padding: 0.4rem 0.9rem;
   color: var(--primaria);
   background: var(--fundo);
   border: 1px solid var(--primaria);
-  border-radius: 6px;
+  border-radius: var(--raio-controle);
   cursor: pointer;
 }
 
@@ -176,7 +236,7 @@ button:hover {
   justify-self: start;
   padding: 0.6rem 1.75rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--texto-sobre-primaria);
   background: var(--primaria);
   border-color: var(--primaria);
 }
@@ -259,9 +319,10 @@ button:hover {
 }
 
 .cartao {
-  padding: 1rem;
+  padding: var(--espaco-4);
+  background: var(--superficie);
   border: 1px solid var(--borda);
-  border-radius: var(--raio);
+  border-radius: var(--raio-cartao);
   min-width: 0;
 }
 
@@ -369,7 +430,7 @@ button:hover {
   border: 1px solid var(--borda);
   border-left: 3px solid var(--primaria);
   border-radius: 4px;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+  box-shadow: 0 4px 12px var(--sombra);
 }
 
 .termo__painel[hidden] {
@@ -653,7 +714,7 @@ button:hover {
   padding: 0 0.4rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--texto-sobre-primaria);
   background: var(--sucesso);
   border-radius: 999px;
 }
