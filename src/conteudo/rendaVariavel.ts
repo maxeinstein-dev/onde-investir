@@ -13,6 +13,7 @@ export const CONSULTANDO = 'Consultando o histórico…';
 
 export const ERRO_TICKER = 'Código inválido. Use 4 letras e 1 ou 2 números, como PETR4 ou HGLG11.';
 export const SEM_HISTORICO_CDI_IPCA = 'Carregando o histórico de CDI e IPCA para comparar. Se não aparecer, o Banco Central pode estar fora do ar.';
+export const ERRO_NAO_ENCONTRADO = 'Não encontramos esse código na fonte de dados. Confira o código ou tente outro ativo.';
 export const SEM_DADOS = 'Ainda não há histórico suficiente para esse código.';
 
 export function textoErroSessao(erro: Extract<ResultadoSessao, { ok: false }>['erro']): string {
@@ -23,6 +24,7 @@ export function textoErroSessao(erro: Extract<ResultadoSessao, { ok: false }>['e
 
 export function textoErroMercado(erro: ErroMercado): string {
   if (erro === 'TICKER_INVALIDO') return ERRO_TICKER;
+  if (erro === 'NAO_ENCONTRADO') return ERRO_NAO_ENCONTRADO;
   if (erro === 'SEM_SESSAO') return 'Sua sessão expirou e não foi possível renová-la. Tente de novo.';
   return 'Os dados de mercado estão indisponíveis agora. Tente de novo em instantes.';
 }

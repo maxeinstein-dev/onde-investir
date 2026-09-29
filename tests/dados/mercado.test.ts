@@ -34,6 +34,9 @@ describe('buscarHistorico', () => {
   it('400 vira TICKER_INVALIDO', async () => {
     expect(await buscarHistorico('PETR4', resposta(400))).toEqual({ ok: false, erro: 'TICKER_INVALIDO' });
   });
+  it('404 vira NAO_ENCONTRADO (a fonte não conhece o código), distinto de INDISPONIVEL', async () => {
+    expect(await buscarHistorico('KNSC11', resposta(404, { erro: 'TICKER_NAO_ENCONTRADO' }))).toEqual({ ok: false, erro: 'NAO_ENCONTRADO' });
+  });
   it('502 e 503 viram INDISPONIVEL', async () => {
     expect(await buscarHistorico('PETR4', resposta(502))).toEqual({ ok: false, erro: 'INDISPONIVEL' });
     expect(await buscarHistorico('PETR4', resposta(503))).toEqual({ ok: false, erro: 'INDISPONIVEL' });
